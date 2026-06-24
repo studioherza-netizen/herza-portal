@@ -351,7 +351,7 @@
             ?`<div class="sol" style="padding:10px 4px"><span class="si duda">${I.note}</span><div class="info"><b>${it.o.nombre} · avance</b><span>${it.n.texto}</span></div></div>`
             :`<div class="sol" style="padding:10px 4px"><span class="si ${it.k==='urgente'?'cita':'duda'}">${it.k==='urgente'?I.calendar:I.help}</span><div class="info"><b>${it.k==='urgente'?'Cita urgente':'Duda'} · ${it.o.nombre}</b><span>${it.s.detalle}</span></div></div>`
           ).join(''):'<p style="color:var(--muted);font-size:13px;padding:6px">Nada urgente por ahora.</p>'}
-          ${prox.length?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">Próximas citas</div>${prox.map(c=>`<div style="font-size:13px;padding:4px 0"><b style="color:var(--olive-dark)">${c.fecha_propuesta.slice(8)}/${c.fecha_propuesta.slice(5,7)}</b> · ${c.obra} — ${c.motivo||'Cita'} <span style="color:var(--muted)">(${c.cliente})</span></div>`).join('')}</div>`:''}
+          ${prox.length?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">Próximas citas</div>${prox.map(c=>`<div style="font-size:13px;padding:4px 0"><b style="color:var(--olive-dark)">${c.fecha_propuesta.slice(8)}/${c.fecha_propuesta.slice(5,7)}${c.hora?' '+c.hora:''}</b> · ${c.obra} — ${c.motivo||'Cita'} <span style="color:var(--muted)">(${c.cliente})</span></div>`).join('')}</div>`:''}
         </div>
       </div>
       <div class="panel-card">
@@ -692,13 +692,13 @@
       proveedores:(PV.data||[]).filter(p=>p.obra_id===o.id).map(p=>[p.nombre,p.banco,p.clabe]),
       contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length},
       solicitudes:[
-        ...(CI.data||[]).filter(c=>c.obra_id===o.id&&c.estado!=='Atendida').map(c=>({tipo:'cita',detalle:(c.motivo||'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',_id:c.id})),
+        ...(CI.data||[]).filter(c=>c.obra_id===o.id&&c.estado!=='Atendida').map(c=>({tipo:'cita',detalle:(c.motivo||'')+(c.hora?' · '+c.hora:'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',_id:c.id})),
         ...(DU.data||[]).filter(d=>d.obra_id===o.id&&d.estado!=='Respondida').map(d=>({tipo:'duda',detalle:(d.ubicacion||'')+' · '+(d.nota||'').slice(0,42),fecha:_rel(d.created_at),estado:d.estado||'Pendiente',_id:d.id})),
         ...(CO.data||[]).filter(c=>c.obra_id===o.id).map(c=>({tipo:'comprobante',detalle:(c.tipo_pago||'')+' · '+(c.proveedor||'')+' · '+(c.monto||''),fecha:_rel(c.created_at),estado:'Nuevo',_id:c.id}))
       ],
       notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''}))
     };});
-    window._citas=(CI.data||[]).map(c=>{const o=obras.find(x=>x.id===c.obra_id);return {id:c.id,fecha_propuesta:c.fecha_propuesta,motivo:c.motivo,premura:c.premura,estado:c.estado,obra:o?o.nombre:'',cliente:cli(c.cliente_id).nombre};});
+    window._citas=(CI.data||[]).map(c=>{const o=obras.find(x=>x.id===c.obra_id);return {id:c.id,fecha_propuesta:c.fecha_propuesta,hora:c.hora,duracion_min:c.duracion_min,motivo:c.motivo,premura:c.premura,estado:c.estado,obra:o?o.nombre:'',cliente:cli(c.cliente_id).nombre};});
     supervisores=perf.filter(p=>p.rol==='supervisor').map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,pass:pw(p.id),obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
     window._yo=ofUid;
     window.miembros=perf.filter(p=>['admin','supervisor','pm'].includes(p.rol)).map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,rol:p.rol,pass:pw(p.id),obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));

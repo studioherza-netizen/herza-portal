@@ -700,6 +700,17 @@
           <input type="date" class="fld" id="citaFecha">
           <div class="aprob">${ICON.info} La fecha es una propuesta. Herza Studio la revisará y te confirmará la disponibilidad por la app.</div>
         </div>
+        <div class="fg"><span class="lab">Horario y duración deseados</span><div class="lhint">Propón a qué hora y cuánto durará; queda sujeto a aprobación.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <input type="time" class="fld" id="citaHora" style="flex:1;min-width:130px">
+            <select class="fld" id="citaDur" style="flex:1;min-width:130px">
+              <option value="30">30 minutos</option>
+              <option value="60" selected>1 hora</option>
+              <option value="90">1 hora 30 min</option>
+              <option value="120">2 horas</option>
+            </select>
+          </div>
+        </div>
         <div class="fg"><span class="lab">¿Con quién solicitas la cita?</span><div class="lhint">Puedes elegir uno o varios contactos.</div>
           <div class="checks">${contactos.map((c,i)=>`<div class="chk" data-name="${c[0]}" onclick="toggleChk(this)"><span class="box">${ICON.check}</span><div class="cav" style="background:${c[4]}">${c[5]}</div><div><div class="cn">${c[0]}</div><div class="cr">${c[1]}</div></div></div>`).join('')}</div>
         </div>
@@ -763,6 +774,7 @@
         <div class="r"><span class="k">Ubicación</span><span class="v">${ub.getAttribute('data-v')}</span></div>
         <div class="r"><span class="k">Motivo</span><span class="v">${motivo}</span></div>
         <div class="r"><span class="k">Fecha propuesta</span><span class="v">${ffmt}</span></div>
+        <div class="r"><span class="k">Horario deseado</span><span class="v">${hora||''} · ${durTxt||''}</span></div>
         <div class="r"><span class="k">Con</span><span class="v">${conts.join(', ')}</span></div>
         <div class="r"><span class="k">Premura</span><span class="v">${prem.getAttribute('data-v')}</span></div>
         ${notas?`<div class="r"><span class="k">Notas</span><span class="v">${notas}</span></div>`:''}
@@ -882,18 +894,21 @@
   agendarCita=async function(){
     const f=document.getElementById('citaForm');
     const ub=f.querySelector('.ubic .opt.sel'),motivo=document.getElementById('citaMotivo').value,fecha=document.getElementById('citaFecha').value,prem=f.querySelector('.prem .opt.sel');
+    const hora=document.getElementById('citaHora').value, dur=parseInt(document.getElementById('citaDur').value||'60',10);
     const conts=[...f.querySelectorAll('.chk.sel')].map(c=>c.getAttribute('data-name'));
     const notas=document.getElementById('citaNotas').value.trim();
-    if(!ub||!motivo||!fecha||!prem||conts.length===0){toast('Completa todos los campos para enviar la solicitud');return}
-    const {error}=await sb.from('citas').insert({obra_id:_obraId,cliente_id:_uid,ubicacion:ub.getAttribute('data-v'),motivo,fecha_propuesta:fecha,premura:prem.getAttribute('data-v'),notas,contactos:conts});
+    if(!ub||!motivo||!fecha||!hora||!prem||conts.length===0){toast('Completa todos los campos (incluye fecha y hora) para enviar la solicitud');return}
+    const {error}=await sb.from('citas').insert({obra_id:_obraId,cliente_id:_uid,ubicacion:ub.getAttribute('data-v'),motivo,fecha_propuesta:fecha,hora,duracion_min:dur,premura:prem.getAttribute('data-v'),notas,contactos:conts});
     if(error){toast('No se pudo enviar la solicitud');return}
     const ffmt=new Date(fecha+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+    const durTxt=dur>=60?(dur/60).toString().replace('.5','½')+' h':dur+' min';
     S.innerHTML=`<div class="ok-card"><div class="okic">${ICON.check}</div><h3>Solicitud enviada</h3><p>Tu solicitud de cita fue enviada y quedó <b>sujeta a aprobación de Herza Studio</b>. Te confirmaremos la fecha por la app.</p>
       <div class="ok-sum">
         <div class="r"><span class="k">Solicitado por</span><span class="v">${CLIENTE.nombre}</span></div>
         <div class="r"><span class="k">Ubicación</span><span class="v">${ub.getAttribute('data-v')}</span></div>
         <div class="r"><span class="k">Motivo</span><span class="v">${motivo}</span></div>
         <div class="r"><span class="k">Fecha propuesta</span><span class="v">${ffmt}</span></div>
+        <div class="r"><span class="k">Horario deseado</span><span class="v">${hora||''} · ${durTxt||''}</span></div>
         <div class="r"><span class="k">Con</span><span class="v">${conts.join(', ')}</span></div>
         <div class="r"><span class="k">Premura</span><span class="v">${prem.getAttribute('data-v')}</span></div>
         ${notas?`<div class="r"><span class="k">Notas</span><span class="v">${notas}</span></div>`:''}
