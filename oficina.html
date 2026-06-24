@@ -847,14 +847,16 @@
     go('equipo');
   };
   resetPass=async function(id,nombre){
-    let np='';const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';for(let i=0;i<8;i++)np+=s[Math.floor(Math.random()*s.length)];
-    if(!confirm('Se generará una NUEVA contraseña para '+(nombre||'este usuario')+'. La anterior dejará de funcionar.\n\n¿Continuar?'))return;
-    toast('Generando contraseña…');
+    let np=prompt('Escribe la NUEVA contraseña para '+(nombre||'este usuario')+' (mínimo 6 caracteres).\n\nDéjalo vacío para generar una automática.');
+    if(np===null)return; np=(np||'').trim();
+    if(!np){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';for(let i=0;i<8;i++)np+=s[Math.floor(Math.random()*s.length)];}
+    if(np.length<6){toast('La contraseña debe tener al menos 6 caracteres');return}
+    toast('Guardando contraseña…');
     const inv=await sb.functions.invoke('resetear-password',{body:{user_id:id,password:np}});
-    if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo restablecer');return}
+    if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo cambiar la contraseña');return}
     if(window.miembros){const m=window.miembros.find(x=>x.id===id);if(m)m.pass=np;}
     obras.forEach(o=>{(o.clientes||[]).forEach(c=>{if(c.id===id)c.pass=np});if(o.cliente&&o.cliente.id===id)o.cliente.pass=np});
-    alert('Nueva contraseña de '+(nombre||'')+':\n\n'+np+'\n\nCópiala y compártela. No se puede volver a mostrar; si se pierde, genera otra.');
+    alert('Contraseña de '+(nombre||'')+' actualizada a:\n\n'+np+'\n\nCompártela con la persona. Queda visible con el ojito.');
     go(window._route||'equipo');
   };
   cambiarRol=async function(id,nuevoRol){
