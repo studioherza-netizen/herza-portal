@@ -308,13 +308,14 @@
   /* ---------- barra inferior + teléfono ---------- */
   .tabbar{display:none}
   @media(max-width:640px){
-    .wrap{padding:18px 14px calc(112px + env(safe-area-inset-bottom))}
+    .wrap{padding:18px 14px calc(128px + env(safe-area-inset-bottom))}
     .topbar{padding:0 16px}
     .app-head{margin-bottom:16px;align-items:center}
     .app-head .wordmark{font-size:21px}
     .app-head .eyebrow{font-size:9.5px;letter-spacing:1.8px;margin-top:5px}
     .user-chip{display:none}
-    .app-actions{gap:8px;width:100%;justify-content:space-between}
+    .app-actions{gap:8px;width:100%;justify-content:flex-end}
+    .bell-wrap{display:none}
     .btn-ghost{padding:8px 11px;font-size:12px}
     .hero{padding:15px 16px;border-radius:14px;margin-bottom:14px}
     .hero h1{font-size:18px;margin:5px 0 7px}
