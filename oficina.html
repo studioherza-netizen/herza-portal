@@ -638,7 +638,7 @@
   function _fc(iso){try{return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return ''}}
 
   async function cargarOficina(){
-    const [O,P,CT,PV,AR,CI,DU,CO,NO,SO,CLO]=await Promise.all([
+    const [O,P,CT,PV,AR,CI,DU,CO,NO,SO,CLO,CR]=await Promise.all([
       sb.from('obras').select('*').order('created_at'),
       sb.from('perfiles').select('id,nombre,usuario,rol,activo'),
       sb.from('contactos').select('*'),
@@ -649,17 +649,19 @@
       sb.from('comprobantes').select('*'),
       sb.from('notas_avance').select('*'),
       sb.from('supervisor_obras').select('*'),
-      sb.from('cliente_obras').select('*')
+      sb.from('cliente_obras').select('*'),
+      sb.from('credenciales').select('*')
     ]);
     const perf=P.data||[]; const cli=id=>perf.find(p=>p.id===id)||{nombre:'—',usuario:'',activo:false};
+    const creds={}; (CR&&CR.data||[]).forEach(c=>{creds[c.user_id]=c.pass}); const pw=id=>creds[id]||'••••••';
     const arch=AR.data||[]; const ligas=CLO.data||[];
     obras=(O.data||[]).map(o=>{
     // clientes ligados a la obra (varios posibles); el principal primero
     let lc=ligas.filter(l=>l.obra_id===o.id);
     if(!lc.length&&o.cliente_id)lc=[{cliente_id:o.cliente_id,principal:true}];
     lc.sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
-    const clientes=lc.map(l=>({id:l.cliente_id,nombre:cli(l.cliente_id).nombre,correo:'',usuario:cli(l.cliente_id).usuario,pass:'••••••',activo:cli(l.cliente_id).activo,principal:!!l.principal}));
-    const principal=clientes[0]||{id:o.cliente_id,nombre:cli(o.cliente_id).nombre,correo:'',usuario:cli(o.cliente_id).usuario,pass:'••••••',activo:cli(o.cliente_id).activo};
+    const clientes=lc.map(l=>({id:l.cliente_id,nombre:cli(l.cliente_id).nombre,correo:'',usuario:cli(l.cliente_id).usuario,pass:pw(l.cliente_id),activo:cli(l.cliente_id).activo,principal:!!l.principal}));
+    const principal=clientes[0]||{id:o.cliente_id,nombre:cli(o.cliente_id).nombre,correo:'',usuario:cli(o.cliente_id).usuario,pass:pw(o.cliente_id),activo:cli(o.cliente_id).activo};
     return {
       id:o.id,nombre:o.nombre,dir:o.direccion||'',inicio:o.fecha_inicio,estado:o.estado||'En construcción',
       archivada:!!o.archivada,archivada_en:o.archivada_en,
@@ -674,9 +676,9 @@
       ],
       notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''}))
     };});
-    supervisores=perf.filter(p=>p.rol==='supervisor').map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,pass:'••••••',obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
+    supervisores=perf.filter(p=>p.rol==='supervisor').map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,pass:pw(p.id),obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
     window._yo=ofUid;
-    window.miembros=perf.filter(p=>['admin','supervisor','pm'].includes(p.rol)).map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,rol:p.rol,pass:'••••••',obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
+    window.miembros=perf.filter(p=>['admin','supervisor','pm'].includes(p.rol)).map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,rol:p.rol,pass:pw(p.id),obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
     reportes={}; obras.forEach(o=>reportes[o.id]=[]);
     const grp={};
     arch.filter(a=>a.tipo==='foto').forEach(a=>{const k=a.obra_id+'|'+(a.semana||'');if(!grp[k])grp[k]={obra:a.obra_id,sem:a.semana,fotos:0,autor:a.subido_por_nombre,fecha:a.created_at};grp[k].fotos++});
@@ -827,8 +829,8 @@
     if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo eliminar');return}
     await cargarOficina();toast('Miembro eliminado');equipo();
   };
-  window.revPw=function(i){const el=document.getElementById('pw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('La contraseña está cifrada y no se puede mostrar. Usa "Restablecer" para generar una nueva.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
-  window.revSPw=function(i){const el=document.getElementById('spw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('La contraseña está cifrada y no se puede mostrar. Usa "Restablecer" para generar una nueva.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
+  window.revPw=function(i){const el=document.getElementById('pw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('Esta contraseña no quedó guardada (cuenta anterior). Usa "Restablecer" para generar una que sí puedas ver.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
+  window.revSPw=function(i){const el=document.getElementById('spw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('Esta contraseña no quedó guardada (cuenta anterior). Usa "Restablecer" para generar una que sí puedas ver.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
   toggleAcceso=async function(id){const o=obras.find(x=>x.id===id);if(!o||!o.cliente.id)return;const nv=!o.cliente.activo;await sb.from('perfiles').update({activo:nv}).eq('id',o.cliente.id);o.cliente.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');fichaObra(id,'acceso')};
   toggleSup=async function(i){const s=supervisores[i];const nv=!s.activo;await sb.from('perfiles').update({activo:nv}).eq('id',s.id);s.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');equipo()};
 
