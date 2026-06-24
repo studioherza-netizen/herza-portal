@@ -1,0 +1,14 @@
+{
+  "name": "Herza Home",
+  "short_name": "Herza Home",
+  "description": "Portal de clientes de Herza Studio — sigue tu obra.",
+  "lang": "es",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#d3cdc1",
+  "theme_color": "#6e7d39",
+  "icons": [
+    { "src": "icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" }
+  ]
+}

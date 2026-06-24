@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<meta name="theme-color" content="#6e7d39">
+<title>Herza Studio · Oficina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#e8e4da;--paper:#fff;--ink:#2a2a25;--ink2:#3a3a34;--muted:#9a9286;--line:#e3ded3;--field:#f6f4ee;
+    --olive:#6e7d39;--olive-dark:#5c6a2c;--tint:#eef0e2;--gold:#a98f5c;--wa:#0c8a47;
+    --beige:#ddd2bc;--beige-h:#d1c5aa;--beige-ink:#4a463b;--beige-line:#cabda3;
+    --sh:0 1px 2px rgba(60,55,45,.05),0 8px 22px rgba(60,55,45,.07);--serif:'Playfair Display',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;color-scheme:light}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer;border:none}
+  a{color:inherit;text-decoration:none}
+  .serif{font-family:var(--serif)}
+  .hidden{display:none!important}
+
+  /* layout */
+  .layout{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+  .sidebar{background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;flex-direction:column;padding:6px 10px 18px}
+  .brand .wm{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;letter-spacing:-.5px;font-size:20px;color:var(--ink)}
+  .brand .tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:3px}
+  .nav{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+  .nav button{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:10px;background:none;color:#5c574c;font-weight:600;font-size:14px;text-align:left;transition:background .12s}
+  .nav button:hover{background:var(--field)}
+  .nav button.active{background:var(--tint);color:var(--olive-dark)}
+  .nav button svg{width:19px;height:19px;flex-shrink:0}
+  .nav button .ct{margin-left:auto;font-size:11px;font-weight:700;background:#c0432f;color:#fff;min-width:18px;height:18px;border-radius:999px;display:grid;place-items:center;padding:0 5px}
+  .rolesw{margin-top:auto;padding:14px 10px 6px}
+  .rolesw>span{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;display:block;margin-bottom:6px}
+  .rsw{display:flex;background:var(--field);border-radius:9px;padding:3px}
+  .rsw button{flex:1;background:none;font-size:12px;font-weight:600;color:#6b665b;padding:7px;border-radius:7px}
+  .rsw button.active{background:var(--paper);color:var(--olive-dark);box-shadow:0 1px 2px rgba(60,55,45,.1)}
+  .side-foot{border-top:1px solid var(--line);padding:14px 10px 4px;display:flex;align-items:center;gap:10px}
+  .side-foot .av{width:34px;height:34px;border-radius:50%;background:var(--olive);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+  .side-foot .m{line-height:1.2;flex:1;min-width:0}.side-foot .m b{font-size:13px;color:var(--ink);display:block}.side-foot .m span{font-size:11px;color:var(--muted)}
+  .side-foot .out{color:var(--muted);font-size:12px;font-weight:600;background:none}.side-foot .out:hover{color:var(--olive)}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .topbar{background:rgba(255,255,255,.8);-webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);padding:16px 30px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:10}
+  .topbar h1{font-family:var(--serif);font-weight:600;font-size:22px;color:var(--ink)}
+  .topbar .crumbs{font-size:12px;color:var(--muted);margin-bottom:2px}
+  .content{padding:26px 30px 50px;max-width:1180px;width:100%}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--olive);color:#fff;font-weight:600;font-size:14px;padding:11px 17px;border-radius:10px;transition:background .15s}
+  .btn:hover{background:var(--olive-dark)}.btn svg{width:16px;height:16px}
+  .btn-ghost{display:inline-flex;align-items:center;gap:8px;background:var(--paper);color:#5c574c;font-weight:600;font-size:13px;padding:10px 15px;border-radius:10px;border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--field)}.btn-ghost svg{width:16px;height:16px}
+  .btn-beige{display:inline-flex;align-items:center;gap:8px;background:var(--beige);color:var(--beige-ink);font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;border:1px solid var(--beige-line)}
+  .btn-beige:hover{background:var(--beige-h)}.btn-beige svg{width:15px;height:15px}
+  .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:8px}
+
+  /* metric cards */
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px}
+  .metric{background:var(--paper);border-radius:14px;box-shadow:var(--sh);padding:18px}
+  .metric .ic{width:38px;height:38px;border-radius:10px;background:var(--tint);color:var(--olive);display:grid;place-items:center;margin-bottom:13px}.metric .ic svg{width:20px;height:20px}
+  .metric .n{font-size:27px;font-weight:700;color:var(--ink);line-height:1}
+  .metric .l{font-size:12.5px;color:var(--muted);margin-top:4px}
+
+  .panel-card{background:var(--paper);border-radius:14px;box-shadow:var(--sh);overflow:hidden;margin-bottom:20px}
+  .pc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .pc-head h3{font-family:var(--serif);font-size:16px;color:var(--ink)}
+  .pc-head a{font-size:13px;color:var(--olive-dark);font-weight:600}
+
+  /* table */
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:11px 18px;border-bottom:1px solid var(--line);background:#faf8f3}
+  tbody td{padding:13px 18px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr.row-link{cursor:pointer}tbody tr.row-link:hover{background:var(--field)}
+  .cli{display:flex;align-items:center;gap:10px}
+  .cli .av{width:32px;height:32px;border-radius:50%;color:#fff;display:grid;place-items:center;font-weight:700;font-size:11px;flex-shrink:0}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;padding:4px 11px;border-radius:999px}
+  .pill.ok{background:var(--tint);color:var(--olive-dark)}
+  .pill.warn{background:#f7ead1;color:#8a5a14}
+  .pill.off{background:#f1ddd9;color:#a3382e}
+  .pill.gray{background:var(--field);color:#6b665b}
+  .badge-ct{font-size:11px;font-weight:700;background:#c0432f;color:#fff;min-width:20px;height:20px;border-radius:999px;display:inline-grid;place-items:center;padding:0 6px}
+
+  /* forms */
+  .form-wrap{background:var(--paper);border-radius:16px;box-shadow:var(--sh);overflow:hidden;max-width:860px}
+  .form-sec{padding:22px 24px;border-bottom:1px solid var(--line)}
+  .form-sec:last-of-type{border-bottom:none}
+  .form-sec .sh{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .form-sec .sh .si{width:30px;height:30px;border-radius:8px;background:var(--tint);color:var(--olive);display:grid;place-items:center}.form-sec .sh .si svg{width:17px;height:17px}
+  .form-sec .sh h3{font-size:15px;color:var(--ink);font-weight:600}
+  .form-sec .sd{font-size:12.5px;color:var(--muted);margin:0 0 16px 40px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .fg{margin-bottom:14px}
+  .fg label{display:block;font-size:13px;font-weight:600;color:#3a3a34;margin-bottom:6px}
+  .fld{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:var(--field);color:var(--ink2);font-family:inherit;color-scheme:light;-webkit-appearance:none;appearance:none}
+  .fld:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px rgba(110,125,57,.15);background:#fff}
+  select.fld{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235c574c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 13px center;padding-right:36px}
+  .with-btn{display:flex;gap:8px}.with-btn .fld{flex:1}
+  .toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
+  .toggle .sw{width:42px;height:24px;border-radius:999px;background:#cdc6b8;position:relative;transition:background .15s;flex-shrink:0}
+  .toggle .sw::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+  .toggle.on .sw{background:var(--olive)}.toggle.on .sw::after{left:21px}
+  .rep-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:10px}
+  .rep-row.prov{grid-template-columns:1.3fr 1fr 1.4fr auto}
+  .rep-del{width:38px;height:40px;border-radius:9px;background:var(--field);color:#a3382e;display:grid;place-items:center;border:1px solid var(--line)}.rep-del svg{width:16px;height:16px}
+  .add-row{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--olive-dark);background:var(--tint);padding:8px 13px;border-radius:9px;margin-top:4px}
+  .add-row svg{width:15px;height:15px;flex-shrink:0}
+  .btn-sm svg{width:15px;height:15px;flex-shrink:0}
+  .sub-h{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:12px}
+  .chk-obra{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;font-size:13.5px;cursor:pointer}
+  .chk-obra:hover{border-color:#c8c0b0}
+  .chk-obra input{width:17px;height:17px;accent-color:var(--olive)}
+  .form-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;background:#faf8f3}
+  .hint-inline{font-size:12px;color:var(--muted)}
+
+  /* obra tabs */
+  .obra-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .obra-head h2{font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:4px}
+  .obra-head .loc{font-size:13.5px;color:var(--muted)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+  .tabs button{padding:11px 15px;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tabs button.active{color:var(--olive-dark);border-bottom-color:var(--olive)}
+  .tabs button:hover{color:var(--ink2)}
+
+  .up-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .up-card{background:var(--paper);border-radius:13px;box-shadow:var(--sh);padding:18px}
+  .up-card .uh{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+  .up-card .uh .ic{width:38px;height:38px;border-radius:10px;background:var(--tint);color:var(--olive);display:grid;place-items:center}.up-card .uh .ic svg{width:20px;height:20px}
+  .up-card .uh b{font-size:14.5px;color:var(--ink)}.up-card .uh span{font-size:12px;color:var(--muted);display:block}
+  .up-zone{border:1.5px dashed #c8c0b0;border-radius:10px;padding:16px;text-align:center;background:var(--field);font-size:12.5px;color:var(--muted);cursor:pointer}
+  .up-zone:hover{border-color:var(--olive);background:var(--tint);color:var(--olive-dark)}
+  .up-list{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+  .up-item{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink2)}
+  .up-item .d{width:7px;height:7px;border-radius:50%;background:var(--olive)}
+  .up-item .x{margin-left:auto;color:var(--muted)}
+
+  .sol{display:flex;align-items:center;gap:14px;background:var(--paper);border-radius:12px;box-shadow:var(--sh);padding:14px 16px;margin-bottom:11px}
+  .sol .si{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+  .sol .si.cita{background:#eef0e2;color:var(--olive)}.sol .si.duda{background:#eaf0f5;color:#3a6b8a}.sol .si.comprobante{background:#f3ece2;color:#9c6b4a}
+  .sol .si svg{width:19px;height:19px}
+  .sol .info{flex:1;min-width:0}.sol .info b{font-size:14px;color:var(--ink);display:block}.sol .info span{font-size:12px;color:var(--muted)}
+  .sol .acts{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
+
+  .info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .info-card{background:var(--paper);border-radius:13px;box-shadow:var(--sh);padding:18px}
+  .info-card h4{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:12px}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+  .kv:first-of-type{border-top:none}.kv .k{color:var(--muted)}.kv .v{color:var(--ink);font-weight:600;text-align:right}
+
+  .ok-card{background:var(--paper);border-radius:16px;box-shadow:var(--sh);padding:38px 30px;max-width:560px;text-align:center;margin:0 auto}
+  .ok-card .oi{width:64px;height:64px;border-radius:50%;background:var(--tint);color:var(--olive);display:grid;place-items:center;margin:0 auto 18px}.ok-card .oi svg{width:30px;height:30px}
+  .ok-card h3{font-family:var(--serif);font-size:22px;color:var(--ink);margin-bottom:8px}
+  .ok-card p{color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:20px}
+  .cred{background:var(--field);border-radius:11px;padding:16px;text-align:left;margin-bottom:20px}
+  .cred .r{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13.5px}.cred .r .k{color:var(--muted)}.cred .r .v{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+
+  .pwc{display:flex;align-items:center;gap:7px}
+  .pw{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;font-size:13px;color:var(--ink);min-width:78px}
+  .pwbtn{width:28px;height:28px;border-radius:7px;background:var(--field);border:1px solid var(--line);color:#6b665b;display:grid;place-items:center}
+  .pwbtn:hover{background:var(--tint);color:var(--olive-dark)}.pwbtn svg{width:15px;height:15px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(18px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;z-index:80;box-shadow:var(--sh)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media(max-width:980px){.metrics{grid-template-columns:repeat(2,1fr)}.grid2,.up-grid,.info-grid{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div id="oflogin" style="position:fixed;inset:0;background:#e8e4da;display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+  <form id="ofloginForm" onsubmit="ingresar(event)" style="width:100%;max-width:380px;background:#fff;border-radius:20px;box-shadow:0 18px 44px rgba(60,55,45,.16);padding:34px 30px">
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:26px;color:#2a2a25;letter-spacing:-.5px">Herza Studio.</div>
+      <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#9a9286;font-weight:600;margin-top:5px">Oficina · Administración</div>
+      <div style="width:42px;height:2px;background:#a98f5c;margin:14px auto 0;border-radius:2px"></div>
+    </div>
+    <div style="margin-bottom:13px"><label style="display:block;font-size:13px;color:#6b665b;margin-bottom:6px">Usuario</label><input id="ofUser" autocomplete="username" style="width:100%;padding:12px 14px;border:1px solid #e3ded3;border-radius:10px;font-size:16px;background:#f6f4ee;color:#2a2a25;color-scheme:light" placeholder="usuario"></div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;color:#6b665b;margin-bottom:6px">Contraseña</label><input id="ofPass" type="password" autocomplete="current-password" style="width:100%;padding:12px 14px;border:1px solid #e3ded3;border-radius:10px;font-size:16px;background:#f6f4ee;color:#2a2a25;color-scheme:light" placeholder="contraseña"></div>
+    <button type="submit" style="width:100%;padding:13px;background:#6e7d39;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer">Entrar</button>
+    <div id="ofErr" style="color:#a3382e;font-size:12.5px;margin-top:11px;text-align:center;min-height:16px"></div>
+  </form>
+</div>
+<div class="layout" id="oflayout" style="display:none">
+  <aside class="sidebar">
+    <div class="brand"><div class="wm">Herza Studio.</div><div class="tag">Oficina · Administración</div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rolesw"><span>Ver como (demo)</span><div class="rsw" id="rsw"><button data-rol="admin" class="active">Admin</button><button data-rol="supervisor">Supervisor</button></div></div>
+    <div class="side-foot" id="sideFoot"></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar"><div><div class="crumbs" id="crumbs"></div><h1 id="ptitle">Panel</h1></div><div id="topact"></div></header>
+    <div class="content" id="screen"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  const I={
+    plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+    building:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>',
+    inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+    users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
+    pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.1 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    bank:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M4 10h16"/><path d="M5 10v9M9.5 10v9M14.5 10v9M19 10v9"/><path d="M12 3 21 8H3z"/></svg>',
+    plan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M9 9v12M14 3v6M14 14h7"/></svg>',
+    image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15.5 16 10.5 5 21.5"/></svg>',
+    receipt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>',
+    camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 2.5"/><path d="M12 17h.01"/></svg>',
+    upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+    refresh:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+    eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeoff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/><path d="M1 1l22 22"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+    copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>'
+  };
+  // ---------- roles ----------
+  let rol='admin', supActual=0;
+  const USR_ADMIN={nombre:'Admin Oficina',sub:'Herza Studio',ini:'AO'};
+  function actor(){return rol==='admin'?USR_ADMIN:{nombre:supervisores[supActual].nombre,sub:'Supervisor de obra',ini:ini(supervisores[supActual].nombre)}}
+  function misObras(){return rol==='admin'?obras:obras.filter(o=>supervisores[supActual].obras.includes(o.id))}
+  function puedeVer(id){return rol==='admin'||supervisores[supActual].obras.includes(id)}
+  const avColor=['#6e7d39','#b08a3c','#7a8b5a','#9c7a5c','#8a9b94','#9c6b4a'];
+  function ini(n){return n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+
+  // ---------- datos de ejemplo ----------
+  let obras=[
+    {id:'o1',nombre:'Residencia Los Encinos',dir:'Av. Las Palmas 245, Lote 12, Col. Bosques de las Lomas, CDMX',inicio:'2026-03-30',estado:'En construcción',
+     cliente:{nombre:'Carlos Méndez',correo:'carlos.mendez@correo.com',usuario:'cmendez',pass:'K7M2QX9P',activo:true},
+     contactos:[['Supervisor de obra','Supervisión','525500000001'],['Arq. Karim','Dirección de proyecto','525500000002'],['Arq. Daniella','Diseño y seguimiento','525500000003']],
+     proveedores:[['Aceros del Norte S.A.','BBVA','012180000000000001'],['Cementos y Agregados MX','Banorte','072580000000000002']],
+     contenido:{planos:5,renders:6,gastos:5,fotos:9},
+     solicitudes:[{tipo:'cita',detalle:'Revisión de relación de gastos · No urgente',fecha:'Hoy',estado:'Pendiente'},{tipo:'duda',detalle:'Sala · altura del contacto de luz',fecha:'Hoy',estado:'Pendiente'},{tipo:'comprobante',detalle:'Transferencia · Aceros del Norte · $84,200.00',fecha:'Ayer',estado:'Nuevo'}],
+     notas:[{fecha:'16 jun 2026',texto:'Colado de losa nivel 2 completado. Pendiente la cimbra de escalera para la próxima semana.',autor:'Miguel Soto'}]},
+    {id:'o2',nombre:'Casa Bosques 14',dir:'Bosques de Tabachines 14, Bosques de las Lomas, CDMX',inicio:'2026-05-04',estado:'En construcción',
+     cliente:{nombre:'Laura Ortiz',correo:'laura.ortiz@correo.com',usuario:'lortiz',pass:'P9R4TZ6W',activo:true},
+     contactos:[['Supervisor de obra','Supervisión','525500000010']],proveedores:[['Acabados y Pisos Premium','HSBC','021180000000000004']],
+     contenido:{planos:3,renders:2,gastos:6,fotos:14},
+     solicitudes:[{tipo:'duda',detalle:'Cocina · acabado del piso',fecha:'Hace 2 días',estado:'Pendiente'}],notas:[]},
+    {id:'o3',nombre:'Loft Polanco',dir:'Aristóteles 120, Polanco, CDMX',inicio:'2026-01-12',estado:'Acabados',
+     cliente:{nombre:'Andrés Rivas',correo:'andres.rivas@correo.com',usuario:'arivas',pass:'D3W8NP5K',activo:false},
+     contactos:[['Arq. Karim','Dirección de proyecto','525500000020']],proveedores:[],
+     contenido:{planos:8,renders:10,gastos:18,fotos:40},solicitudes:[],notas:[]}
+  ];
+  // supervisores de obra (cuentas internas que crea el administrador)
+  let supervisores=[
+    {nombre:'Miguel Soto',usuario:'msoto',pass:'S5T2YH8M',obras:['o1','o2'],activo:true}
+  ];
+  // reportes fotográficos por obra (con atribución de quién los subió)
+  let reportes={
+    o1:[{semana:'Semana 12',fecha:'16 jun 2026',fotos:4,autor:'Miguel Soto'},{semana:'Semana 11',fecha:'9 jun 2026',fotos:3,autor:'Miguel Soto'}],
+    o2:[{semana:'Semana 6',fecha:'15 jun 2026',fotos:5,autor:'Miguel Soto'}],
+    o3:[]
+  };
+
+  // ---------- helpers ----------
+  const S=document.getElementById('screen'),PT=document.getElementById('ptitle'),CB=document.getElementById('crumbs'),TA=document.getElementById('topact');
+  function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),2000)}
+  function pendientes(){return obras.reduce((a,o)=>a+o.solicitudes.filter(s=>s.estado!=='Atendida').length,0)}
+  function renderNav(){
+    const nav=document.getElementById('nav');
+    const items = rol==='admin'
+      ? [['panel','Panel',I.dash],['obras','Obras',I.building],['solicitudes','Solicitudes',I.inbox,pendientes()],['clientes','Clientes',I.users],['equipo','Equipo',I.user]]
+      : [['panel','Panel',I.dash],['obras','Mis obras',I.building]];
+    nav.innerHTML=items.map(it=>`<button data-go="${it[0]}">${it[2]} ${it[1]}${it[3]?`<span class="ct">${it[3]}</span>`:''}</button>`).join('');
+  }
+  function renderFoot(){const a=actor();document.getElementById('sideFoot').innerHTML=`<div class="av">${a.ini}</div><div class="m"><b>${a.nombre}</b><span>${a.sub}</span></div><button class="out" onclick="toast('Cerrar sesión')">Salir</button>`}
+  function setRol(r){rol=r;document.querySelectorAll('#rsw button').forEach(b=>b.classList.toggle('active',b.getAttribute('data-rol')===r));renderFoot();go('panel')}
+  function updateNav(route){renderNav();document.querySelectorAll('#nav button').forEach(b=>{const v=b.getAttribute('data-go');b.classList.toggle('active',v===route||(route.startsWith('obra_')&&v==='obras')||(route==='obra_nueva'&&v==='obras')||(route==='sup_nuevo'&&v==='equipo'))})}
+  function head(title,crumbs,act){PT.textContent=title;CB.innerHTML=crumbs||'';TA.innerHTML=act||''}
+  function fmtClabe(c){return c.replace(/(\d{4})(?=\d)/g,'$1 ')}
+  function fmtFecha(f){if(!f)return '—';return new Date(f+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'})}
+  function diasHabiles(ini){if(!ini)return 0;const a=new Date(ini+'T00:00:00'),b=new Date();let d=0,x=new Date(a);while(x<=b){const w=x.getDay();if(w>=1&&w<=5)d++;x.setDate(x.getDate()+1)}return d}
+
+  // ---------- router ----------
+  function go(route){window.scrollTo(0,0);window._route=route;
+    if(rol==='supervisor'&&['solicitudes','clientes','equipo','obra_nueva','sup_nuevo'].includes(route))route='obras';
+    updateNav(route);
+    if(route==='panel')return panel();
+    if(route==='obras')return listaObras();
+    if(route==='obra_nueva')return altaObra();
+    if(route==='solicitudes')return bandeja();
+    if(route==='clientes')return clientes();
+    if(route==='equipo')return equipo();
+    if(route==='sup_nuevo')return supNuevo();
+    if(route.startsWith('obra_')){const p=route.split('__');if(!puedeVer(p[1]))return go('obras');return fichaObra(p[1],p[2])}
+  }
+  document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(b.getAttribute('data-go'))});
+  document.getElementById('rsw').addEventListener('click',e=>{const b=e.target.closest('[data-rol]');if(b)setRol(b.getAttribute('data-rol'))});
+
+  // ---------- PANEL ----------
+  function panel(){
+    head('Panel',' ');
+    if(rol==='supervisor'){
+      const mis=misObras();
+      const totalFotos=mis.reduce((a,o)=>a+(reportes[o.id]||[]).reduce((x,r)=>x+r.fotos,0),0);
+      S.innerHTML=`<div class="metrics" style="grid-template-columns:repeat(2,1fr);max-width:540px">
+        <div class="metric"><div class="ic">${I.building}</div><div class="n">${mis.length}</div><div class="l">Obras asignadas</div></div>
+        <div class="metric"><div class="ic">${I.camera}</div><div class="n">${totalFotos}</div><div class="l">Fotos en mis reportes</div></div>
+      </div>
+      <div class="panel-card"><div class="pc-head"><h3>Mis obras</h3></div><table><thead><tr><th>Obra</th><th>Estado</th><th>Último reporte</th><th></th></tr></thead><tbody>
+      ${mis.map(o=>{const r=(reportes[o.id]||[])[0];return `<tr class="row-link" onclick="go('obra__${o.id}')"><td><b>${o.nombre}</b></td><td><span class="pill ${o.estado==='Acabados'?'gray':'ok'}">● ${o.estado}</span></td><td>${r?r.semana+' · '+r.fecha:'<span style="color:var(--muted)">—</span>'}</td><td style="text-align:right"><button class="btn btn-sm" onclick="event.stopPropagation();go('obra__${o.id}__reporte')">${I.camera} Subir reporte</button></td></tr>`}).join('')}
+      </tbody></table></div>`;
+      return;
+    }
+    const activas=obras.filter(o=>o.estado!=='Entregada').length;
+    const clientesAct=obras.filter(o=>o.cliente.activo).length;
+    const pend=pendientes();
+    let recientes=[];obras.forEach(o=>o.solicitudes.forEach(s=>recientes.push({o,s})));
+    S.innerHTML=`
+      <div class="metrics">
+        <div class="metric"><div class="ic">${I.building}</div><div class="n">${activas}</div><div class="l">Obras activas</div></div>
+        <div class="metric"><div class="ic">${I.inbox}</div><div class="n">${pend}</div><div class="l">Solicitudes pendientes</div></div>
+        <div class="metric"><div class="ic">${I.users}</div><div class="n">${clientesAct}</div><div class="l">Clientes activos</div></div>
+        <div class="metric"><div class="ic">${I.upload}</div><div class="n">${obras.reduce((a,o)=>a+o.contenido.gastos,0)}</div><div class="l">Relaciones de gasto cargadas</div></div>
+      </div>
+      <div class="panel-card">
+        <div class="pc-head"><h3>Obras</h3><a href="#" onclick="go('obras');return false">Ver todas</a></div>
+        <table><thead><tr><th>Obra</th><th>Cliente</th><th>Estado</th><th>Solicitudes</th></tr></thead><tbody>
+        ${obras.map(o=>`<tr class="row-link" onclick="go('obra__${o.id}')"><td><b>${o.nombre}</b></td><td><div class="cli"><div class="av" style="background:${avColor[0]}">${ini(o.cliente.nombre)}</div>${o.cliente.nombre}</div></td><td><span class="pill ${o.estado==='Acabados'?'gray':'ok'}">● ${o.estado}</span></td><td>${o.solicitudes.length?`<span class="badge-ct">${o.solicitudes.length}</span>`:'<span style="color:var(--muted)">—</span>'}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="panel-card">
+        <div class="pc-head"><h3>Solicitudes recientes</h3><a href="#" onclick="go('solicitudes');return false">Ir a la bandeja</a></div>
+        <div style="padding:14px 16px">${recientes.length?recientes.slice(0,4).map(r=>solRow(r.o,r.s,false)).join(''):'<p style="color:var(--muted);font-size:13px;padding:6px">Sin solicitudes.</p>'}</div>
+      </div>`;
+  }
+
+  // ---------- LISTA OBRAS ----------
+  function listaObras(){
+    if(rol==='supervisor'){
+      head('Mis obras','');
+      S.innerHTML=`<div class="panel-card"><table><thead><tr><th>Obra</th><th>Dirección</th><th>Estado</th><th>Último reporte</th></tr></thead><tbody>
+        ${misObras().map(o=>{const r=(reportes[o.id]||[])[0];return `<tr class="row-link" onclick="go('obra__${o.id}')"><td><b>${o.nombre}</b></td><td>${o.dir.split(',')[0]}</td><td><span class="pill ${o.estado==='Acabados'?'gray':'ok'}">● ${o.estado}</span></td><td>${r?r.semana+' · '+r.fecha:'<span style="color:var(--muted)">—</span>'}</td></tr>`}).join('')}
+      </tbody></table></div>`;
+      return;
+    }
+    head('Obras','',`<button class="btn" onclick="go('obra_nueva')">${I.plus} Dar de alta obra</button>`);
+    const activas=obras.filter(o=>!o.archivada), archivadas=obras.filter(o=>o.archivada);
+    const filaObra=o=>`<tr class="row-link" onclick="go('obra__${o.id}')">
+        <td><b>${o.nombre}</b><div style="font-size:12px;color:var(--muted)">${(o.dir||'').split(',')[0]}</div></td>
+        <td><div class="cli"><div class="av" style="background:${avColor[1]}">${ini(o.cliente.nombre)}</div>${o.cliente.nombre}${o.clientes&&o.clientes.length>1?` <span style="color:var(--muted);font-size:12px">+${o.clientes.length-1}</span>`:''}</div></td>
+        <td>${fmtFecha(o.inicio)}</td>
+        <td><span class="pill ${o.estado==='Acabados'?'gray':'ok'}">● ${o.estado}</span></td>
+        <td><span class="pill ${o.cliente.activo?'ok':'off'}">${o.cliente.activo?'Activo':'Inhabilitado'}</span></td>
+        <td>${o.solicitudes.length?`<span class="badge-ct">${o.solicitudes.length}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+      </tr>`;
+    let html=`<div class="panel-card"><table><thead><tr><th>Obra</th><th>Cliente</th><th>Inicio</th><th>Estado</th><th>Acceso</th><th>Solicitudes</th></tr></thead><tbody>
+      ${activas.length?activas.map(filaObra).join(''):'<tr><td colspan="6" style="color:var(--muted);padding:18px">Sin obras activas todavía.</td></tr>'}
+    </tbody></table></div>`;
+    if(archivadas.length){
+      const porAnio={};archivadas.forEach(o=>{const y=((o.archivada_en||o.inicio||'')+'').slice(0,4)||'Sin año';(porAnio[y]=porAnio[y]||[]).push(o)});
+      html+=`<div style="margin-top:26px"><h3 style="font-size:15px;margin:0 0 12px;color:var(--ink)">Archivo histórico · obras archivadas (${archivadas.length})</h3>`;
+      Object.keys(porAnio).sort().reverse().forEach(y=>{
+        html+=`<div class="panel-card" style="margin-bottom:14px"><div class="pc-head"><h3>${y||'Sin año'}</h3><span style="font-size:12px;color:var(--muted)">${porAnio[y].length} obra${porAnio[y].length>1?'s':''}</span></div>
+        <table><tbody>${porAnio[y].map(o=>`<tr class="row-link" onclick="go('obra__${o.id}')"><td><b>${o.nombre}</b><div style="font-size:12px;color:var(--muted)">${(o.dir||'').split(',')[0]}</div></td><td>${o.cliente.nombre}</td><td style="text-align:right;white-space:nowrap"><span class="pill gray">Archivada</span></td></tr>`).join('')}</tbody></table></div>`;
+      });
+      html+=`</div>`;
+    }
+    S.innerHTML=html;
+  }
+
+  // ---------- ALTA DE OBRA ----------
+  function altaObra(){
+    head('Dar de alta obra',`<a href="#" onclick="go('obras');return false" style="color:var(--olive-dark)">Obras</a> / Nueva`);
+    S.innerHTML=`<form class="form-wrap" id="altaForm" onsubmit="guardarObra(event)">
+      <div class="form-sec">
+        <div class="sh"><span class="si">${I.building}</span><h3>Datos de la obra</h3></div>
+        <p class="sd">Información general del proyecto que verá el cliente.</p>
+        <div class="grid2">
+          <div class="fg"><label>Nombre de la obra *</label><input class="fld" id="aNombre" placeholder="Ej. Residencia Los Encinos" required></div>
+          <div class="fg"><label>Estado</label><select class="fld" id="aEstado"><option>En construcción</option><option>Cimentación</option><option>Estructura</option><option>Acabados</option><option>Entregada</option></select></div>
+        </div>
+        <div class="fg"><label>Dirección *</label><input class="fld" id="aDir" placeholder="Calle, número, colonia, ciudad" required></div>
+        <div class="grid2">
+          <div class="fg"><label>Ubicación (enlace Google Maps)</label><input class="fld" id="aMaps" placeholder="https://maps.google.com/..."></div>
+          <div class="fg"><label>Fecha de inicio de obra</label><input type="date" class="fld" id="aInicio"></div>
+        </div>
+      </div>
+
+      <div class="form-sec">
+        <div class="sh"><span class="si">${I.user}</span><h3>Acceso del cliente</h3></div>
+        <p class="sd">Credenciales que ustedes asignan. Puedes agregar a varias personas (socios o pareja): cada una entra con su propio usuario a la misma obra.</p>
+        <div id="clientes"></div>
+        <button type="button" class="add-row" onclick="addCliente()">${I.plus} Agregar otro cliente</button>
+      </div>
+
+      <div class="form-sec">
+        <div class="sh"><span class="si">${I.phone}</span><h3>Contactos (WhatsApp)</h3></div>
+        <p class="sd">Personas que el cliente podrá contactar directamente desde la app.</p>
+        <div id="contactos"></div>
+        <button type="button" class="add-row" onclick="addContacto()">${I.plus} Agregar contacto</button>
+      </div>
+
+      <div class="form-sec">
+        <div class="sh"><span class="si">${I.bank}</span><h3>Cuentas de proveedores</h3></div>
+        <p class="sd">Para que el cliente copie la CLABE y realice pagos.</p>
+        <div id="provs"></div>
+        <button type="button" class="add-row" onclick="addProv()">${I.plus} Agregar proveedor</button>
+      </div>
+
+      <div class="form-foot">
+        <span class="hint-inline">Los planos, renders, gastos y fotos se cargan dentro de la obra una vez creada.</span>
+        <div style="display:flex;gap:10px"><button type="button" class="btn-ghost" onclick="go('obras')">Cancelar</button><button type="submit" class="btn">${I.check} Dar de alta obra</button></div>
+      </div>
+    </form>`;
+    addCliente();addContacto();addContacto();addProv();
+  }
+  function clienteRow(first){return `<div class="cli-row" style="border:1px solid #ece8df;border-radius:12px;padding:14px 14px 6px;margin-bottom:12px;background:var(--paper,#faf8f3)">
+    <div class="grid2">
+      <div class="fg"><label>Nombre del cliente *</label><input class="fld" data-cl="nombre" placeholder="Nombre y apellido"></div>
+      <div class="fg"><label>Correo electrónico</label><input type="email" class="fld" data-cl="correo" placeholder="cliente@correo.com"></div>
+    </div>
+    <div class="grid2">
+      <div class="fg"><label>Usuario *</label><input class="fld" data-cl="usuario" placeholder="usuario"></div>
+      <div class="fg"><label>Contraseña *</label><div class="with-btn"><input class="fld" data-cl="pass" placeholder="contraseña"><button type="button" class="btn-ghost" onclick="genPassRow(this)">${I.refresh} Generar</button></div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+      <label class="toggle on" data-cl="activo" onclick="this.classList.toggle('on')"><span class="sw"></span> Acceso activo</label>
+      ${first?'<span class="hint-inline">Cliente principal</span>':`<button type="button" class="rep-del" onclick="this.closest('.cli-row').remove()">${I.trash} Quitar</button>`}
+    </div>
+  </div>`}
+  function addCliente(){const c=document.getElementById('clientes');c.insertAdjacentHTML('beforeend',clienteRow(c.children.length===0))}
+  function genPassRow(btn){btn.closest('.cli-row').querySelector('[data-cl=pass]').value=genStr()}
+  function contactoRow(){return `<div class="rep-row"><div class="fg" style="margin:0"><input class="fld" placeholder="Nombre / rol" data-c="nombre"></div><div class="fg" style="margin:0"><input class="fld" placeholder="Puesto" data-c="puesto"></div><div class="fg" style="margin:0"><input class="fld" placeholder="WhatsApp (52 55...)" data-c="wa"></div><button type="button" class="rep-del" onclick="this.parentNode.remove()">${I.trash}</button></div>`}
+  function provRow(){return `<div class="rep-row prov"><div class="fg" style="margin:0"><input class="fld" placeholder="Proveedor" data-p="nombre"></div><div class="fg" style="margin:0"><input class="fld" placeholder="Banco" data-p="banco"></div><div class="fg" style="margin:0"><input class="fld" placeholder="CLABE (18 dígitos)" data-p="clabe" inputmode="numeric" maxlength="18"></div><button type="button" class="rep-del" onclick="this.parentNode.remove()">${I.trash}</button></div>`}
+  function addContacto(){document.getElementById('contactos').insertAdjacentHTML('beforeend',contactoRow())}
+  function addProv(){document.getElementById('provs').insertAdjacentHTML('beforeend',provRow())}
+  function genPass(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let p='';for(let i=0;i<8;i++)p+=s[Math.floor(Math.random()*s.length)];document.getElementById('cPass').value=p}
+  function guardarObra(e){e.preventDefault();
+    const nombre=document.getElementById('aNombre').value.trim(),dir=document.getElementById('aDir').value.trim(),
+      cNombre=document.getElementById('cNombre').value.trim(),cUsuario=document.getElementById('cUsuario').value.trim(),cPass=document.getElementById('cPass').value.trim();
+    if(!nombre||!dir||!cNombre||!cUsuario||!cPass){toast('Completa los campos obligatorios (*)');return}
+    const contactos=[...document.querySelectorAll('#contactos .rep-row')].map(r=>[r.querySelector('[data-c=nombre]').value,r.querySelector('[data-c=puesto]').value,r.querySelector('[data-c=wa]').value]).filter(c=>c[0]);
+    const proveedores=[...document.querySelectorAll('#provs .rep-row')].map(r=>[r.querySelector('[data-p=nombre]').value,r.querySelector('[data-p=banco]').value,r.querySelector('[data-p=clabe]').value]).filter(p=>p[0]);
+    const id='o'+(obras.length+1);
+    obras.push({id,nombre,dir,inicio:document.getElementById('aInicio').value,estado:document.getElementById('aEstado').value,
+      cliente:{nombre:cNombre,correo:document.getElementById('cCorreo').value,usuario:cUsuario,pass:cPass,activo:document.getElementById('cActivo').classList.contains('on')},
+      contactos,proveedores,contenido:{planos:0,renders:0,gastos:0,fotos:0},solicitudes:[]});
+    head('Obra creada','');
+    S.innerHTML=`<div class="ok-card"><div class="oi">${I.check}</div><h3>Obra dada de alta</h3><p>La obra <b>${nombre}</b> quedó registrada y el acceso del cliente está listo. Comparte estas credenciales con el cliente de forma segura.</p>
+      <div class="cred"><div class="r"><span class="k">Cliente</span><span class="v">${cNombre}</span></div><div class="r"><span class="k">Usuario</span><span class="v">${cUsuario}</span></div><div class="r"><span class="k">Contraseña</span><span class="v">${cPass}</span></div></div>
+      <div style="display:flex;gap:10px;justify-content:center"><button class="btn-ghost" onclick="go('obras')">Ir a obras</button><button class="btn" onclick="go('obra__${id}')">Abrir la obra</button></div></div>`;
+  }
+
+  // ---------- FICHA DE OBRA ----------
+  function fichaObra(id,tab){
+    const o=obras.find(x=>x.id===id);if(!o)return go('obras');
+    head(o.nombre,`<a href="#" onclick="go('${rol==='supervisor'?'obras':'obras'}');return false" style="color:var(--olive-dark)">${rol==='supervisor'?'Mis obras':'Obras'}</a> / ${o.nombre}`);
+    if(rol==='supervisor'){
+      if(!['reporte','avance'].includes(tab))tab='reporte';
+      const stabs=[['reporte','Reporte fotográfico'],['avance','Avance / notas']];
+      const sbody = tab==='reporte'?reporteView(o):avanceView(o);
+      S.innerHTML=`<div class="obra-head"><div><h2>${o.nombre}</h2><div class="loc">${I_pin()} ${o.dir}</div></div><span class="pill ok" style="font-size:13px">Asignada a ti</span></div>
+        <div class="tabs">${stabs.map(t=>`<button class="${t[0]===tab?'active':''}" onclick="go('obra__${o.id}__${t[0]}')">${t[1]}</button>`).join('')}</div><div>${sbody}</div>`;
+      return;
+    }
+    if(!tab)tab='resumen';
+    const tabs=[['resumen','Resumen'],['contenido','Contenido'],['datos','Contactos y proveedores'],['acceso','Acceso del cliente'],['solicitudes','Solicitudes']];
+    let body='';
+    if(tab==='resumen'){
+      body=`<div class="info-grid">
+        <div class="info-card"><h4>Obra</h4><div class="kv"><span class="k">Estado</span><span class="v">${o.estado}</span></div><div class="kv"><span class="k">Dirección</span><span class="v" style="max-width:60%">${o.dir}</span></div><div class="kv"><span class="k">Inicio</span><span class="v">${fmtFecha(o.inicio)}</span></div><div class="kv"><span class="k">Días hábiles</span><span class="v">${diasHabiles(o.inicio)}</span></div></div>
+        <div class="info-card"><h4>Cliente${(o.clientes&&o.clientes.length>1)?'s ('+o.clientes.length+')':''}</h4><div class="kv"><span class="k">Nombre</span><span class="v" style="max-width:62%">${(o.clientes&&o.clientes.length?o.clientes:[o.cliente]).map(c=>c.nombre).join(', ')}</span></div><div class="kv"><span class="k">Usuario</span><span class="v">${o.cliente.usuario}</span></div><div class="kv"><span class="k">Correo</span><span class="v">${o.cliente.correo||'—'}</span></div><div class="kv"><span class="k">Acceso</span><span class="v">${o.cliente.activo?'Activo':'Inhabilitado'}</span></div></div>
+        <div class="info-card"><h4>Contenido cargado</h4><div class="kv"><span class="k">Planos</span><span class="v">${o.contenido.planos}</span></div><div class="kv"><span class="k">Renders</span><span class="v">${o.contenido.renders}</span></div><div class="kv"><span class="k">Relaciones de gasto</span><span class="v">${o.contenido.gastos}</span></div><div class="kv"><span class="k">Fotos</span><span class="v">${o.contenido.fotos}</span></div></div>
+        <div class="info-card"><h4>Solicitudes</h4>${o.solicitudes.length?o.solicitudes.map(s=>`<div class="kv"><span class="k">${s.tipo[0].toUpperCase()+s.tipo.slice(1)}</span><span class="v" style="max-width:60%">${s.detalle.split('·')[0]}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin solicitudes.</p>'}</div>
+      </div>`;
+    } else if(tab==='contenido'){
+      const sec=(ic,t,sub,n,zone)=>`<div class="up-card"><div class="uh"><span class="ic">${ic}</span><div><b>${t}</b><span>${n} cargado${n===1?'':'s'}</span></div></div><div class="up-zone" onclick="toast('En la versión real: selector de archivos')">${I.upload} ${zone}</div></div>`;
+      body=`<div class="up-grid">
+        ${sec(I.plan,'Planos','',o.contenido.planos,'Arrastra o selecciona PDF/DWG')}
+        ${sec(I.image,'Renders','',o.contenido.renders,'Arrastra o selecciona imágenes')}
+        ${sec(I.receipt,'Relación de gastos','',o.contenido.gastos,'Subir PDF de la semana')}
+        ${sec(I.camera,'Reporte fotográfico','',o.contenido.fotos,'Subir fotos de la semana')}
+      </div>
+      <p class="hint-inline" style="margin-top:14px">Las relaciones de gasto y el reporte fotográfico se organizan por semana; cada carga genera una notificación al cliente.</p>`;
+    } else if(tab==='datos'){
+      body=`<div class="info-grid">
+        <div class="info-card"><h4>Contactos (WhatsApp)</h4>${o.contactos.length?o.contactos.map(c=>`<div class="kv"><span class="k">${c[0]}${c[1]?' · '+c[1]:''}</span><span class="v">+${c[2]}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin contactos.</p>'}</div>
+        <div class="info-card"><h4>Cuentas de proveedores</h4>${o.proveedores.length?o.proveedores.map(p=>`<div class="kv"><span class="k">${p[0]} · ${p[1]}</span><span class="v" style="font-variant-numeric:tabular-nums">${fmtClabe(p[2])}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin proveedores.</p>'}</div>
+      </div><div style="margin-top:16px"><button class="btn-ghost" onclick="toast('En la versión real: editar contactos y proveedores')">Editar</button></div>`;
+    } else if(tab==='acceso'){
+      const cls=o.clientes&&o.clientes.length?o.clientes:[o.cliente];
+      body=`<div class="form-wrap" style="max-width:620px"><div class="form-sec">
+        <div class="sh"><span class="si">${I.user}</span><h3>Acceso del cliente</h3></div><p class="sd">${cls.length>1?cls.length+' personas con acceso a esta obra. Cada una entra con su propio usuario.':'Administra las credenciales y el estado de acceso.'}</p>
+        ${cls.map(c=>`<div style="border:1px solid #ece8df;border-radius:12px;padding:14px;margin-bottom:12px">
+          <div class="kv"><span class="k">Cliente</span><span class="v">${c.nombre}${c.principal?' · principal':''}</span></div>
+          <div class="kv"><span class="k">Usuario</span><span class="v" style="font-family:ui-monospace,Menlo,monospace">${c.usuario}</span></div>
+          <div class="kv"><span class="k">Estado</span><span class="v">${c.activo?'Activo':'Inhabilitado'}</span></div>
+          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn-ghost btn-sm" onclick="toast('Se generará y enviará una nueva contraseña al cliente')">${I.refresh} Restablecer contraseña</button>
+            <button class="btn-beige btn-sm" onclick="toggleClienteAcceso('${o.id}','${c.id}')">${c.activo?'Inhabilitar acceso':'Habilitar acceso'}</button>
+          </div></div>`).join('')}
+        <button type="button" class="add-row" onclick="agregarClienteObra('${o.id}')">${I.plus} Agregar otro cliente a esta obra</button>
+      </div></div>`;
+    } else if(tab==='solicitudes'){
+      body=o.solicitudes.length?o.solicitudes.map(s=>solRow(o,s,true)).join(''):`<div class="ok-card" style="box-shadow:none;background:var(--paper)"><div class="oi">${I.inbox}</div><h3>Sin solicitudes</h3><p>Cuando el cliente envíe una cita, duda o comprobante, aparecerá aquí.</p></div>`;
+    }
+    S.innerHTML=`<div class="obra-head"><div><h2>${o.nombre} ${o.archivada?'<span class="pill gray" style="font-size:12px;vertical-align:3px">Archivada</span>':''}</h2><div class="loc">${I_pin()} ${o.dir}</div></div><span class="pill ${o.cliente.activo?'ok':'off'}" style="font-size:13px">${o.cliente.activo?'Cliente activo':'Cliente inhabilitado'}</span></div>
+      <div class="tabs">${tabs.map(t=>`<button class="${t[0]===tab?'active':''}" onclick="go('obra__${o.id}__${t[0]}')">${t[1]}${t[0]==='solicitudes'&&o.solicitudes.length?` (${o.solicitudes.length})`:''}</button>`).join('')}</div>
+      <div>${body}</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:28px;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap">
+        ${o.archivada?`<button class="btn-beige btn-sm" onclick="archivarObra('${o.id}',false)">${I.refresh} Reactivar obra</button>`:`<button class="btn-beige btn-sm" onclick="archivarObra('${o.id}',true)">Archivar obra</button>`}
+        <button class="btn-sm" style="background:#a23b2d;color:#fff;border:none" onclick="borrarObra('${o.id}')">${I.trash} Borrar obra</button>
+      </div>`;
+  }
+  function I_pin(){return `<span style="display:inline-flex;width:14px;height:14px;color:var(--olive);vertical-align:-2px">${I.pin}</span>`}
+  function toggleAcceso(id){const o=obras.find(x=>x.id===id);o.cliente.activo=!o.cliente.activo;toast(o.cliente.activo?'Acceso habilitado':'Acceso inhabilitado');fichaObra(id,'acceso')}
+
+  // ---------- solicitud row ----------
+  function solRow(o,s,withActs){
+    const acts=withActs?`<div class="acts">${s.tipo==='duda'?`<button class="btn-sm btn" onclick="atender('${o.id}','${s.detalle}')">Responder</button>`:''}${s.tipo==='cita'?`<button class="btn-sm btn" onclick="atender('${o.id}','${s.detalle}')">Aprobar</button><button class="btn-sm btn-ghost" onclick="toast('Proponer otra fecha')">Otra fecha</button>`:''}${s.tipo==='comprobante'?`<button class="btn-sm btn-ghost" onclick="toast('Abriendo comprobante')">Ver</button>`:''}</div>`:'';
+    return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}</span></div>${acts}</div>`;
+  }
+  function atender(id,det){const o=obras.find(x=>x.id===id);const i=o.solicitudes.findIndex(s=>s.detalle===det);if(i>-1)o.solicitudes.splice(i,1);toast('Solicitud atendida');go('solicitudes')}
+
+  // ---------- BANDEJA ----------
+  function bandeja(){
+    head('Solicitudes','');
+    let all=[];obras.forEach(o=>o.solicitudes.forEach(s=>all.push({o,s})));
+    S.innerHTML=all.length?`<p style="font-size:13px;color:var(--muted);margin-bottom:14px">${all.length} solicitudes pendientes de todas las obras.</p>`+all.map(r=>solRow(r.o,r.s,true)).join('')
+      :`<div class="ok-card"><div class="oi">${I.check}</div><h3>Todo al día</h3><p>No hay solicitudes pendientes en este momento.</p></div>`;
+  }
+
+  // ---------- CLIENTES ----------
+  function clientes(){
+    head('Clientes','');
+    const filas=[];obras.forEach(o=>{(o.clientes&&o.clientes.length?o.clientes:[o.cliente]).forEach(c=>filas.push({o,c}))});
+    S.innerHTML=`<div class="panel-card"><table><thead><tr><th>Cliente</th><th>Usuario</th><th>Contraseña</th><th>Obra</th><th>Acceso</th><th></th></tr></thead><tbody>
+      ${filas.map(({o,c},i)=>`<tr>
+        <td><div class="cli"><div class="av" style="background:${avColor[i%avColor.length]}">${ini(c.nombre)}</div><div><b>${c.nombre}${c.principal?' <span style="font-size:10.5px;color:var(--olive-dark);font-weight:600">· principal</span>':''}</b><div style="font-size:12px;color:var(--muted)">${c.correo||'—'}</div></div></div></td>
+        <td style="font-family:ui-monospace,Menlo,monospace">${c.usuario}</td>
+        <td><div class="pwc"><span class="pw" id="pw${i}" data-pw="${c.pass||'—'}">••••••••</span><button class="pwbtn" title="Ver" onclick="revPw(${i})">${I.eye}</button><button class="pwbtn" title="Copiar" onclick="copyTxt('${c.pass||''}')">${I.copy}</button></div></td>
+        <td><a href="#" onclick="go('obra__${o.id}');return false" style="color:var(--olive-dark);font-weight:600">${o.nombre}</a></td>
+        <td><span class="pill ${c.activo?'ok':'off'}">${c.activo?'Activo':'Inhabilitado'}</span></td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="toast('Se generaría y enviaría una nueva contraseña')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleClienteAcceso('${o.id}','${c.id}')">${c.activo?'Inhabilitar':'Habilitar'}</button></td>
+      </tr>`).join('')}
+    </tbody></table>
+    <p style="font-size:11.5px;color:var(--muted);padding:12px 18px;border-top:1px solid var(--line)">La contraseña se muestra para entregarla al cliente. Pulsa el ojo para revelarla o el ícono de copiar.</p></div>`;
+  }
+  function revPw(i){const el=document.getElementById('pw'+i);const real=el.getAttribute('data-pw');if(el.textContent==='••••••••'){el.textContent=real}else{el.textContent='••••••••'}}
+  function copyTxt(v){if(!v)return;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v).then(()=>toast('Copiada')).catch(()=>toast('Copia: '+v))}else toast(v)}
+
+  // ---------- vista supervisor: reporte y avance ----------
+  function reporteView(o){
+    const reps=reportes[o.id]||[];
+    return `<div class="up-card" style="max-width:580px;margin-bottom:20px">
+      <div class="uh"><span class="ic">${I.camera}</span><div><b>Subir reporte fotográfico</b><span>Fotos del avance de la semana</span></div></div>
+      <div class="fg" style="margin-top:6px"><label>Semana</label><input class="fld" id="repSem" placeholder="Ej. Semana 13"></div>
+      <div class="up-zone" onclick="toast('En la versión real: selector de fotos del teléfono')">${I.upload} Arrastra o selecciona fotos</div>
+      <div style="margin-top:13px;text-align:right"><button class="btn" onclick="subirReporte('${o.id}')">${I.check} Publicar reporte</button></div>
+    </div>
+    <h4 class="sub-h">Reportes publicados</h4>
+    ${reps.length?reps.map(r=>`<div class="sol"><span class="si comprobante">${I.camera}</span><div class="info"><b>${r.semana} · ${r.fotos} fotos</b><span>${r.fecha} · subido por ${r.autor}</span></div></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Aún no hay reportes.</p>'}`;
+  }
+  function avanceView(o){
+    return `<div class="up-card" style="max-width:580px;margin-bottom:20px">
+      <div class="uh"><span class="ic">${I.note}</span><div><b>Registrar avance</b><span>Nota del estado o avance de la obra</span></div></div>
+      <textarea class="fld" id="notaTxt" style="min-height:84px;resize:vertical;margin-top:6px" placeholder="Ej. Colado de losa completado; pendiente la cimbra de escalera."></textarea>
+      <div style="margin-top:13px;text-align:right"><button class="btn" onclick="guardarNota('${o.id}')">${I.check} Guardar nota</button></div>
+    </div>
+    <h4 class="sub-h">Notas de avance</h4>
+    ${o.notas.length?o.notas.map(n=>`<div class="sol"><span class="si duda">${I.note}</span><div class="info"><b>${n.fecha} · ${n.autor}</b><span>${n.texto}</span></div></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin notas registradas.</p>'}`;
+  }
+  function subirReporte(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));(reportes[id]=reportes[id]||[]).unshift({semana:sem,fecha:'Hoy',fotos:4,autor:actor().nombre});const o=obras.find(x=>x.id===id);o.contenido.fotos+=4;toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')}
+  function guardarNota(id){const el=document.getElementById('notaTxt');const t=(el&&el.value||'').trim();if(!t){toast('Escribe la nota de avance');return}obras.find(x=>x.id===id).notas.unshift({fecha:'Hoy',texto:t,autor:actor().nombre});toast('Nota guardada');fichaObra(id,'avance')}
+
+  // ---------- EQUIPO (supervisores) ----------
+  function equipo(){
+    head('Equipo','',`<button class="btn" onclick="go('sup_nuevo')">${I.plus} Nuevo supervisor</button>`);
+    S.innerHTML=`<div class="panel-card"><table><thead><tr><th>Supervisor</th><th>Usuario</th><th>Contraseña</th><th>Obras asignadas</th><th>Acceso</th><th></th></tr></thead><tbody>
+      ${supervisores.map((s,i)=>`<tr>
+        <td><div class="cli"><div class="av" style="background:${avColor[i%avColor.length]}">${ini(s.nombre)}</div><b>${s.nombre}</b></div></td>
+        <td style="font-family:ui-monospace,Menlo,monospace">${s.usuario}</td>
+        <td><div class="pwc"><span class="pw" id="spw${i}" data-pw="${s.pass}">••••••••</span><button class="pwbtn" onclick="revSPw(${i})">${I.eye}</button><button class="pwbtn" onclick="copyTxt('${s.pass}')">${I.copy}</button></div></td>
+        <td>${s.obras.map(id=>{const o=obras.find(x=>x.id===id);return o?o.nombre:''}).filter(Boolean).join(', ')||'<span style="color:var(--muted)">—</span>'}</td>
+        <td><span class="pill ${s.activo?'ok':'off'}">${s.activo?'Activo':'Inhabilitado'}</span></td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="toast('Se generaría una nueva contraseña')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleSup(${i})">${s.activo?'Inhabilitar':'Habilitar'}</button></td>
+      </tr>`).join('')}
+    </tbody></table>
+    <p style="font-size:11.5px;color:var(--muted);padding:12px 18px;border-top:1px solid var(--line)">El supervisor entra a la plataforma con estas credenciales. Todo lo que sube (reportes y notas) queda firmado con su nombre.</p></div>`;
+  }
+  function revSPw(i){const el=document.getElementById('spw'+i);el.textContent=el.textContent==='••••••••'?el.getAttribute('data-pw'):'••••••••'}
+  function toggleSup(i){supervisores[i].activo=!supervisores[i].activo;toast(supervisores[i].activo?'Acceso habilitado':'Acceso inhabilitado');equipo()}
+  function supNuevo(){
+    head('Nuevo supervisor',`<a href="#" onclick="go('equipo');return false" style="color:var(--olive-dark)">Equipo</a> / Nuevo`);
+    S.innerHTML=`<form class="form-wrap" style="max-width:640px" onsubmit="guardarSup(event)">
+      <div class="form-sec"><div class="sh"><span class="si">${I.user}</span><h3>Datos del supervisor</h3></div>
+        <p class="sd">Cuenta interna con rol de supervisor. Solo podrá subir reportes y notas de sus obras asignadas.</p>
+        <div class="grid2"><div class="fg"><label>Nombre *</label><input class="fld" id="sNombre" placeholder="Nombre y apellido" required></div><div class="fg"><label>Usuario *</label><input class="fld" id="sUsuario" placeholder="usuario" required></div></div>
+        <div class="fg"><label>Contraseña *</label><div class="with-btn"><input class="fld" id="sPass" placeholder="contraseña" required><button type="button" class="btn-ghost" onclick="document.getElementById('sPass').value=genStr()">${I.refresh} Generar</button></div></div>
+        <label class="toggle on" id="sActivo" onclick="this.classList.toggle('on')"><span class="sw"></span> Activo (puede iniciar sesión)</label>
+      </div>
+      <div class="form-sec"><div class="sh"><span class="si">${I.building}</span><h3>Obras asignadas</h3></div>
+        <p class="sd">Selecciona las obras que este supervisor podrá ver y reportar.</p>
+        <div id="sObras">${obras.map(o=>`<label class="chk-obra"><input type="checkbox" value="${o.id}"> ${o.nombre}</label>`).join('')}</div>
+      </div>
+      <div class="form-foot"><span class="hint-inline">Comparte el usuario y contraseña con el supervisor de forma segura.</span><div style="display:flex;gap:10px"><button type="button" class="btn-ghost" onclick="go('equipo')">Cancelar</button><button type="submit" class="btn">${I.check} Crear supervisor</button></div></div>
+    </form>`;
+  }
+  function genStr(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let p='';for(let i=0;i<8;i++)p+=s[Math.floor(Math.random()*s.length)];return p}
+  function guardarSup(e){e.preventDefault();const nombre=document.getElementById('sNombre').value.trim(),usuario=document.getElementById('sUsuario').value.trim(),pass=document.getElementById('sPass').value.trim();if(!nombre||!usuario||!pass){toast('Completa los campos obligatorios');return}const obs=[...document.querySelectorAll('#sObras input:checked')].map(c=>c.value);supervisores.push({nombre,usuario,pass,obras:obs,activo:document.getElementById('sActivo').classList.contains('on')});toast('Supervisor creado');go('equipo')}
+
+  setRol('admin');
+</script>
+
+<!-- ============ CONEXIÓN SUPABASE (oficina) ============ -->
+<script>
+  const SB_URL='https://eabzxwjkilotnynviqfs.supabase.co';
+  const SB_KEY='sb_publishable_QBRw8sjPLHW9Vov8TmASGg_wBm66ygt';
+  const sb=window.supabase.createClient(SB_URL,SB_KEY);
+  let ofUid=null, ofNombre='';
+  function _rel(iso){if(!iso)return '';const s=(Date.now()-new Date(iso).getTime())/1000;if(s<3600)return 'Hace '+Math.max(1,Math.round(s/60))+' min';if(s<86400)return 'Hace '+Math.round(s/3600)+' h';const d=Math.round(s/86400);return d===1?'Ayer':'Hace '+d+' días'}
+  function _fc(iso){try{return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return ''}}
+
+  async function cargarOficina(){
+    const [O,P,CT,PV,AR,CI,DU,CO,NO,SO,CLO]=await Promise.all([
+      sb.from('obras').select('*').order('created_at'),
+      sb.from('perfiles').select('id,nombre,usuario,rol,activo'),
+      sb.from('contactos').select('*'),
+      sb.from('proveedores').select('*'),
+      sb.from('archivos').select('obra_id,tipo,nombre,semana,subido_por_nombre,created_at'),
+      sb.from('citas').select('*'),
+      sb.from('dudas').select('*'),
+      sb.from('comprobantes').select('*'),
+      sb.from('notas_avance').select('*'),
+      sb.from('supervisor_obras').select('*'),
+      sb.from('cliente_obras').select('*')
+    ]);
+    const perf=P.data||[]; const cli=id=>perf.find(p=>p.id===id)||{nombre:'—',usuario:'',activo:false};
+    const arch=AR.data||[]; const ligas=CLO.data||[];
+    obras=(O.data||[]).map(o=>{
+    // clientes ligados a la obra (varios posibles); el principal primero
+    let lc=ligas.filter(l=>l.obra_id===o.id);
+    if(!lc.length&&o.cliente_id)lc=[{cliente_id:o.cliente_id,principal:true}];
+    lc.sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
+    const clientes=lc.map(l=>({id:l.cliente_id,nombre:cli(l.cliente_id).nombre,correo:'',usuario:cli(l.cliente_id).usuario,pass:'••••••',activo:cli(l.cliente_id).activo,principal:!!l.principal}));
+    const principal=clientes[0]||{id:o.cliente_id,nombre:cli(o.cliente_id).nombre,correo:'',usuario:cli(o.cliente_id).usuario,pass:'••••••',activo:cli(o.cliente_id).activo};
+    return {
+      id:o.id,nombre:o.nombre,dir:o.direccion||'',inicio:o.fecha_inicio,estado:o.estado||'En construcción',
+      archivada:!!o.archivada,archivada_en:o.archivada_en,
+      cliente:principal,clientes,
+      contactos:(CT.data||[]).filter(c=>c.obra_id===o.id).map(c=>[c.nombre,c.puesto||'',c.whatsapp||'']),
+      proveedores:(PV.data||[]).filter(p=>p.obra_id===o.id).map(p=>[p.nombre,p.banco,p.clabe]),
+      contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length},
+      solicitudes:[
+        ...(CI.data||[]).filter(c=>c.obra_id===o.id&&c.estado!=='Atendida').map(c=>({tipo:'cita',detalle:(c.motivo||'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',_id:c.id})),
+        ...(DU.data||[]).filter(d=>d.obra_id===o.id&&d.estado!=='Respondida').map(d=>({tipo:'duda',detalle:(d.ubicacion||'')+' · '+(d.nota||'').slice(0,42),fecha:_rel(d.created_at),estado:d.estado||'Pendiente',_id:d.id})),
+        ...(CO.data||[]).filter(c=>c.obra_id===o.id).map(c=>({tipo:'comprobante',detalle:(c.tipo_pago||'')+' · '+(c.proveedor||'')+' · '+(c.monto||''),fecha:_rel(c.created_at),estado:'Nuevo',_id:c.id}))
+      ],
+      notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''}))
+    };});
+    supervisores=perf.filter(p=>p.rol==='supervisor').map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,pass:'••••••',obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
+    reportes={}; obras.forEach(o=>reportes[o.id]=[]);
+    const grp={};
+    arch.filter(a=>a.tipo==='foto').forEach(a=>{const k=a.obra_id+'|'+(a.semana||'');if(!grp[k])grp[k]={obra:a.obra_id,sem:a.semana,fotos:0,autor:a.subido_por_nombre,fecha:a.created_at};grp[k].fotos++});
+    Object.values(grp).forEach(g=>{(reportes[g.obra]=reportes[g.obra]||[]).push({semana:g.sem,fecha:_fc(g.fecha),fotos:g.fotos,autor:g.autor||''})});
+  }
+
+  actor=function(){return {nombre:ofNombre||'Usuario',sub:rol==='admin'?'Herza Studio':'Supervisor de obra',ini:ini(ofNombre||'U')}};
+  misObras=function(){return obras};
+  puedeVer=function(){return true};
+  renderFoot=function(){const a=actor();document.getElementById('sideFoot').innerHTML=`<div class="av">${a.ini}</div><div class="m"><b>${a.nombre}</b><span>${a.sub}</span></div><button class="out" onclick="salirOficina()">Salir</button>`};
+
+  ingresar=async function(e){
+    if(e)e.preventDefault();
+    const u=(document.getElementById('ofUser').value||'').trim().toLowerCase(),p=document.getElementById('ofPass').value||'';
+    const err=document.getElementById('ofErr');err.textContent='';
+    if(!u||!p){err.textContent='Escribe usuario y contraseña';return}
+    const {error}=await sb.auth.signInWithPassword({email:u+'@herzahome.app',password:p});
+    if(error){err.textContent='Usuario o contraseña incorrectos';return}
+    const {data:{user}}=await sb.auth.getUser();ofUid=user.id;
+    const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();
+    if(!perfil||!['admin','supervisor'].includes(perfil.rol)){err.textContent='Esta cuenta no tiene acceso a la oficina';await sb.auth.signOut();return}
+    if(!perfil.activo){err.textContent='Tu acceso está inhabilitado';await sb.auth.signOut();return}
+    ofNombre=perfil.nombre;rol=perfil.rol;
+    try{await cargarOficina()}catch(x){err.textContent='No se pudieron cargar los datos';return}
+    document.getElementById('oflogin').style.display='none';
+    document.getElementById('oflayout').style.display='grid';
+    renderFoot();go('panel');
+  };
+  salirOficina=async function(){await sb.auth.signOut();location.reload()};
+
+  guardarObra=async function(e){e.preventDefault();
+    const nombre=document.getElementById('aNombre').value.trim(),dir=document.getElementById('aDir').value.trim(),estado=document.getElementById('aEstado').value,maps=document.getElementById('aMaps').value.trim(),inicio=document.getElementById('aInicio').value;
+    const rows=[...document.querySelectorAll('#clientes .cli-row')].map(r=>({
+      nombre:r.querySelector('[data-cl=nombre]').value.trim(),
+      correo:r.querySelector('[data-cl=correo]').value.trim(),
+      usuario:r.querySelector('[data-cl=usuario]').value.trim().toLowerCase(),
+      pass:r.querySelector('[data-cl=pass]').value.trim(),
+      activo:r.querySelector('[data-cl=activo]').classList.contains('on')
+    })).filter(c=>c.nombre||c.usuario||c.pass);
+    if(!nombre||!dir){toast('Completa el nombre y la dirección de la obra');return}
+    if(!rows.length||rows.some(c=>!c.nombre||!c.usuario||!c.pass)){toast('Cada cliente necesita nombre, usuario y contraseña');return}
+    const us=rows.map(c=>c.usuario); if(new Set(us).size!==us.length){toast('Hay usuarios repetidos entre los clientes');return}
+    const conts=[...document.querySelectorAll('#contactos .rep-row')].map(r=>[r.querySelector('[data-c=nombre]').value,r.querySelector('[data-c=puesto]').value,r.querySelector('[data-c=wa]').value]).filter(c=>c[0]);
+    const provs=[...document.querySelectorAll('#provs .rep-row')].map(r=>[r.querySelector('[data-p=nombre]').value,r.querySelector('[data-p=banco]').value,r.querySelector('[data-p=clabe]').value]).filter(p=>p[0]);
+    toast('Creando obra…');
+    const creados=[];
+    for(const c of rows){
+      const inv=await sb.functions.invoke('crear-usuario',{body:{nombre:c.nombre,usuario:c.usuario,password:c.pass,rol:'cliente'}});
+      if(inv.error||(inv.data&&inv.data.error)){toast('No se pudo crear el usuario "'+c.usuario+'" ('+((inv.data&&inv.data.error)||'¿repetido?')+')');return}
+      creados.push({...c,id:inv.data.id});
+    }
+    const principal=creados[0];
+    const {data:obraRow,error:oe}=await sb.from('obras').insert({nombre,direccion:dir,maps_url:maps,fecha_inicio:inicio||null,estado,semana_actual:1,cliente_id:principal.id}).select().single();
+    if(oe){toast('Usuarios creados, pero falló la obra');return}
+    await sb.from('cliente_obras').insert(creados.map((c,i)=>({obra_id:obraRow.id,cliente_id:c.id,principal:i===0})));
+    for(const c of creados){if(!c.activo)await sb.from('perfiles').update({activo:false}).eq('id',c.id);}
+    if(conts.length)await sb.from('contactos').insert(conts.map((c,i)=>({obra_id:obraRow.id,nombre:c[0],puesto:c[1],whatsapp:(c[2]||'').replace(/[^0-9]/g,''),orden:i})));
+    if(provs.length)await sb.from('proveedores').insert(provs.map(p=>({obra_id:obraRow.id,nombre:p[0],banco:p[1],clabe:p[2]})));
+    await cargarOficina();
+    head('Obra creada','');
+    const credRows=creados.map(c=>`<div class="r"><span class="k">${c.nombre}${c===principal?' · principal':''}</span><span class="v" style="font-family:ui-monospace,Menlo,monospace">${c.usuario} · ${c.pass}</span></div>`).join('');
+    S.innerHTML=`<div class="ok-card"><div class="oi">${I.check}</div><h3>Obra dada de alta</h3><p>La obra <b>${nombre}</b> quedó registrada con ${creados.length===1?'su cliente':creados.length+' clientes'}. Comparte estas credenciales de forma segura.</p>
+      <div class="cred">${credRows}</div>
+      <div style="display:flex;gap:10px;justify-content:center"><button class="btn-ghost" onclick="go('obras')">Ir a obras</button><button class="btn" onclick="go('obra__${obraRow.id}')">Abrir la obra</button></div></div>`;
+  };
+  // --- agregar un cliente más a una obra existente ---
+  agregarClienteObra=async function(obraId){
+    const nombre=(prompt('Nombre del nuevo cliente (socio / pareja):')||'').trim(); if(!nombre)return;
+    const usuario=(prompt('Usuario para iniciar sesión (sin espacios):')||'').trim().toLowerCase(); if(!usuario)return;
+    let pass=(prompt('Contraseña (deja vacío para generar una):')||'').trim(); if(!pass){pass='';const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';for(let i=0;i<8;i++)pass+=s[Math.floor(Math.random()*s.length)];}
+    toast('Creando acceso…');
+    const inv=await sb.functions.invoke('crear-usuario',{body:{nombre,usuario,password:pass,rol:'cliente'}});
+    if(inv.error||(inv.data&&inv.data.error)){toast('No se pudo crear ('+((inv.data&&inv.data.error)||'¿usuario repetido?')+')');return}
+    await sb.from('cliente_obras').insert({obra_id:obraId,cliente_id:inv.data.id,principal:false});
+    await cargarOficina();
+    alert('Cliente agregado.\n\nUsuario: '+usuario+'\nContraseña: '+pass+'\n\nComparte estas credenciales de forma segura.');
+    fichaObra(obraId,'acceso');
+  };
+  // --- archivar / reactivar ---
+  archivarObra=async function(id,val){
+    await sb.from('obras').update({archivada:val,archivada_en:val?new Date().toISOString().slice(0,10):null}).eq('id',id);
+    await cargarOficina();
+    toast(val?'Obra archivada':'Obra reactivada');
+    fichaObra(id,'resumen');
+  };
+  // --- borrar obra (con confirmación fuerte) ---
+  borrarObra=async function(id){
+    const o=obras.find(x=>x.id===id); if(!o)return;
+    const ok=prompt('Esto BORRARÁ de forma permanente la obra "'+o.nombre+'", todo su contenido y los accesos de sus clientes. Esta acción no se puede deshacer.\n\nEscribe BORRAR para confirmar:');
+    if((ok||'').trim().toUpperCase()!=='BORRAR'){toast('Borrado cancelado');return}
+    toast('Borrando obra…');
+    const inv=await sb.functions.invoke('borrar-obra',{body:{obra_id:id}});
+    if(inv.error||(inv.data&&inv.data.error)){toast('No se pudo borrar ('+((inv.data&&inv.data.error)||'error')+')');return}
+    await cargarOficina();
+    toast('Obra borrada');
+    go('obras');
+  };
+  // --- habilitar/inhabilitar un cliente específico ---
+  toggleClienteAcceso=async function(obraId,clienteId){
+    const o=obras.find(x=>x.id===obraId); if(!o)return;
+    const c=((o.clientes||[]).find(x=>x.id===clienteId))||o.cliente;
+    const nv=!c.activo;
+    await sb.from('perfiles').update({activo:nv}).eq('id',clienteId);
+    c.activo=nv; if(o.cliente&&o.cliente.id===clienteId)o.cliente.activo=nv;
+    toast(nv?'Acceso habilitado':'Acceso inhabilitado');
+    go(window._route||'obras');
+  };
+  guardarSup=async function(e){e.preventDefault();
+    const nombre=document.getElementById('sNombre').value.trim(),usuario=document.getElementById('sUsuario').value.trim().toLowerCase(),pass=document.getElementById('sPass').value.trim();
+    if(!nombre||!usuario||!pass){toast('Completa los campos obligatorios');return}
+    const obs=[...document.querySelectorAll('#sObras input:checked')].map(c=>c.value);
+    toast('Creando supervisor…');
+    const inv=await sb.functions.invoke('crear-usuario',{body:{nombre,usuario,password:pass,rol:'supervisor'}});
+    if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo crear (¿usuario repetido?)');return}
+    if(obs.length)await sb.from('supervisor_obras').insert(obs.map(id=>({supervisor_id:inv.data.id,obra_id:id})));
+    await cargarOficina();toast('Supervisor creado · usuario '+usuario);go('equipo');
+  };
+  toggleAcceso=async function(id){const o=obras.find(x=>x.id===id);if(!o||!o.cliente.id)return;const nv=!o.cliente.activo;await sb.from('perfiles').update({activo:nv}).eq('id',o.cliente.id);o.cliente.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');fichaObra(id,'acceso')};
+  toggleSup=async function(i){const s=supervisores[i];const nv=!s.activo;await sb.from('perfiles').update({activo:nv}).eq('id',s.id);s.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');equipo()};
+
+  solRow=function(o,s,withActs){
+    const acts=withActs?`<div class="acts">${s.tipo==='duda'?`<button class="btn-sm btn" onclick="atenderSol('duda','${s._id}')">Responder</button>`:''}${s.tipo==='cita'?`<button class="btn-sm btn" onclick="atenderSol('cita','${s._id}')">Aprobar</button><button class="btn-sm btn-ghost" onclick="toast('Proponer otra fecha')">Otra fecha</button>`:''}${s.tipo==='comprobante'?`<button class="btn-sm btn-ghost" onclick="toast('Abriendo comprobante')">Ver</button>`:''}</div>`:'';
+    return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}</span></div>${acts}</div>`;
+  };
+  atenderSol=async function(t,id){if(t==='cita')await sb.from('citas').update({estado:'Atendida'}).eq('id',id);if(t==='duda')await sb.from('dudas').update({estado:'Respondida',respuesta:'Atendida desde la oficina'}).eq('id',id);await cargarOficina();toast('Solicitud atendida');go('solicitudes')};
+
+  subirReporte=async function(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));await sb.from('archivos').insert({obra_id:id,tipo:'foto',nombre:'Avance '+sem,semana:sem,subido_por:ofUid,subido_por_nombre:ofNombre});await sb.from('notificaciones').insert({obra_id:id,tipo:'foto',titulo:'Nuevo reporte fotográfico',detalle:sem,ruta:'fotografico'});await cargarOficina();toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')};
+  guardarNota=async function(id){const el=document.getElementById('notaTxt');const t=(el&&el.value||'').trim();if(!t){toast('Escribe la nota de avance');return}await sb.from('notas_avance').insert({obra_id:id,texto:t,autor_id:ofUid,autor_nombre:ofNombre});await cargarOficina();toast('Nota guardada');fichaObra(id,'avance')};
+
+  // ocultar el selector de rol demo (el rol viene del login real)
+  const _rw=document.querySelector('.rolesw'); if(_rw)_rw.style.display='none';
+
+  // mantener sesión al recargar
+  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');}}}catch(e){}})();
+</script>
+</body>
+</html>
