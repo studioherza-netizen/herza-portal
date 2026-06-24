@@ -692,7 +692,7 @@
       proveedores:(PV.data||[]).filter(p=>p.obra_id===o.id).map(p=>[p.nombre,p.banco,p.clabe]),
       contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length},
       solicitudes:[
-        ...(CI.data||[]).filter(c=>c.obra_id===o.id&&c.estado!=='Atendida').map(c=>({tipo:'cita',detalle:(c.motivo||'')+(c.hora?' · '+c.hora:'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',_id:c.id})),
+        ...(CI.data||[]).filter(c=>c.obra_id===o.id&&['Pendiente','Propuesta oficina'].includes(c.estado||'Pendiente')).map(c=>({tipo:'cita',detalle:(c.motivo||'')+(c.hora?' · '+c.hora:'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',propuesta_por:c.propuesta_por,_id:c.id})),
         ...(DU.data||[]).filter(d=>d.obra_id===o.id&&d.estado!=='Respondida').map(d=>({tipo:'duda',detalle:(d.ubicacion||'')+' · '+(d.nota||'').slice(0,42),fecha:_rel(d.created_at),estado:d.estado||'Pendiente',_id:d.id})),
         ...(CO.data||[]).filter(c=>c.obra_id===o.id).map(c=>({tipo:'comprobante',detalle:(c.tipo_pago||'')+' · '+(c.proveedor||'')+' · '+(c.monto||''),fecha:_rel(c.created_at),estado:'Nuevo',_id:c.id}))
       ],
@@ -752,6 +752,7 @@
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'citas'},onNew('cita'))
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'dudas'},onNew('duda'))
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'comprobantes'},onNew('comprobante'))
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'citas'},async(p)=>{try{const r=p.new||{};if(r.estado==='Pendiente'&&r.propuesta_por==='cliente')toast('El cliente propuso otra fecha');else if(r.estado==='Confirmada')toast('El cliente confirmó la cita');await cargarOficina();if(['panel','solicitudes'].includes(window._route))go(window._route);}catch(e){}})
       .subscribe();
   }
 
@@ -883,10 +884,34 @@
   toggleSup=async function(i){const s=supervisores[i];const nv=!s.activo;await sb.from('perfiles').update({activo:nv}).eq('id',s.id);s.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');equipo()};
 
   solRow=function(o,s,withActs){
-    const acts=withActs?`<div class="acts">${s.tipo==='duda'?`<button class="btn-sm btn" onclick="atenderSol('duda','${s._id}')">Responder</button>`:''}${s.tipo==='cita'?`<button class="btn-sm btn" onclick="atenderSol('cita','${s._id}')">Aprobar</button><button class="btn-sm btn-ghost" onclick="toast('Proponer otra fecha')">Otra fecha</button>`:''}${s.tipo==='comprobante'?`<button class="btn-sm btn-ghost" onclick="toast('Abriendo comprobante')">Ver</button>`:''}</div>`:'';
-    return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}</span></div>${acts}</div>`;
+    let acts='';
+    if(withActs){
+      if(s.tipo==='duda')acts=`<button class="btn-sm btn" onclick="atenderSol('duda','${s._id}')">Responder</button>`;
+      else if(s.tipo==='cita')acts = (s.estado==='Propuesta oficina')
+        ? `<span class="pill off" style="font-size:12px">Esperando al cliente</span>`
+        : `<button class="btn-sm btn" onclick="aprobarCita('${s._id}')">Aprobar</button> <button class="btn-sm btn-ghost" onclick="proponerOtra('${s._id}')">Proponer otra fecha</button>`;
+      else if(s.tipo==='comprobante')acts=`<button class="btn-sm btn-ghost" onclick="toast('Abriendo comprobante')">Ver</button>`;
+      acts=`<div class="acts">${acts}</div>`;
+    }
+    const extra = s.tipo==='cita'&&s.estado==='Propuesta oficina' ? ' <span style="color:var(--olive-dark)">· tu propuesta enviada</span>' : (s.tipo==='cita'&&s.propuesta_por==='cliente'?' <span style="color:#a23b2d">· el cliente propuso otra</span>':'');
+    return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}${extra}</span></div>${acts}</div>`;
   };
-  atenderSol=async function(t,id){if(t==='cita')await sb.from('citas').update({estado:'Atendida'}).eq('id',id);if(t==='duda')await sb.from('dudas').update({estado:'Respondida',respuesta:'Atendida desde la oficina'}).eq('id',id);await cargarOficina();toast('Solicitud atendida');go('solicitudes')};
+  atenderSol=async function(t,id){if(t==='duda')await sb.from('dudas').update({estado:'Respondida',respuesta:'Atendida desde la oficina'}).eq('id',id);await cargarOficina();toast('Solicitud atendida');go(window._route||'solicitudes')};
+  async function _obraDeCita(id){const {data}=await sb.from('citas').select('obra_id,fecha_propuesta,hora').eq('id',id).single();return data||null;}
+  aprobarCita=async function(id){
+    const c=await _obraDeCita(id);
+    await sb.from('citas').update({estado:'Confirmada'}).eq('id',id);
+    if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Cita confirmada',detalle:(c.fecha_propuesta||'')+(c.hora?' '+c.hora:''),ruta:'cita'});
+    await cargarOficina();toast('Cita confirmada · se notificó al cliente');go(window._route||'solicitudes');
+  };
+  proponerOtra=async function(id){
+    const f=prompt('Propón otra FECHA (formato AAAA-MM-DD):'); if(f===null)return; if(!/^\d{4}-\d{2}-\d{2}$/.test((f||'').trim())){toast('Fecha inválida. Usa AAAA-MM-DD');return}
+    const h=(prompt('Propón otra HORA (HH:MM en 24h, ej. 16:30). Déjalo vacío si no aplica:')||'').trim();
+    const c=await _obraDeCita(id);
+    await sb.from('citas').update({fecha_propuesta:f.trim(),hora:h||null,estado:'Propuesta oficina',propuesta_por:'oficina',en_calendar:false}).eq('id',id);
+    if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Herza Studio propuso otra fecha',detalle:f.trim()+(h?' · '+h:'')+' — revísala y confirma en la app',ruta:'cita'});
+    await cargarOficina();toast('Propuesta enviada al cliente');go(window._route||'solicitudes');
+  };
 
   subirReporte=async function(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));await sb.from('archivos').insert({obra_id:id,tipo:'foto',nombre:'Avance '+sem,semana:sem,subido_por:ofUid,subido_por_nombre:ofNombre});await sb.from('notificaciones').insert({obra_id:id,tipo:'foto',titulo:'Nuevo reporte fotográfico',detalle:sem,ruta:'fotografico'});await cargarOficina();toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')};
   guardarNota=async function(id){const el=document.getElementById('notaTxt');const t=(el&&el.value||'').trim();if(!t){toast('Escribe la nota de avance');return}await sb.from('notas_avance').insert({obra_id:id,texto:t,autor_id:ofUid,autor_nombre:ofNombre});await cargarOficina();toast('Nota guardada');fichaObra(id,'avance')};

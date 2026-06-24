@@ -467,6 +467,7 @@
   ICON.home='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>';
   ICON.chev='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
 
+  let citas=[];
   // ---------- notificaciones (responden a archivos cargados) ----------
   let notificaciones=[
     {tipo:'receipt',titulo:'Nueva relación de gastos',detalle:'Semana 12 cargada · $216,750.00',tiempo:'Hace 2 h',ruta:'gastos',nuevo:true},
@@ -685,7 +686,17 @@
     else if(route==='cita'){
       crumb([['Inicio','home'],['Agendar cita']]);
       const motivos=['Revisión de detalle en obra','Cambio en obra','Revisión de presupuesto','Revisión de relación de gastos','Definición de acabados'];
+      const _cf=c=>{const f=c.fecha_propuesta?new Date(c.fecha_propuesta+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}):'';return `${c.motivo||'Cita'} · ${f}${c.hora?' '+c.hora:''}`;};
+      const citasHtml=(citas&&citas.length)?`<div class="form-card" style="margin-bottom:16px"><div class="lab" style="margin-bottom:4px">Tus citas</div>${citas.map(c=>{
+        let badge,acc='';
+        if(c.estado==='Confirmada'){badge='<span class="pill ok">Confirmada</span>';}
+        else if(c.estado==='Propuesta oficina'){badge='<span class="pill" style="background:#ddd2bc;color:#4a4632">Herza propuso otra fecha</span>';acc=`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn-olive" onclick="aceptarCita('${c.id}')">${ICON.check} Aceptar</button><button class="btn-share" onclick="contraCita('${c.id}')">Proponer otra</button></div>`;}
+        else if(c.propuesta_por==='cliente'){badge='<span class="pill" style="background:#ece8df;color:#6b665b">Tu propuesta enviada</span>';}
+        else{badge='<span class="pill" style="background:#ece8df;color:#6b665b">En revisión por Herza</span>';}
+        return `<div style="padding:12px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-weight:500">${_cf(c)}</span>${badge}</div>${acc}</div>`;
+      }).join('')}</div>`:'';
       S.innerHTML=`<h2 class="view-title">Agendar cita</h2><p class="view-sub">Solicita una reunión con el equipo. Tu solicitud queda sujeta a confirmación por parte de Herza Studio.</p>
+      ${citasHtml}
       <div class="form-card" id="citaForm">
         <div class="fg"><span class="lab">¿Dónde se solicita la cita?</span><div class="lhint">Elige la ubicación de la reunión.</div>
           <div class="seg ubic">
@@ -866,6 +877,8 @@
     const fa=A.filter(a=>a.tipo==='foto');
     const sems=[...new Set(fa.map(f=>f.semana))];
     semanasFoto=sems.map((sem,i)=>['sf'+i,sem||'Semana',_fc(fa.find(f=>f.semana===sem).created_at),fa.filter(f=>f.semana===sem).map(f=>[f.nombre,''])]);
+    const {data:cc}=await sb.from('citas').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
+    citas=(cc||[]).map(c=>({id:c.id,motivo:c.motivo,fecha_propuesta:c.fecha_propuesta,hora:c.hora,duracion_min:c.duracion_min,estado:c.estado||'Pendiente',propuesta_por:c.propuesta_por,ubicacion:c.ubicacion,premura:c.premura}));
     const {data:dd}=await sb.from('dudas').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
     dudas=(dd||[]).map((d,i)=>({id:d.id,ubic:d.ubicacion,nota:d.nota,img:_gp(i),estado:d.estado,fecha:_fc(d.created_at),resp:d.respuesta}));
     const {data:nt}=await sb.from('notificaciones').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
@@ -898,7 +911,7 @@
     const conts=[...f.querySelectorAll('.chk.sel')].map(c=>c.getAttribute('data-name'));
     const notas=document.getElementById('citaNotas').value.trim();
     if(!ub||!motivo||!fecha||!hora||!prem||conts.length===0){toast('Completa todos los campos (incluye fecha y hora) para enviar la solicitud');return}
-    const {error}=await sb.from('citas').insert({obra_id:_obraId,cliente_id:_uid,ubicacion:ub.getAttribute('data-v'),motivo,fecha_propuesta:fecha,hora,duracion_min:dur,premura:prem.getAttribute('data-v'),notas,contactos:conts});
+    const {error}=await sb.from('citas').insert({obra_id:_obraId,cliente_id:_uid,ubicacion:ub.getAttribute('data-v'),motivo,fecha_propuesta:fecha,hora,duracion_min:dur,premura:prem.getAttribute('data-v'),notas,contactos:conts,estado:'Pendiente',propuesta_por:'cliente'});
     if(error){toast('No se pudo enviar la solicitud');return}
     const ffmt=new Date(fecha+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
     const durTxt=dur>=60?(dur/60).toString().replace('.5','½')+' h':dur+' min';
@@ -916,6 +929,19 @@
       <button class="btn-olive" onclick="go('home')">Volver al inicio</button></div>`;
   };
 
+  aceptarCita=async function(id){
+    const {error}=await sb.from('citas').update({estado:'Confirmada'}).eq('id',id);
+    if(error){toast('No se pudo confirmar la cita');return}
+    toast('¡Cita confirmada!'); await cargarDatos(); go('cita');
+  };
+  contraCita=async function(id){
+    const f=prompt('Propón otra FECHA (formato AAAA-MM-DD):'); if(f===null)return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test((f||'').trim())){toast('Fecha inválida. Usa AAAA-MM-DD');return}
+    const h=(prompt('Propón otra HORA (HH:MM en 24h, ej. 16:30). Déjalo vacío si no aplica:')||'').trim();
+    const {error}=await sb.from('citas').update({fecha_propuesta:f.trim(),hora:h||null,estado:'Pendiente',propuesta_por:'cliente'}).eq('id',id);
+    if(error){toast('No se pudo enviar la propuesta');return}
+    toast('Tu propuesta fue enviada a Herza Studio'); await cargarDatos(); go('cita');
+  };
   enviarDuda=async function(){
     const ubic=document.getElementById('dudaUbic').value,nota=document.getElementById('dudaNota').value.trim();
     if(!ubic||!nota){toast('Indica la ubicación y escribe tu duda');return}
