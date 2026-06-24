@@ -321,23 +321,44 @@
     const activas=obras.filter(o=>o.estado!=='Entregada').length;
     const clientesAct=obras.filter(o=>o.cliente.activo).length;
     const pend=pendientes();
-    let recientes=[];obras.forEach(o=>o.solicitudes.forEach(s=>recientes.push({o,s})));
+    const citas=(window._citas||[]).filter(c=>c.fecha_propuesta&&c.estado!=='Atendida');
+    const byDay={}; citas.forEach(c=>{(byDay[c.fecha_propuesta]=byDay[c.fecha_propuesta]||[]).push(c)});
+    const now=new Date(),Y=now.getFullYear(),M=now.getMonth();
+    const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const startDow=(new Date(Y,M,1).getDay()+6)%7, ndays=new Date(Y,M+1,0).getDate(), z=n=>String(n).padStart(2,'0'), today=`${Y}-${z(M+1)}-${z(now.getDate())}`;
+    let cells=''; for(let i=0;i<startDow;i++)cells+='<div></div>';
+    for(let d=1;d<=ndays;d++){const ds=`${Y}-${z(M+1)}-${z(d)}`,has=byDay[ds],t=ds===today;
+      cells+=`<div ${has?`onclick="go('solicitudes')" title="${has.length} cita(s)"`:''} style="height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;font-size:12.5px;${t?'background:var(--olive);color:#fff;font-weight:700;':has?'background:var(--tint);cursor:pointer;color:var(--ink);font-weight:600;':'color:var(--muted)'}">${d}${has?`<span style="width:5px;height:5px;border-radius:50%;background:${t?'#fff':'var(--olive)'};margin-top:2px"></span>`:''}</div>`;}
+    const prox=citas.filter(c=>c.fecha_propuesta>=today).sort((a,b)=>a.fecha_propuesta.localeCompare(b.fecha_propuesta)).slice(0,4);
+    let imp=[]; obras.forEach(o=>o.solicitudes.forEach(s=>{if(s.tipo==='duda')imp.push({o,s,k:'duda'});else if(s.tipo==='cita'&&/(^|[^o] )urgente/i.test(' '+s.detalle))imp.push({o,s,k:'urgente'})}));
+    obras.forEach(o=>(o.notas||[]).slice(0,1).forEach(n=>imp.push({o,n,k:'nota'})));
     S.innerHTML=`
       <div class="metrics">
         <div class="metric"><div class="ic">${I.building}</div><div class="n">${activas}</div><div class="l">Obras activas</div></div>
+        <div class="metric"><div class="ic">${I.calendar}</div><div class="n">${citas.length}</div><div class="l">Citas por atender</div></div>
         <div class="metric"><div class="ic">${I.inbox}</div><div class="n">${pend}</div><div class="l">Solicitudes pendientes</div></div>
         <div class="metric"><div class="ic">${I.users}</div><div class="n">${clientesAct}</div><div class="l">Clientes activos</div></div>
-        <div class="metric"><div class="ic">${I.upload}</div><div class="n">${obras.reduce((a,o)=>a+o.contenido.gastos,0)}</div><div class="l">Relaciones de gasto cargadas</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:start;margin-bottom:18px">
+        <div class="panel-card" style="padding:18px">
+          <div class="pc-head" style="padding:0 0 12px"><h3>${meses[M]} ${Y}</h3><a href="#" onclick="go('solicitudes');return false">Ver citas</a></div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;font-size:11px;color:var(--muted);margin-bottom:6px"><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
+        </div>
+        <div class="panel-card" style="padding:18px">
+          <div class="pc-head" style="padding:0 0 12px"><h3>Importante en obra</h3></div>
+          ${imp.length?imp.slice(0,5).map(it=>it.k==='nota'
+            ?`<div class="sol" style="padding:10px 4px"><span class="si duda">${I.note}</span><div class="info"><b>${it.o.nombre} · avance</b><span>${it.n.texto}</span></div></div>`
+            :`<div class="sol" style="padding:10px 4px"><span class="si ${it.k==='urgente'?'cita':'duda'}">${it.k==='urgente'?I.calendar:I.help}</span><div class="info"><b>${it.k==='urgente'?'Cita urgente':'Duda'} · ${it.o.nombre}</b><span>${it.s.detalle}</span></div></div>`
+          ).join(''):'<p style="color:var(--muted);font-size:13px;padding:6px">Nada urgente por ahora.</p>'}
+          ${prox.length?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">Próximas citas</div>${prox.map(c=>`<div style="font-size:13px;padding:4px 0"><b style="color:var(--olive-dark)">${c.fecha_propuesta.slice(8)}/${c.fecha_propuesta.slice(5,7)}</b> · ${c.obra} — ${c.motivo||'Cita'} <span style="color:var(--muted)">(${c.cliente})</span></div>`).join('')}</div>`:''}
+        </div>
       </div>
       <div class="panel-card">
         <div class="pc-head"><h3>Obras</h3><a href="#" onclick="go('obras');return false">Ver todas</a></div>
-        <table><thead><tr><th>Obra</th><th>Cliente</th><th>Estado</th><th>Solicitudes</th></tr></thead><tbody>
-        ${obras.map(o=>`<tr class="row-link" onclick="go('obra__${o.id}')"><td><b>${o.nombre}</b></td><td><div class="cli"><div class="av" style="background:${avColor[0]}">${ini(o.cliente.nombre)}</div>${o.cliente.nombre}</div></td><td><span class="pill ${o.estado==='Acabados'?'gray':'ok'}">● ${o.estado}</span></td><td>${o.solicitudes.length?`<span class="badge-ct">${o.solicitudes.length}</span>`:'<span style="color:var(--muted)">—</span>'}</td></tr>`).join('')}
+        <table><thead><tr><th>Obra</th><th>Cliente</th><th>Semana (gastos)</th><th>Estado</th><th>Solicitudes</th></tr></thead><tbody>
+        ${obras.length?obras.map(o=>`<tr class="row-link" onclick="go('obra__${o.id}')"><td><b>${o.nombre}</b></td><td><div class="cli"><div class="av" style="background:${avColor[0]}">${ini(o.cliente.nombre)}</div>${o.cliente.nombre}</div></td><td>${o.semanaGasto||'<span style="color:var(--muted)">—</span>'}</td><td><span class="pill ${o.estado==='Acabados'?'gray':'ok'}">● ${o.estado}</span></td><td>${o.solicitudes.length?`<span class="badge-ct">${o.solicitudes.length}</span>`:'<span style="color:var(--muted)">—</span>'}</td></tr>`).join(''):'<tr><td colspan="5" style="color:var(--muted);padding:18px">Aún no hay obras. Da de alta la primera con el botón "Dar de alta obra".</td></tr>'}
         </tbody></table>
-      </div>
-      <div class="panel-card">
-        <div class="pc-head"><h3>Solicitudes recientes</h3><a href="#" onclick="go('solicitudes');return false">Ir a la bandeja</a></div>
-        <div style="padding:14px 16px">${recientes.length?recientes.slice(0,4).map(r=>solRow(r.o,r.s,false)).join(''):'<p style="color:var(--muted);font-size:13px;padding:6px">Sin solicitudes.</p>'}</div>
       </div>`;
   }
 
@@ -665,6 +686,7 @@
     return {
       id:o.id,nombre:o.nombre,dir:o.direccion||'',inicio:o.fecha_inicio,estado:o.estado||'En construcción',
       archivada:!!o.archivada,archivada_en:o.archivada_en,
+      semanaGasto:(function(){const gs=arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));return gs.length?(gs[gs.length-1].semana||('Semana '+gs.length)):null;})(),
       cliente:principal,clientes,
       contactos:(CT.data||[]).filter(c=>c.obra_id===o.id).map(c=>[c.nombre,c.puesto||'',c.whatsapp||'']),
       proveedores:(PV.data||[]).filter(p=>p.obra_id===o.id).map(p=>[p.nombre,p.banco,p.clabe]),
@@ -676,6 +698,7 @@
       ],
       notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''}))
     };});
+    window._citas=(CI.data||[]).map(c=>{const o=obras.find(x=>x.id===c.obra_id);return {id:c.id,fecha_propuesta:c.fecha_propuesta,motivo:c.motivo,premura:c.premura,estado:c.estado,obra:o?o.nombre:'',cliente:cli(c.cliente_id).nombre};});
     supervisores=perf.filter(p=>p.rol==='supervisor').map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,pass:pw(p.id),obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
     window._yo=ofUid;
     window.miembros=perf.filter(p=>['admin','supervisor','pm'].includes(p.rol)).map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,rol:p.rol,pass:pw(p.id),obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
@@ -705,9 +728,32 @@
     try{await cargarOficina()}catch(x){err.textContent='No se pudieron cargar los datos';return}
     document.getElementById('oflogin').style.display='none';
     document.getElementById('oflayout').style.display='grid';
-    renderFoot();go('panel');
+    renderFoot();go('panel');_pedirNotif();_suscribirSolic();
   };
   salirOficina=async function(){await sb.auth.signOut();location.reload()};
+  function _pedirNotif(){try{if('Notification' in window && Notification.permission==='default')Notification.requestPermission();}catch(e){}}
+  let _solicSubReady=false;
+  function _suscribirSolic(){
+    if(_solicSubReady)return; _solicSubReady=true;
+    const onNew=(tipo)=>async(payload)=>{
+      try{
+        const r=payload.new||{}; const o=obras.find(x=>x.id===r.obra_id); const obraN=o?o.nombre:'una obra';
+        const titulo={cita:'Nueva cita',duda:'Nueva duda',comprobante:'Nuevo comprobante de pago'}[tipo];
+        const detalle=obraN+(r.motivo?' · '+r.motivo:'')+(r.ubicacion?' · '+r.ubicacion:'')+(r.proveedor?' · '+r.proveedor:'');
+        if('Notification' in window && Notification.permission==='granted'){
+          const n=new Notification('Herza Studio · '+titulo,{body:detalle,icon:'icon-192.png',tag:tipo+(r.id||'')});
+          n.onclick=function(){window.focus();go('solicitudes');this.close();};
+        }
+        toast(titulo+' recibida');
+        await cargarOficina(); if(['panel','solicitudes'].includes(window._route))go(window._route);
+      }catch(e){}
+    };
+    sb.channel('solic-rt')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'citas'},onNew('cita'))
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'dudas'},onNew('duda'))
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'comprobantes'},onNew('comprobante'))
+      .subscribe();
+  }
 
   guardarObra=async function(e){e.preventDefault();
     const nombre=document.getElementById('aNombre').value.trim(),dir=document.getElementById('aDir').value.trim(),estado=document.getElementById('aEstado').value,maps=document.getElementById('aMaps').value.trim(),inicio=document.getElementById('aInicio').value;
@@ -847,7 +893,7 @@
   const _rw=document.querySelector('.rolesw'); if(_rw)_rw.style.display='none';
 
   // mantener sesión al recargar
-  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor','pm'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');}}}catch(e){}})();
+  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor','pm'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');_pedirNotif();_suscribirSolic();}}}catch(e){}})();
 </script>
 </body>
 </html>
