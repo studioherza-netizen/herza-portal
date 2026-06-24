@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Herza Studio — Presupuestos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@300;400;500;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #d5d4ca; color: #3a3a3a; }
+  input:focus, select:focus { border-color: #7a8a3f !important; box-shadow: 0 0 0 2px rgba(122,138,63,0.18); outline: none; }
+  input[type="number"]::-webkit-inner-spin-button { opacity: 0; }
+  input[type="number"]:hover::-webkit-inner-spin-button { opacity: 1; }
+  ::selection { background: #b5a393; color: #fff; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #faf9f5; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+  @page { margin: 5mm 0mm 5mm 0mm; }
+  @media print {
+    body * { visibility: hidden !important; }
+    #print-area, #print-area * { visibility: visible !important; }
+    #print-area { position: static !important; left: 0; top: 0; width: 100%; }
+    #page-footer { page-break-before: avoid; break-before: avoid; page-break-inside: avoid; break-inside: avoid; }
+    #print-area tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    #print-area tr.cat-row { page-break-after: avoid !important; break-after: avoid !important; }
+    #print-area tr.subtotal-row { page-break-before: avoid !important; break-before: avoid !important; }
+    html, body, #root { min-height: 0 !important; height: auto !important; }
+    #root > div { min-height: 0 !important; height: auto !important; display: block !important; }
+    #root > div > div:not(#print-area) { display: none !important; }
+  
+  }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>var firebaseConfig={apiKey:"AIzaSyDNq4ikdwNZakZCrRy8qHlsXnDZrielut8",authDomain:"herza-studio-apps.firebaseapp.com",databaseURL:"https://herza-studio-apps-default-rtdb.firebaseio.com",projectId:"herza-studio-apps",storageBucket:"herza-studio-apps.firebasestorage.app",messagingSenderId:"886450555162",appId:"1:886450555162:web:e90be88e5d2b1cbdd244a3"};if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);var fbDb=firebase.database();</script>
+<script>
+window._fbRest=fetch("https://herza-studio-apps-default-rtdb.firebaseio.com/presupuestos.json").then(function(r){return r.json()}).then(function(d){if(d&&Array.isArray(d)){try{localStorage.setItem("herza_quotes_v1",JSON.stringify(d));window._fbRestData=d;}catch(e){}}return d;}).catch(function(){});
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback, useEffect, useMemo } = React;
+
+const _evalFormula = (s) => {
+  let x = String(s||'').trim();
+  if (x.startsWith('=')) x = x.slice(1);
+  if (!x) return 0;
+  if (!/^[\d+\-*/().%\s]+$/.test(x)) return null;
+  x = x.replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
+  try {
+    const r = new Function('return (' + x + ')')();
+    return (typeof r === 'number' && isFinite(r)) ? r : null;
+  } catch(e) { return null; }
+};
+const PriceInputCell = ({item, onChange, si}) => {
+  const [draft, setDraft] = useState(null);
+  const isEditing = draft !== null;
+  const display = isEditing
+    ? draft
+    : (item.price ? new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(item.price) : '');
+  return React.createElement('input', {
+    type: 'text',
+    value: display,
+    onFocus: (e) => {
+      const initial = item.priceFormula || (item.price ? String(item.price) : '');
+      setDraft(initial);
+      setTimeout(() => { try { e.target.select(); } catch(_){} }, 0);
+    },
+    onChange: (e) => setDraft(e.target.value),
+    onBlur: () => {
+      const v = (draft || '').trim();
+      if (v.startsWith('=')) {
+        const r = _evalFormula(v);
+        onChange('priceFormula', v);
+        onChange('price', (typeof r === 'number' && isFinite(r)) ? r : 0);
+      } else {
+        onChange('priceFormula', null);
+        onChange('price', parseFloat(v) || 0);
+      }
+      setDraft(null);
+    },
+    onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); },
+    title: item.priceFormula ? 'Formula: ' + item.priceFormula : '',
+    style: {...si, width: 110, textAlign: 'right', fontSize: 12, ...(item.priceFormula ? {background: '#fdf6e3'} : {})}
+  });
+};
+
+
+const fmt = (n) => {
+  if (n === 0) return "-";
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+};
+const fmtDate = (d) => {
+  if (!d) return "";
+  const date = new Date(d + "T12:00:00");
+  return date.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+};
+const today = () => new Date().toISOString().split("T")[0];
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const defaultCategories = [
+  { id: "PRE", num: "01", name: "PRELIMINARES", prefix: "PRE" },
+  { id: "CAN", num: "02", name: "CANCELERÍA", prefix: "CAN" },
+  { id: "CARP", num: "03", name: "CARPINTERÍA / HERRERÍA", prefix: "CARP" },
+  { id: "ELEC", num: "04", name: "INSTALACIONES ESPECIALES", prefix: "ELEC" },
+  { id: "TAB", num: "05", name: "TABLAROCA", prefix: "TAB" },
+  { id: "ACAB", num: "06", name: "ACABADOS", prefix: "PIN" },
+  { id: "ACC", num: "07", name: "ACCESORIOS", prefix: "AC" },
+];
+
+const unitOptions = ["LOTE", "PIEZA", "M2", "ML", "SALIDA", "KG", "GLOBAL"];
+
+const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0 });
+const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
+const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA" });
+const emptyMaterial = () => ({ id: uid(), code: "ACCE-01", description: "", unit: "PIEZA", qty: 1, brand: "", condition: "NUEVO" });
+const emptyElectricRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", luz: "", foto: "", ubic: "", plano: "" });
+const emptyElectricReq = (project) => ({ id:"ER_"+uid(), collapsed:false, saved:false, titulo:"REQUISICIÓN ELÉCTRICO", noOrden:"00", proveedor:"", fecha: today(), semana:"NO APLICA", obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", autorizo:"Arq. Karim Zaragoza", razonSocial:"NOMBRE EMPRESA O PERSONA", rfc:"", usoCfdi:"Gastos en general", enviarA:"administracion@herzastudio.com", rows:[ emptyElectricRow() ] });
+const migrateElectricReqs = (quote) => {
+  const arr = quote && quote.electricReqs;
+  if (Array.isArray(arr) && arr.length) return arr.map(r=>({ collapsed:false, saved:false, ...(r||{}), id:(r&&r.id)||("ER_"+uid()), rows:(r&&Array.isArray(r.rows))?r.rows:[] }));
+  if (quote && quote.electricReq) { const r=quote.electricReq; return [{ collapsed:false, saved:true, ...r, id:"ER_"+uid(), rows:Array.isArray(r.rows)?r.rows:[] }]; }
+  return [ emptyElectricReq(quote&&quote.project) ];
+};
+const loadResizedImage = (file, cb) => { const reader=new FileReader(); reader.onload=ev=>{ const img=new Image(); img.onload=()=>{ const max=160; let w=img.width,h=img.height; const s=Math.min(1,max/Math.max(w,h)); const cw=Math.max(1,Math.round(w*s)), ch=Math.max(1,Math.round(h*s)); const cv=document.createElement("canvas"); cv.width=cw; cv.height=ch; cv.getContext("2d").drawImage(img,0,0,cw,ch); try{ cb(cv.toDataURL("image/jpeg",0.6)); }catch(e){ cb(ev.target.result); } }; img.src=ev.target.result; }; reader.readAsDataURL(file); };
+const emptyExpenseWeek = () => ({ id: "EW_"+uid(), date: today(), collapsed: false, saved: false, expenses: [] });
+const migrateExpenseWeeks = (quote) => {
+  const ws = quote && quote.expenseWeeks;
+  if (Array.isArray(ws) && ws.length) {
+    return ws.map(w => ({ collapsed: false, saved: false, date: today(), ...w, id: (w && w.id) || ("EW_"+uid()), expenses: (w && Array.isArray(w.expenses)) ? w.expenses : [] }));
+  }
+  const legacy = (quote && Array.isArray(quote.expenses)) ? quote.expenses : [];
+  return [{ id: "EW_"+uid(), date: (quote && quote.project && quote.project.date) || today(), collapsed: false, saved: legacy.length > 0, expenses: legacy }];
+};
+
+const QKEY = "herza_quotes_v1";
+const BKEY = "herza_backups_v1";
+const loadQuotes = () => { try { const s = localStorage.getItem(QKEY); return s ? JSON.parse(s) : []; } catch(e) { return []; } };
+const saveAllQuotes = (qs) => {
+  let ok = true;
+  const __payload = JSON.stringify(qs);
+  const __trySet = () => { try { localStorage.setItem(QKEY, __payload); return true; } catch(e) { return e; } };
+  let __res = __trySet();
+  if (__res !== true) {
+    try { localStorage.removeItem(BKEY); } catch(_){}
+    try { localStorage.removeItem("herza_quotes"); } catch(_){}
+    __res = __trySet();
+    if (__res !== true) { ok = false; try { window.alert("Error al guardar en el navegador: "+((__res&&__res.message)||__res)+"\n\nTus datos sí se guardan en la nube. Usa 'Descargar' para un respaldo en archivo."); } catch(_){} }
+  }
+  try {
+    const prev = JSON.parse(localStorage.getItem(BKEY)||"[]");
+    const next = [{ at: Date.now(), data: qs }, ...prev].slice(0, 2);
+    localStorage.setItem(BKEY, JSON.stringify(next));
+  } catch(e) { try { localStorage.removeItem(BKEY); } catch(_){} }
+    try{if(window._fbSaveTimer)clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(function(){try{window._fbSyncing=true;try{document.dispatchEvent(new Event("herza-sync-start"));}catch(_){}fbDb.ref("presupuestos").set(qs).then(function(){window._fbSyncing=false;window._lastSyncAt=Date.now();try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}}).catch(function(){window._fbSyncing=false;try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}});}catch(e){}},350);}catch(e){}
+  return ok;
+};
+const exportSingleQuote = (q) => {
+  const payload = { app:"herza-presupuesto", version:1, exportedAt:new Date().toISOString(), quotes:[q] };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0,10);
+  const safeName = (q.project?.name || "cotizacion").replace(/[^a-zA-Z0-9-_]+/g,"_").slice(0,40) || "cotizacion";
+  a.href = url; a.download = "herza-"+safeName+"-"+stamp+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+};
+const loadBackups = () => { try { return JSON.parse(localStorage.getItem(BKEY)||"[]"); } catch(e) { return []; } };
+const exportBackup = (qs) => {
+  const payload = { app:"herza-presupuesto", version:1, exportedAt:new Date().toISOString(), quotes:qs };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  a.href = url; a.download = "herza-respaldo-"+stamp+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+};
+const importBackupFromFile = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const arr = Array.isArray(parsed) ? parsed : (parsed.quotes || []);
+      if (!Array.isArray(arr)) return reject(new Error("Formato inválido"));
+      resolve(arr);
+    } catch (e) { reject(e); }
+  };
+  reader.onerror = () => reject(reader.error);
+  reader.readAsText(file);
+});
+const defaultItemsMap = () => { const m={}; defaultCategories.forEach(c=>{m[c.id]=[]}); return m; };
+const defaultPersonal = (project) => ({
+  obra: (project && project.name) || "",
+  dir:  (project && project.location) || "",
+  elab: "",
+  groups: [ { id:"G_"+uid(), oficio:"ARQUITECTOS", rows:[ {id:"R_"+uid(),n:"",ap:"",am:""} ] } ]
+});
+const emptyProvider = () => ({ id:"PV_"+uid(), nombre:"", asignado:0, pagos:[] });
+const emptyProvPago = () => ({ id:"PP_"+uid(), fecha:today(), monto:0, metodo:"TRANSFERENCIA" });
+const makeNewQuote = () => ({
+  id: "Q_"+uid(),
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  project: {name:"",client:"",date:today(),location:"",docTitle:"Cotización de Servicios"},
+  type: "Varias",
+  categories: defaultCategories,
+  items: defaultItemsMap(),
+  mgmtPct: 18,
+  ivaPct: 16,
+  payments: [],
+  expenses: [],
+  expenseWeeks: [ emptyExpenseWeek() ],
+  materials: [],
+  electricReqs: [ emptyElectricReq(null) ],
+  personal: defaultPersonal(null),
+  providers: []
+});
+
+const C = { bg:"#d5d4ca", card:"#ffffff", border:"#e1e0d6", accent:"#7a8a3f", accent2:"#c9a961", text:"#3a3a3a", muted:"#555555", dim:"#9b9b8f", danger:"#c0392b", success:"#7a8a3f", input:"#fafaf6", inputBorder:"#e1e0d6" };
+
+const si = { background:C.input, border:"1px solid "+C.inputBorder, color:C.text, padding:"8px 12px", borderRadius:"6px", fontSize:"13px", outline:"none", width:"100%", boxSizing:"border-box" };
+const sb = { padding:"8px 16px", borderRadius:"6px", border:"none", cursor:"pointer", fontSize:"13px", fontWeight:600, display:"inline-flex", alignItems:"center", gap:"6px", transition:"all 0.15s" };
+
+const IconPlus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+const IconCopy = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
+const IconPdf = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
+const IconChevron = ({open}) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{transform:open?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.2s"}}><polyline points="9 18 15 12 9 6"/></svg>;
+
+function Header({project, setProject, onHome, savedLabel, onSaveNow, onDownload}) {
+  const navBtn = {...sb,padding:"6px 14px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600};
+  return (
+    <div style={{marginBottom:32}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,gap:16,flexWrap:"wrap"}}>
+        <div>
+          <h1 style={{margin:0,fontSize:28,color:"#3a3a3a",fontWeight:400,letterSpacing:0.5,fontFamily:"'Cormorant Garamond','Playfair Display',Georgia,serif"}}>Herza Studio.</h1>
+          <p style={{margin:"4px 0 0",fontSize:11,color:C.dim,letterSpacing:3,textTransform:"uppercase"}}>Presupuesto</p>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          {savedLabel && <span style={{fontSize:11,color:C.success,marginRight:4}} title="Guardado automáticamente">{savedLabel}</span>}
+          {onSaveNow && <button onClick={onSaveNow} style={{...navBtn,background:C.accent,color:"#fff",border:"1px solid "+C.accent,fontWeight:700}} title="Guardar ahora en este navegador">💾 Guardar</button>}
+          {false && <button onClick={onDownload} style={{...navBtn,background:C.accent2,color:"#fff",border:"1px solid "+C.accent2,fontWeight:700}} title="Descargar archivo JSON de esta cotización">↓ Descargar</button>}
+          <button onClick={()=>window.scrollTo({top:0,behavior:"smooth"})} style={navBtn} title="Ir al inicio de la página">↑ Arriba</button>
+          <button onClick={()=>onHome&&onHome()} style={navBtn} title="Volver a la lista de cotizaciones">← Volver</button>
+          <button onClick={()=>onHome&&onHome()} style={{...navBtn,background:C.accent,color:"#fff",border:"1px solid "+C.accent,padding:"8px 18px",fontSize:13,fontWeight:700}} title="Ir a Inicio (lista de cotizaciones)">⌂ Inicio</button>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,background:C.card,borderRadius:12,padding:24,border:"1px solid "+C.border}}>
+        {[{label:"Proyecto",key:"name",placeholder:"Nombre del proyecto"},{label:"Cliente",key:"client",placeholder:"Nombre del cliente"},{label:"Fecha",key:"date",type:"date"},{label:"Ubicación",key:"location",placeholder:"Dirección o zona"}].map(({label,key,placeholder,type})=>(
+          <div key={key}>
+            <label style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>{label}</label>
+            <input type={type||"text"} value={project[key]} placeholder={placeholder} onChange={e=>setProject(p=>({...p,[key]:e.target.value}))} style={si} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, printMode}) {
+  const total = item.qty * item.price;
+  if (printMode) {
+    return (
+      <tr>
+        <td style={{padding:"6px 8px",fontSize:11,color:"#888",borderBottom:"1px solid #eee"}}></td>
+        <td style={{padding:"6px 8px",fontSize:11,color:"#888",borderBottom:"1px solid #eee"}}>{item.code}</td>
+        <td style={{padding:"6px 8px",fontSize:12,borderBottom:"1px solid #eee",maxWidth:300}}>{item.concept}</td>
+        <td style={{padding:"6px 8px",fontSize:12,textAlign:"center",borderBottom:"1px solid #eee"}}>{item.unit}</td>
+        <td style={{padding:"6px 8px",fontSize:12,textAlign:"center",borderBottom:"1px solid #eee"}}>{item.qty}</td>
+        <td style={{padding:"6px 8px",fontSize:12,textAlign:"right",borderBottom:"1px solid #eee"}}>{fmt(item.price)}</td>
+        <td style={{padding:"6px 8px",fontSize:12,textAlign:"right",fontWeight:600,borderBottom:"1px solid #eee"}}>{fmt(total)}</td>
+      </tr>
+    );
+  }
+  return (
+    <tr>
+      <td style={{padding:"4px 2px",whiteSpace:"nowrap"}}>
+        <button onClick={onMoveUp} disabled={!canMoveUp} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveUp?C.muted:C.dim,opacity:canMoveUp?1:0.3,cursor:canMoveUp?"pointer":"not-allowed",fontSize:10,marginRight:2}} title="Subir partida">▲</button>
+        <button onClick={onMoveDown} disabled={!canMoveDown} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveDown?C.muted:C.dim,opacity:canMoveDown?1:0.3,cursor:canMoveDown?"pointer":"not-allowed",fontSize:10}} title="Bajar partida">▼</button>
+      </td>
+      <td style={{padding:"4px 6px"}}><input value={item.code} onChange={e=>onChange("code",e.target.value)} style={{...si,width:90,textAlign:"center",fontSize:12}} /></td>
+      <td style={{padding:"4px 6px",minWidth:380,width:"40%"}}><textarea value={item.concept} onChange={e=>onChange("concept",e.target.value)} placeholder="Descripción del concepto..." rows={2} style={{...si,fontSize:13,resize:"vertical",minHeight:44,fontFamily:"inherit",lineHeight:1.35,padding:"4px 6px"}} /></td>
+      <td style={{padding:"4px 6px"}}><select value={item.unit} onChange={e=>onChange("unit",e.target.value)} style={{...si,width:85,fontSize:11,padding:"8px 4px"}}>{unitOptions.map(u=><option key={u} value={u}>{u}</option>)}</select></td>
+      <td style={{padding:"4px 6px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:65,textAlign:"center",fontSize:12}} /></td>
+      <td style={{padding:"4px 6px"}}><PriceInputCell item={item} onChange={onChange} si={si} /></td>
+      <td style={{padding:"4px 6px",textAlign:"right",fontWeight:600,fontSize:13,color:total>0?C.accent:C.dim,minWidth:100}}>{fmt(total)}</td>
+      <td style={{padding:"4px 2px"}}><button onClick={onRemove} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar"><IconTrash/></button></td>
+    </tr>
+  );
+}
+
+function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode}) {
+  const [open, setOpen] = useState(true);
+  const [dragOver, setDragOver] = useState(false);
+  const subtotal = items.reduce((s,i)=>s+i.qty*i.price,0);
+  if (printMode) {
+    if (items.length===0) return null;
+    return (
+      <tbody>
+        <tr className="cat-row"><td colSpan={7} style={{padding:"4px 12px",fontSize:12,fontWeight:600,color:"#fff",background:"#C2B098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",letterSpacing:1}}>{cat.num} — {cat.name}</td></tr>
+        {items.map(item=><QuoteItem key={item.id} item={item} printMode />)}
+        <tr className="subtotal-row">
+          <td colSpan={5} style={{background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}/>
+          <td style={{padding:"8px",fontSize:12,textAlign:"right",fontWeight:600,color:"#888",background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",whiteSpace:"nowrap"}}>SUBTOTAL {cat.num}</td>
+          <td style={{padding:"8px",fontSize:13,textAlign:"right",fontWeight:700,color:"#9a8774",background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",whiteSpace:"nowrap"}}>{fmt(subtotal)}</td>
+        </tr>
+      </tbody>
+    );
+  }
+  return (
+    <div
+      onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+      onDragLeave={()=>setDragOver(false)}
+      onDrop={e=>{e.preventDefault();setDragOver(false);const src=e.dataTransfer.getData("text/cat-id");if(src&&onSwapWith)onSwapWith(src);}}
+      style={{background:C.card,borderRadius:10,border:dragOver?"2px dashed "+C.accent:"1px solid "+C.border,marginBottom:12,overflow:"hidden",transition:"border-color 0.15s"}}>
+      <div style={{display:"flex",alignItems:"center",padding:"14px 18px",cursor:"pointer",justifyContent:"space-between"}} onClick={()=>setOpen(!open)}>
+        <div style={{display:"flex",alignItems:"center",gap:12,flex:1}}>
+          <IconChevron open={open}/>
+          <input value={cat.num} onChange={e=>onUpdateCat("num",e.target.value)} onClick={e=>e.stopPropagation()} style={{fontSize:11,color:C.muted,fontWeight:700,background:C.bg,padding:"2px 8px",borderRadius:4,border:"1px solid "+C.border,width:50,textAlign:"center"}} title="Número de orden" />
+          <input value={cat.name} onChange={e=>onUpdateCat("name",e.target.value)} onClick={e=>e.stopPropagation()} style={{...si,border:"none",background:"transparent",fontSize:14,fontWeight:600,padding:"2px 6px",letterSpacing:0.5}} />
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <button onClick={e=>{e.stopPropagation();onMoveUp&&onMoveUp()}} disabled={!canMoveUp} style={{...sb,padding:"4px 8px",background:"transparent",color:canMoveUp?C.muted:C.dim,opacity:canMoveUp?1:0.3,cursor:canMoveUp?"pointer":"not-allowed",fontSize:14,fontWeight:700}} title="Subir categoría">▲</button>
+          <button onClick={e=>{e.stopPropagation();onMoveDown&&onMoveDown()}} disabled={!canMoveDown} style={{...sb,padding:"4px 8px",background:"transparent",color:canMoveDown?C.muted:C.dim,opacity:canMoveDown?1:0.3,cursor:canMoveDown?"pointer":"not-allowed",fontSize:14,fontWeight:700}} title="Bajar categoría">▼</button>
+          <span style={{fontSize:15,fontWeight:700,color:subtotal>0?C.accent:C.dim,marginLeft:8}}>{fmt(subtotal)}</span>
+          <span
+            draggable={true}
+            onDragStart={e=>{e.dataTransfer.setData("text/cat-id",cat.id);e.dataTransfer.effectAllowed="move";}}
+            onClick={e=>e.stopPropagation()}
+            title="Arrastra para mover esta categoría"
+            style={{cursor:"grab",padding:"6px 8px",color:C.muted,fontSize:18,lineHeight:1,userSelect:"none",letterSpacing:-2,fontWeight:700}}
+          >⋮⋮</span>
+          <button onClick={e=>{e.stopPropagation();onRemoveCat()}} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar categoría"><IconTrash/></button>
+        </div>
+      </div>
+      {open && (
+        <div style={{padding:"0 18px 14px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE",""].map((h,i)=>(
+                <th key={i} style={{padding:"6px",fontSize:10,color:C.dim,textAlign:i>=4?(i===7?"center":"right"):"left",fontWeight:600,letterSpacing:1,background:"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {items.map((item,idx)=><QuoteItem key={item.id} item={item} onChange={(f,v)=>onItemChange(item.id,f,v)} onRemove={()=>onRemoveItem(item.id)} onMoveUp={()=>onMoveItem&&onMoveItem(item.id,-1)} onMoveDown={()=>onMoveItem&&onMoveItem(item.id,1)} canMoveUp={idx>0} canMoveDown={idx<items.length-1} />)}
+            </tbody>
+          </table>
+          <button onClick={onAddItem} style={{...sb,background:C.bg,color:C.muted,marginTop:8,fontSize:12}}><IconPlus/> Agregar partida</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TotalsSection({categories, items, mgmtPct, setMgmtPct, ivaPct, setIvaPct}) {
+  const subtotal = Object.values(items).flat().reduce((s,i)=>s+i.qty*i.price,0);
+  const mgmt = subtotal*(mgmtPct/100);
+  const iva = (subtotal+mgmt)*(ivaPct/100);
+  const total = subtotal+mgmt+iva;
+  return (
+    <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:24,marginTop:20}}>
+      <div style={{maxWidth:420,marginLeft:"auto"}}>
+        {categories.map(cat=>{
+          const st=(items[cat.id]||[]).reduce((s,i)=>s+i.qty*i.price,0);
+          if(st===0) return null;
+          return <div key={cat.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:13,color:C.muted}}><span>Subtotal {cat.num} — {cat.name}</span><span>{fmt(st)}</span></div>;
+        })}
+        <div style={{borderTop:"1px solid "+C.border,marginTop:10,paddingTop:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,fontWeight:600}}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",fontSize:13}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span>Gerenciamiento</span>
+              <input type="number" min="0" max="100" value={mgmtPct} onChange={e=>setMgmtPct(parseFloat(e.target.value)||0)} style={{...si,width:60,textAlign:"center",fontSize:12,padding:"4px 8px"}} />
+              <span style={{color:C.dim}}>%</span>
+            </div>
+            <span>{fmt(mgmt)}</span>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",fontSize:13}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span>IVA</span>
+              <input type="number" min="0" max="100" value={ivaPct} onChange={e=>setIvaPct(parseFloat(e.target.value)||0)} style={{...si,width:60,textAlign:"center",fontSize:12,padding:"4px 8px"}} />
+              <span style={{color:C.dim}}>%</span>
+            </div>
+            <span>{fmt(iva)}</span>
+          </div>
+        </div>
+        <div style={{borderTop:"2px solid "+C.accent,marginTop:10,paddingTop:12,display:"flex",justifyContent:"space-between",fontSize:20,fontWeight:700}}>
+          <span>GRAN TOTAL</span>
+          <span style={{color:C.accent}}>{fmt(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PaymentsTab({payments, setPayments, grandTotal}) {
+  const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const balance = grandTotal - totalPaid;
+  return (
+    <div>
+      <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:C.text}}>Balance de Pagos</h2>
+      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>
+            {["FECHA","CONCEPTO","MÉTODO","MONTO",""].map((h,i)=>(
+              <th key={i} style={{padding:"8px",fontSize:10,color:C.dim,textAlign:i===3?"right":"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {payments.map(p=>(
+              <tr key={p.id}>
+                <td style={{padding:"4px 6px"}}><input type="date" value={p.date} onChange={e=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,date:e.target.value}:x))} style={{...si,width:150,fontSize:12}} /></td>
+                <td style={{padding:"4px 6px"}}><input value={p.concept} placeholder="Concepto del pago..." onChange={e=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,concept:e.target.value}:x))} style={{...si,fontSize:12}} /></td>
+                <td style={{padding:"4px 6px"}}><select value={p.method} onChange={e=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,method:e.target.value}:x))} style={{...si,width:140,fontSize:12}}><option>TRANSFERENCIA</option><option>EFECTIVO</option><option>CHEQUE</option><option>TARJETA</option></select></td>
+                <td style={{padding:"4px 6px"}}><input type="number" min="0" step="1000" value={p.amount} onChange={e=>setPayments(prev=>prev.map(x=>x.id===p.id?{...x,amount:parseFloat(e.target.value)||0}:x))} style={{...si,width:130,textAlign:"right",fontSize:12}} /></td>
+                <td style={{padding:"4px 2px"}}><button onClick={()=>setPayments(prev=>prev.filter(x=>x.id!==p.id))} style={{...sb,padding:6,background:"transparent",color:C.dim}}><IconTrash/></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button onClick={()=>setPayments(prev=>[...prev,emptyPayment()])} style={{...sb,background:C.bg,color:C.muted,marginTop:12,fontSize:12}}><IconPlus/> Agregar pago</button>
+      </div>
+      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,marginTop:16,maxWidth:400,marginLeft:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Pagado</span><span style={{fontWeight:600,color:C.success}}>{fmt(totalPaid)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Monto Presupuesto</span><span style={{fontWeight:600}}>{fmt(grandTotal)}</span></div>
+        <div style={{borderTop:"2px solid "+(balance>0?C.danger:C.success),marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:700}}>
+          <span>Saldo al día</span><span style={{color:balance>0?C.danger:C.success}}>{fmt(balance)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExpensesTab({expenseWeeks, setExpenseWeeks}) {
+  const weeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
+  const updWeek = (wid, fn) => setExpenseWeeks(prev => prev.map(w => w.id===wid ? fn(w) : w));
+  const updateExp = (wid,id,f,v) => updWeek(wid, w => ({...w, expenses: w.expenses.map(x=>x.id===id?{...x,[f]:v}:x)}));
+  const removeExp = (wid,id) => updWeek(wid, w => ({...w, expenses: w.expenses.filter(x=>x.id!==id)}));
+  const addExp = (wid,method) => updWeek(wid, w => ({...w, expenses: [...w.expenses, {...emptyExpense(), method}]}));
+  const toggle = (wid) => updWeek(wid, w => ({...w, collapsed: !w.collapsed}));
+  const saveWeek = (wid) => updWeek(wid, w => ({...w, saved:true, collapsed:true}));
+  const reopenWeek = (wid) => updWeek(wid, w => ({...w, saved:false, collapsed:false}));
+  const addWeek = () => setExpenseWeeks(prev => [...prev.map(w=>({...w,collapsed:true})), {...emptyExpenseWeek(), date: today()}]);
+  const delWeek = (wid) => { if (window.confirm("¿Eliminar esta semana y todos sus gastos?")) setExpenseWeeks(prev => prev.filter(w=>w.id!==wid)); };
+
+  const weekTotal = (w) => (w.expenses||[]).reduce((s,e)=>s+e.qty*e.price,0);
+  const fmtDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
+  const grandMonto = weeks.reduce((s,w)=>s+weekTotal(w),0);
+  const grandGer = grandMonto*0.10;
+
+  const renderTable = (w, list, title, editable) => (
+    <div style={{marginBottom:16}}>
+      <h3 style={{fontSize:13,fontWeight:600,marginBottom:8,color:C.muted}}>{title}</h3>
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead><tr>
+          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE",""].map((h,i)=>(
+            <th key={i} style={{padding:"6px",fontSize:9,color:C.dim,textAlign:i>=5?"right":"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>
+          ))}
+        </tr></thead>
+        <tbody>
+          {list.map(exp=> editable ? (
+            <tr key={exp.id}>
+              <td style={{padding:"3px 4px"}}><input type="date" value={exp.date} onChange={e=>updateExp(w.id,exp.id,"date",e.target.value)} style={{...si,width:130,fontSize:11,padding:"6px 4px"}} /></td>
+              <td style={{padding:"3px 4px"}}><input value={exp.agent} onChange={e=>updateExp(w.id,exp.id,"agent",e.target.value)} placeholder="Categoría" style={{...si,width:80,fontSize:11}} /></td>
+              <td style={{padding:"3px 4px"}}><input value={exp.description} onChange={e=>updateExp(w.id,exp.id,"description",e.target.value)} placeholder="Clave en ppto" style={{...si,fontSize:11}} /></td>
+              <td style={{padding:"3px 4px"}}><input value={exp.concept} onChange={e=>updateExp(w.id,exp.id,"concept",e.target.value)} placeholder="Concepto" style={{...si,width:100,fontSize:11}} /></td>
+              <td style={{padding:"3px 4px"}}><select value={exp.unit} onChange={e=>updateExp(w.id,exp.id,"unit",e.target.value)} style={{...si,width:65,fontSize:10,padding:"6px 2px"}}>{unitOptions.map(u=><option key={u}>{u}</option>)}</select></td>
+              <td style={{padding:"3px 4px"}}><input type="number" min="0" value={exp.qty} onChange={e=>updateExp(w.id,exp.id,"qty",parseFloat(e.target.value)||0)} style={{...si,width:50,textAlign:"center",fontSize:11}} /></td>
+              <td style={{padding:"3px 4px"}}><input type="number" min="0" value={exp.price} onChange={e=>updateExp(w.id,exp.id,"price",parseFloat(e.target.value)||0)} style={{...si,width:90,textAlign:"right",fontSize:11}} /></td>
+              <td style={{padding:"3px 4px",textAlign:"right",fontWeight:600,fontSize:12,color:C.accent,minWidth:80}}>{fmt(exp.qty*exp.price)}</td>
+              <td style={{padding:"3px 2px"}}><button onClick={()=>removeExp(w.id,exp.id)} style={{...sb,padding:4,background:"transparent",color:C.dim}}><IconTrash/></button></td>
+            </tr>
+          ) : (
+            <tr key={exp.id} style={{borderBottom:"1px solid "+C.border}}>
+              <td style={{padding:"6px 4px",fontSize:11}}>{fmtDate(exp.date)}</td>
+              <td style={{padding:"6px 4px",fontSize:11}}>{exp.agent||""}</td>
+              <td style={{padding:"6px 4px",fontSize:11}}>{exp.description||""}</td>
+              <td style={{padding:"6px 4px",fontSize:11}}>{exp.concept||""}</td>
+              <td style={{padding:"6px 4px",fontSize:11}}>{exp.unit||""}</td>
+              <td style={{padding:"6px 4px",fontSize:11,textAlign:"right"}}>{exp.qty}</td>
+              <td style={{padding:"6px 4px",fontSize:11,textAlign:"right"}}>{fmt(exp.price)}</td>
+              <td style={{padding:"6px 4px",fontSize:12,textAlign:"right",fontWeight:600,color:C.accent,minWidth:80}}>{fmt(exp.qty*exp.price)}</td>
+              <td></td>
+            </tr>
+          ))}
+          {list.length===0 && <tr><td colSpan={9} style={{padding:"8px 6px",textAlign:"center",color:C.dim,fontSize:11}}>Sin registros</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text,margin:0}}>Relación de Gastos Semanal</h2>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={()=>window.HZObra&&window.HZObra.conectar()} style={{...sb,background:C.bg,color:C.muted,fontSize:13,border:"1px solid "+C.border}}>🔗 Conectar con app obra</button>
+          <button onClick={addWeek} style={{...sb,background:C.accent,color:"#fff",fontSize:13}}><IconPlus/> Agregar semana nueva</button>
+        </div>
+      </div>
+
+      {weeks.map((w,idx)=>{
+        const total = weekTotal(w);
+        const ger = total*0.10;
+        const transf = (w.expenses||[]).filter(e=>e.method==="TRANSFERENCIA");
+        const efec = (w.expenses||[]).filter(e=>e.method==="EFECTIVO");
+        return (
+          <div key={w.id} style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,marginBottom:12,overflow:"hidden"}}>
+            <div onClick={()=>toggle(w.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:w.collapsed?"#f3f2ec":"#faf9f4",cursor:"pointer",flexWrap:"wrap"}}>
+              <IconChevron open={!w.collapsed}/>
+              <span style={{fontWeight:600,color:C.text,fontSize:14}}>Semana {idx+1}</span>
+              {!w.saved
+                ? <input type="date" value={w.date} onClick={e=>e.stopPropagation()} onChange={e=>updWeek(w.id,x=>({...x,date:e.target.value}))} style={{...si,width:140,fontSize:11,padding:"5px 6px"}} />
+                : <span style={{fontSize:12,color:C.muted}}>del {fmtDate(w.date)}</span>}
+              {w.saved
+                ? <span style={{fontSize:10,background:"#e6ebd4",color:"#5b6033",padding:"2px 8px",borderRadius:20,fontWeight:600}}>Guardada</span>
+                : <span style={{fontSize:10,background:"#f4e3cf",color:"#8a5a1b",padding:"2px 8px",borderRadius:20,fontWeight:600}}>En curso</span>}
+              <span style={{marginLeft:"auto",textAlign:"right",lineHeight:1.3}}>
+                <span style={{display:"block",fontSize:10,color:C.dim,letterSpacing:0.5}}>PAGADO · GERENC.</span>
+                <span style={{fontWeight:600,color:C.accent,fontSize:13}}>{fmt(total)} · {fmt(ger)}</span>
+              </span>
+            </div>
+            {!w.collapsed && (
+              <div style={{padding:"8px 16px 16px"}}>
+                {renderTable(w, transf, "PAGOS VÍA TRANSFERENCIA", !w.saved)}
+                {renderTable(w, efec, "PAGOS EN EFECTIVO", !w.saved)}
+                {!w.saved ? (
+                  <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+                    <button onClick={()=>addExp(w.id,"TRANSFERENCIA")} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}><IconPlus/> Transferencia</button>
+                    <button onClick={()=>addExp(w.id,"EFECTIVO")} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}><IconPlus/> Efectivo</button>
+                    <button onClick={()=>saveWeek(w.id)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>💾 Guardar y plegar semana</button>
+                    <button onClick={()=>delWeek(w.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12,marginLeft:"auto"}}><IconTrash/> Eliminar semana</button>
+                  </div>
+                ) : (
+                  <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+                    <button onClick={()=>reopenWeek(w.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}>✎ Reabrir para editar</button>
+                    <button onClick={()=>window.HZObra&&window.HZObra.enviar(w, idx, total)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>↗ Enviar a la app de obra</button>
+                    <button onClick={()=>delWeek(w.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12}}><IconTrash/> Eliminar semana</button>
+                    <span style={{marginLeft:"auto",fontSize:12,color:C.muted}}>Gasto: <b style={{color:C.text}}>{fmt(total)}</b> · Gerenc. 10%: <b style={{color:C.accent}}>{fmt(ger)}</b></span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,marginTop:16,maxWidth:420,marginLeft:"auto"}}>
+        <div style={{fontSize:11,color:C.dim,letterSpacing:1,marginBottom:10,fontWeight:600}}>ACUMULADO DE TODAS LAS SEMANAS</div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13,color:C.muted}}><span>Semanas registradas</span><span>{weeks.length}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:14,color:C.text}}><span style={{fontWeight:600}}>Total Monto Pagado</span><span style={{fontWeight:700}}>{fmt(grandMonto)}</span></div>
+        <div style={{borderTop:"2px solid "+C.accent,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:700}}>
+          <span>Total Gerenciamiento Pagado</span><span style={{color:C.accent}}>{fmt(grandGer)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MaterialsTab({materials, setMaterials}) {
+  const upd = (id,f,v) => setMaterials(prev=>prev.map(x=>x.id===id?{...x,[f]:v}:x));
+  return (
+    <div>
+      <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:C.text}}>Entrega de Material</h2>
+      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>
+            {["CÓDIGO","DESCRIPCIÓN","UNIDAD","CANTIDAD","MARCA","ESTADO",""].map((h,i)=>(
+              <th key={i} style={{padding:"6px",fontSize:10,color:C.dim,textAlign:"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {materials.map(m=>(
+              <tr key={m.id}>
+                <td style={{padding:"4px"}}><input value={m.code} onChange={e=>upd(m.id,"code",e.target.value)} style={{...si,width:90,fontSize:12}} /></td>
+                <td style={{padding:"4px"}}><input value={m.description} onChange={e=>upd(m.id,"description",e.target.value)} placeholder="Material o accesorio" style={{...si,fontSize:12}} /></td>
+                <td style={{padding:"4px"}}><select value={m.unit} onChange={e=>upd(m.id,"unit",e.target.value)} style={{...si,width:80,fontSize:11}}>{unitOptions.map(u=><option key={u}>{u}</option>)}</select></td>
+                <td style={{padding:"4px"}}><input type="number" min="0" value={m.qty} onChange={e=>upd(m.id,"qty",parseFloat(e.target.value)||0)} style={{...si,width:60,textAlign:"center",fontSize:12}} /></td>
+                <td style={{padding:"4px"}}><input value={m.brand} onChange={e=>upd(m.id,"brand",e.target.value)} placeholder="Marca" style={{...si,width:100,fontSize:12}} /></td>
+                <td style={{padding:"4px"}}><select value={m.condition} onChange={e=>upd(m.id,"condition",e.target.value)} style={{...si,width:90,fontSize:11}}><option>NUEVO</option><option>USADO</option><option>DAÑADO</option></select></td>
+                <td style={{padding:"4px"}}><button onClick={()=>setMaterials(prev=>prev.filter(x=>x.id!==m.id))} style={{...sb,padding:6,background:"transparent",color:C.dim}}><IconTrash/></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button onClick={()=>setMaterials(prev=>[...prev,emptyMaterial()])} style={{...sb,background:C.bg,color:C.muted,marginTop:12,fontSize:12}}><IconPlus/> Agregar material</button>
+      </div>
+    </div>
+  );
+}
+
+const HerzaSeal = () => (
+  <div style={{width:74,height:74,border:"1px solid #c9c3b6",borderRadius:"50%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",flexShrink:0}}>
+    <div style={{fontSize:7,letterSpacing:1,color:"#7a7468"}}>·HERZA·STUDIO·</div>
+    <div style={{fontSize:8,color:"#3a3a36",marginTop:2}}>Architecture</div>
+    <div style={{borderTop:"1px solid #c9c3b6",width:34,margin:"2px 0"}}></div>
+    <div style={{fontSize:8,color:"#3a3a36"}}>Interiors</div>
+  </div>
+);
+
+const LUZ_OPTS = ["","CÁLIDA","NEUTRA","BLANCA","RGB"];
+
+function ElectricReqTab({reqs, setReqs}) {
+  const TP="#a8a08f", TPL="#efece5";
+  const list = Array.isArray(reqs) ? reqs : [];
+  const upd = (id, fn)=> setReqs(prev=> prev.map(r=> r.id===id ? fn(r) : r));
+  const setField = (id,f,v)=> upd(id, r=>({...r,[f]:v}));
+  const updRow = (id,rid,f,v)=> upd(id, r=>({...r, rows:(r.rows||[]).map(x=>x.id===rid?{...x,[f]:v}:x)}));
+  const addRow = (id)=> upd(id, r=>({...r, rows:[...(r.rows||[]), emptyElectricRow()]}));
+  const delRow = (id,rid)=> upd(id, r=>({...r, rows:(r.rows||[]).filter(x=>x.id!==rid)}));
+  const onFoto = (id,rid,e)=>{ const f=e.target.files&&e.target.files[0]; if(f) loadResizedImage(f, durl=> updRow(id,rid,"foto",durl)); e.target.value=""; };
+  const toggle = (id)=> upd(id, r=>({...r, collapsed:!r.collapsed}));
+  const saveReq = (id)=> upd(id, r=>({...r, saved:true, collapsed:true}));
+  const reopen = (id)=> upd(id, r=>({...r, saved:false, collapsed:false}));
+  const addReq = ()=> setReqs(prev=>[...prev.map(r=>({...r,collapsed:true})), emptyElectricReq(null)]);
+  const delReq = (id)=>{ if(window.confirm("¿Eliminar esta requisición y todos sus materiales?")) setReqs(prev=>prev.filter(r=>r.id!==id)); };
+  const fmtDate = (s)=>{ try{ return s? new Date(s+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}):""; }catch(e){return s||"";} };
+  const hcell = {padding:"4px 8px",background:TPL,color:"#55504a",fontSize:11,border:"1px solid #fff",whiteSpace:"nowrap"};
+  const infoInput = {...si,fontSize:11,padding:"4px 6px",textAlign:"right",border:"1px solid #e7e3da",background:"#fff",width:"100%"};
+  const cellRO = {padding:"6px 5px",border:"1px solid #f0ede6",fontSize:11,textAlign:"center",color:"#444"};
+  const cols=["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO",""];
+
+  const infoRow = (d, ed, lbl, key, isDate) => (
+    <tr key={key}><td style={hcell}>{lbl}</td><td style={{padding:"2px 4px",border:"1px solid "+TPL}}>
+      {ed
+        ? (isDate
+            ? <input type="date" value={d[key]||""} onChange={e=>setField(d.id,key,e.target.value)} style={{...infoInput,textAlign:"left"}}/>
+            : <input value={d[key]||""} onChange={e=>setField(d.id,key,e.target.value)} style={infoInput}/>)
+        : <div style={{textAlign:"right",padding:"4px 6px"}}>{isDate?fmtDate(d[key]):(d[key]||"")}</div>}
+    </td></tr>
+  );
+
+  const renderForm = (d, ed) => (
+    <div style={{overflowX:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,minWidth:840,marginBottom:14}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:30,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <table style={{borderCollapse:"collapse",fontSize:11,minWidth:360}}>
+          <tbody>
+            <tr><td style={{...hcell,background:TP,color:"#fff"}}>No. Orden</td><td style={{padding:"2px 4px",border:"1px solid #fff"}}>{ed? <input value={d.noOrden||""} onChange={e=>setField(d.id,"noOrden",e.target.value)} style={{...infoInput,fontWeight:600}}/> : <div style={{textAlign:"right",fontWeight:600,padding:"4px 6px"}}>{d.noOrden||""}</div>}</td></tr>
+            {infoRow(d,ed,"Proveedor","proveedor",false)}
+            {infoRow(d,ed,"Fecha","fecha",true)}
+            {infoRow(d,ed,"Semana","semana",false)}
+            {infoRow(d,ed,"Obra","obra",false)}
+            {infoRow(d,ed,"Dirección de entrega","dir",false)}
+            {infoRow(d,ed,"Solicitó","solicito",false)}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{background:TP,textAlign:"center",padding:"6px",minWidth:840}}>
+        {ed
+          ? <input value={d.titulo||""} onChange={e=>setField(d.id,"titulo",e.target.value)} style={{background:"transparent",border:"none",textAlign:"center",fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:"#2b2620",letterSpacing:1,width:"70%",outline:"none"}}/>
+          : <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:"#2b2620",letterSpacing:1}}>{d.titulo||"REQUISICIÓN ELÉCTRICO"}</span>}
+      </div>
+
+      <table style={{borderCollapse:"collapse",width:"100%",minWidth:840,fontSize:10}}>
+        <thead><tr style={{background:TP,color:"#fff"}}>
+          {cols.map((h,i)=><th key={i} style={{padding:"5px 6px",border:"1px solid #fff",fontWeight:500}}>{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {(d.rows||[]).map(r=> ed ? (
+            <tr key={r.id} style={{borderBottom:"1px solid #eee"}}>
+              <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.cod} onChange={e=>updRow(d.id,r.id,"cod",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.tipo} onChange={e=>updRow(d.id,r.id,"tipo",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6",width:62}}><input type="number" min="0" value={r.cant} onChange={e=>updRow(d.id,r.id,"cant",parseFloat(e.target.value)||0)} style={{...si,fontSize:11,padding:"4px",textAlign:"center",width:52}}/></td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.desc} onChange={e=>updRow(d.id,r.id,"desc",e.target.value)} style={{...si,fontSize:11,padding:"4px"}}/></td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6",width:96}}><select value={r.luz} onChange={e=>updRow(d.id,r.id,"luz",e.target.value)} style={{...si,fontSize:10,padding:"4px 2px",width:90}}>{LUZ_OPTS.map(o=><option key={o} value={o}>{o||"—"}</option>)}</select></td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6",textAlign:"center",width:80}}>
+                {r.foto ? (
+                  <div style={{position:"relative",display:"inline-block"}}>
+                    <img src={r.foto} style={{maxWidth:60,maxHeight:44,borderRadius:3,display:"block"}}/>
+                    <button onClick={()=>updRow(d.id,r.id,"foto","")} style={{position:"absolute",top:-6,right:-6,background:"#c0392b",color:"#fff",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:1}}>×</button>
+                  </div>
+                ) : (
+                  <label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:54,height:40,background:"#f4f2ec",border:"1px dashed #cfc9bd",borderRadius:4,color:"#9a958a",cursor:"pointer",fontSize:9}}>
+                    <input type="file" accept="image/*" onChange={e=>onFoto(d.id,r.id,e)} style={{display:"none"}}/>+ foto
+                  </label>
+                )}
+              </td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.ubic} onChange={e=>updRow(d.id,r.id,"ubic",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
+              <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.plano} onChange={e=>updRow(d.id,r.id,"plano",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
+              <td style={{padding:"3px"}}><button onClick={()=>delRow(d.id,r.id)} style={{...sb,padding:4,background:"transparent",color:C.dim}}><IconTrash/></button></td>
+            </tr>
+          ) : (
+            <tr key={r.id} style={{borderBottom:"1px solid #eee"}}>
+              <td style={cellRO}>{r.cod||""}</td>
+              <td style={cellRO}>{r.tipo||""}</td>
+              <td style={cellRO}>{r.cant}</td>
+              <td style={cellRO}>{r.desc||""}</td>
+              <td style={cellRO}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3}}>{r.luz}</span>:"—"}</td>
+              <td style={{...cellRO,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:60,maxHeight:44,borderRadius:3}}/>:"—"}</td>
+              <td style={cellRO}>{r.ubic||""}</td>
+              <td style={cellRO}>{r.plano||""}</td>
+              <td></td>
+            </tr>
+          ))}
+          {(d.rows||[]).length===0 && <tr><td colSpan={9} style={{padding:"8px",textAlign:"center",color:C.dim,fontSize:11}}>Sin materiales</td></tr>}
+        </tbody>
+      </table>
+      {ed && <button onClick={()=>addRow(d.id)} style={{...sb,background:TP,color:"#fff",marginTop:12,fontSize:12}}><IconPlus/> Agregar material</button>}
+
+      <div style={{marginTop:18,borderTop:"1px solid #e2ded5",paddingTop:12,fontSize:11,color:"#55504a",minWidth:600}}>
+        <div style={{marginBottom:10,display:"flex",alignItems:"center",gap:8}}><span style={{color:"#9a958a"}}>Autorizó_</span>{ed? <input value={d.autorizo||""} onChange={e=>setField(d.id,"autorizo",e.target.value)} style={{...si,fontSize:12,padding:"4px 6px",width:240}}/> : <b style={{color:"#2f2f2b"}}>{d.autorizo||""}</b>}</div>
+        <div style={{fontWeight:600,color:"#2f2f2b",marginBottom:6}}>Emitir Factura a:</div>
+        <div style={{display:"grid",gridTemplateColumns:"130px 1fr",gap:"6px 14px",maxWidth:460}}>
+          {[["Razón Social","razonSocial"],["RFC","rfc"],["Uso CFDI","usoCfdi"],["Enviar factura a","enviarA"]].map(([lbl,key])=>(
+            <React.Fragment key={key}><span style={{color:"#9a958a",alignSelf:"center"}}>{lbl}</span>{ed? <input value={d[key]||""} onChange={e=>setField(d.id,key,e.target.value)} style={{...si,fontSize:12,padding:"4px 6px"}}/> : <span style={{padding:"4px 0"}}>{d[key]||""}</span>}</React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text,margin:0}}>Requisición Eléctrico</h2>
+        <button onClick={addReq} style={{...sb,background:C.accent,color:"#fff",fontSize:13}}><IconPlus/> Agregar requisición nueva</button>
+      </div>
+
+      {list.map((d,idx)=>(
+        <div key={d.id} style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,marginBottom:12,overflow:"hidden"}}>
+          <div onClick={()=>toggle(d.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:d.collapsed?"#f3f2ec":"#faf9f4",cursor:"pointer",flexWrap:"wrap"}}>
+            <IconChevron open={!d.collapsed}/>
+            <span style={{fontWeight:600,color:C.text,fontSize:14}}>Requisición {idx+1}</span>
+            <span style={{fontSize:12,color:C.muted}}>Orden {d.noOrden||"—"}{d.proveedor?(" · "+d.proveedor):""}</span>
+            {d.saved
+              ? <span style={{fontSize:10,background:"#e6ebd4",color:"#5b6033",padding:"2px 8px",borderRadius:20,fontWeight:600}}>Guardada</span>
+              : <span style={{fontSize:10,background:"#f4e3cf",color:"#8a5a1b",padding:"2px 8px",borderRadius:20,fontWeight:600}}>En curso</span>}
+            <span style={{marginLeft:"auto",fontSize:11,color:C.dim}}>{(d.rows||[]).length} material(es)</span>
+          </div>
+          {!d.collapsed && (
+            <div style={{padding:"8px 16px 16px"}}>
+              {renderForm(d, !d.saved)}
+              <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
+                {!d.saved
+                  ? <button onClick={()=>saveReq(d.id)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>💾 Guardar y plegar requisición</button>
+                  : <button onClick={()=>reopen(d.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}>✎ Reabrir para editar</button>}
+                <button onClick={()=>delReq(d.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12,marginLeft:"auto"}}><IconTrash/> Eliminar requisición</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ElectricReqPrintView({reqs}) {
+  const list = (Array.isArray(reqs) && reqs.length) ? reqs : [{}];
+  const TP="#a8a08f", TPL="#efece5";
+  const cell={padding:"5px 6px",border:"0.5px solid #cfcabf",fontSize:8.5,color:"#333",textAlign:"center"};
+  const fmtDate=(s)=>{ try{ return s? new Date(s+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}):""; }catch(e){return s||"";} };
+  return (
+    <div id="print-area" style={{padding:"14px 18px",fontFamily:"Arial,Helvetica,sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <style>{"@page{size: A4 landscape; margin:6mm;}"}</style>
+      {list.map((d,di)=>{
+        const rows=d.rows||[];
+        return (
+          <div key={d.id||di} style={{pageBreakBefore: di>0?"always":"auto", breakBefore: di>0?"page":"auto", paddingTop: di>0?6:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20}}>
+              <div style={{flexShrink:0}}>
+                <h1 style={{margin:0,fontSize:30,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+                <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+              </div>
+              <table style={{borderCollapse:"collapse",fontSize:8.5,minWidth:300}}>
+                <tbody>
+                  <tr><td style={{padding:"2px 8px",background:TP,color:"#fff",border:"1px solid #fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>No. Orden</td><td style={{padding:"2px 8px",background:TP,color:"#fff",textAlign:"right",border:"1px solid #fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{d.noOrden||""}</td></tr>
+                  {[["Proveedor",d.proveedor],["Fecha",fmtDate(d.fecha)],["Semana",d.semana],["Obra",d.obra],["Dirección de entrega",d.dir],["Solicitó",d.solicito]].map(([lbl,val],i)=>(
+                    <tr key={i}><td style={{padding:"2px 8px",background:TPL,border:"1px solid #fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{lbl}</td><td style={{padding:"2px 8px",textAlign:"right",border:"1px solid "+TPL}}>{val||""}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{background:TP,textAlign:"center",padding:"5px",margin:"10px 0 0",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+              <span style={{fontFamily:"Georgia,serif",fontSize:13,fontWeight:700,color:"#2b2620",letterSpacing:1}}>{d.titulo||"REQUISICIÓN ELÉCTRICO"}</span>
+            </div>
+            <table style={{borderCollapse:"collapse",width:"100%",fontSize:8.5}}>
+              <thead><tr style={{background:TP,color:"#fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+                {["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"].map((h,i)=>(
+                  <th key={i} style={{padding:"5px 6px",border:"0.5px solid #fff",fontWeight:700,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {rows.map((r,i)=>(
+                  <tr key={r.id||i}>
+                    <td style={cell}>{r.cod||""}</td>
+                    <td style={cell}>{r.tipo||""}</td>
+                    <td style={cell}>{r.cant}</td>
+                    <td style={cell}>{r.desc||""}</td>
+                    <td style={cell}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{r.luz}</span>:""}</td>
+                    <td style={{...cell,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:70,maxHeight:50}}/>:""}</td>
+                    <td style={cell}>{r.ubic||""}</td>
+                    <td style={cell}>{r.plano||""}</td>
+                  </tr>
+                ))}
+                {rows.length===0 && <tr><td colSpan={8} style={{...cell,color:"#999"}}>Sin materiales</td></tr>}
+              </tbody>
+            </table>
+            <div style={{marginTop:14,fontSize:9,color:"#444",lineHeight:1.5}}>
+              <div style={{marginBottom:6}}>Autorizó_ <b>{d.autorizo||""}</b></div>
+              <div style={{fontWeight:700}}>Emitir Factura a:</div>
+              <div>Razón Social: {d.razonSocial||""}</div>
+              <div>RFC: {d.rfc||""}</div>
+              <div>Uso CFDI: {d.usoCfdi||""}</div>
+              <div>Enviar factura a {d.enviarA||""}</div>
+              <div style={{marginTop:8,borderTop:"1px solid #ddd",paddingTop:6,fontSize:8,color:"#999",textAlign:"center"}}>Herza Studio · Arquitectura comercial &amp; de interiores · administracion@herzastudio.com</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PaymentsPrintView({project, payments, grandTotal}) {
+  const fmt = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const totalPaid = (payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const balance = (grandTotal||0) - totalPaid;
+  let dateStr = "";
+  try { if (project.date) { dateStr = new Date(project.date+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } } catch(e){}
+  const pDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
+  return (
+    <div id="print-area" style={{padding:"24px 32px 32px",fontFamily:"Arial, Helvetica, sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:60}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:34,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <div style={{fontSize:10,lineHeight:1.7,paddingTop:6,minWidth:240}}>
+          <div><span style={{fontWeight:700}}>Proyecto: </span>{project.name}</div>
+          <div><span style={{fontWeight:700}}>Cliente: </span>{project.client||""}</div>
+          <div><span style={{fontWeight:700}}>Fecha: </span>{dateStr}</div>
+          <div><span style={{fontWeight:700}}>Ubicación: </span>{project.location||""}</div>
+        </div>
+      </div>
+      <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
+      <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>BALANCE DE PAGOS</span>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+        <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+          {["FECHA","CONCEPTO","MÉTODO","MONTO"].map((h,i)=>(<th key={i} style={{padding:"7px 6px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i===3?"right":"left",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+        </tr></thead>
+        <tbody>
+          {(payments||[]).map((p,idx)=>(
+            <tr key={p.id||idx} style={{borderBottom:"0.5px solid #e0e0e0"}}>
+              <td style={{padding:"6px",borderLeft:"none"}}>{pDate(p.date)}</td>
+              <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{p.concept||""}</td>
+              <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{p.method||""}</td>
+              <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmt(parseFloat(p.amount)||0)}</td>
+            </tr>
+          ))}
+          {(!payments||payments.length===0) && (
+            <tr><td colSpan={4} style={{padding:"10px 6px",textAlign:"center",color:"#999"}}>Sin pagos registrados</td></tr>
+          )}
+        </tbody>
+      </table>
+      <div style={{maxWidth:300,marginLeft:"auto",marginTop:16,fontSize:11}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Pagado</span><span>{fmt(totalPaid)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Monto Presupuesto</span><span>{fmt(grandTotal)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14,borderTop:"2px solid #b5a393",marginTop:6}}><span>SALDO AL DÍA</span><span style={{color:"#9a8774"}}>{fmt(balance)}</span></div>
+      </div>
+      <div style={{marginTop:24,fontSize:9,color:"#666",lineHeight:1.6}}>
+        <p style={{margin:"2px 0"}}>• Se requiere de un 60% de anticipo para comenzar cualquier trabajo. En caso de requerir factura, sumar impuestos aplicables.</p>
+      </div>
+      <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
+        <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
+        <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
+        <div>administracion@herzastudio.com · 56.5688.6986</div>
+      </div>
+    </div>
+  );
+}
+
+function ExpensesPrintView({project, expenseWeeks}) {
+  const fmt = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const weeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
+  const wkTotal = (w) => (w.expenses||[]).reduce((s,e)=>s+e.qty*e.price,0);
+  const grandMonto = weeks.reduce((s,w)=>s+wkTotal(w),0);
+  const grandGer = grandMonto*0.10;
+  let dateStr = "";
+  try { if (project.date) { dateStr = new Date(project.date+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } } catch(e){}
+  const pDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
+  const renderTable = (list, title) => (
+    <div style={{marginTop:10}}>
+      <div style={{margin:"0 0 6px",padding:"5px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:10,fontWeight:700,color:"#111",letterSpacing:1}}>{title}</span>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:9.5}}>
+        <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE"].map((h,i)=>(<th key={i} style={{padding:"6px 5px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i>=5?"right":"left",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+        </tr></thead>
+        <tbody>
+          {list.map((e,idx)=>(
+            <tr key={e.id||idx} style={{borderBottom:"0.5px solid #e0e0e0"}}>
+              <td style={{padding:"5px"}}>{pDate(e.date)}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8"}}>{e.agent||""}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8"}}>{e.description||""}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8"}}>{e.concept||""}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8"}}>{e.unit||""}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{e.qty}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmt(e.price)}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right",fontWeight:600}}>{fmt(e.qty*e.price)}</td>
+            </tr>
+          ))}
+          {list.length===0 && (
+            <tr><td colSpan={8} style={{padding:"8px 5px",textAlign:"center",color:"#999"}}>Sin registros</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+  return (
+    <div id="print-area" style={{padding:"24px 32px 32px",fontFamily:"Arial, Helvetica, sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:60}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:34,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <div style={{fontSize:10,lineHeight:1.7,paddingTop:6,minWidth:240}}>
+          <div><span style={{fontWeight:700}}>Proyecto: </span>{project.name}</div>
+          <div><span style={{fontWeight:700}}>Cliente: </span>{project.client||""}</div>
+          <div><span style={{fontWeight:700}}>Fecha: </span>{dateStr}</div>
+          <div><span style={{fontWeight:700}}>Ubicación: </span>{project.location||""}</div>
+        </div>
+      </div>
+      <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
+      <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>RELACIÓN DE GASTOS SEMANAL</span>
+      </div>
+      {weeks.map((w,i)=>{
+        const t = wkTotal(w); const g = t*0.10;
+        const transf = (w.expenses||[]).filter(e=>e.method==="TRANSFERENCIA");
+        const efec = (w.expenses||[]).filter(e=>e.method==="EFECTIVO");
+        return (
+          <div key={w.id||i} style={{marginTop:18,breakInside:"avoid",pageBreakInside:"avoid"}}>
+            <div style={{margin:"0 0 4px",padding:"5px 10px",background:"#e7e3da",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+              <span style={{fontSize:10,fontWeight:700,color:"#111",letterSpacing:0.5}}>SEMANA {i+1}{w.date?(" — "+pDate(w.date)):""}</span>
+            </div>
+            {renderTable(transf,"PAGOS VÍA TRANSFERENCIA")}
+            {renderTable(efec,"PAGOS EN EFECTIVO")}
+            <div style={{maxWidth:300,marginLeft:"auto",marginTop:8,fontSize:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><span>Monto pagado semana</span><span style={{fontWeight:600}}>{fmt(t)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><span>Gerenciamiento 10%</span><span>{fmt(g)}</span></div>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{maxWidth:320,marginLeft:"auto",marginTop:20,fontSize:11,breakInside:"avoid",pageBreakInside:"avoid"}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontWeight:700,fontSize:13,borderTop:"2px solid #b5a393",paddingTop:8}}><span>TOTAL MONTO PAGADO</span><span>{fmt(grandMonto)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14}}><span>TOTAL GERENCIAMIENTO PAGADO</span><span style={{color:"#9a8774"}}>{fmt(grandGer)}</span></div>
+      </div>
+      <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
+        <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
+        <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
+        <div>administracion@herzastudio.com · 56.5688.6986</div>
+      </div>
+    </div>
+  );
+}
+
+function resumenCalc(grandTotal, payments, providers) {
+  const cobrado = (payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const asignado = (providers||[]).reduce((s,p)=>s+(parseFloat(p.asignado)||0),0);
+  const pagadoProv = (providers||[]).reduce((s,p)=>s+(p.pagos||[]).reduce((a,r)=>a+(parseFloat(r.monto)||0),0),0);
+  const gt = grandTotal||0;
+  return { gt, cobrado, saldoCli: gt-cobrado, asignado, pagadoProv, saldoProv: asignado-pagadoProv, margen: gt-pagadoProv, margenPct: gt?Math.round((gt-pagadoProv)/gt*100):0, flujo: cobrado-pagadoProv };
+}
+const money = (n)=>"$"+(n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function ResumenTab({grandTotal, payments, providers, mgmt, mgmtPct}) {
+  const r = resumenCalc(grandTotal, payments, providers);
+  const tile = (label,val,color)=>(
+    <div style={{background:"#f1f0ea",borderRadius:8,padding:"12px 14px"}}>
+      <div style={{fontSize:11,color:"#7a7a70",letterSpacing:0.5}}>{label}</div>
+      <div style={{fontSize:20,fontWeight:600,marginTop:4,color:color||C.text}}>{money(val)}</div>
+    </div>
+  );
+  const row = (label,val,sub,color)=>(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",padding:"7px 0",fontSize:14}}>
+      <span style={{color:C.muted}}>{label}{sub&&<span style={{color:C.dim,fontSize:12}}> {sub}</span>}</span>
+      <span style={{fontWeight:600,color:color||C.text}}>{money(val)}</span>
+    </div>
+  );
+  return (
+    <div>
+      <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:C.text}}>Resumen Financiero de Obra</h2>
+      <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"18px 20px",maxWidth:720}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:18}}>
+          {tile("PRESUPUESTO (CLIENTE)", r.gt)}
+          {tile("COBRADO AL CLIENTE", r.cobrado, C.success)}
+          {tile("PROVEEDORES ASIGNADO", r.asignado)}
+          {tile("PAGADO A PROVEEDORES", r.pagadoProv, C.success)}
+        </div>
+        <div style={{borderTop:"1px solid "+C.border,paddingTop:14}}>
+          {row("Gerenciamiento ("+(mgmtPct||0)+"%)", mgmt||0, "incluido en el presupuesto")}
+          {row("Saldo por cobrar al cliente", r.saldoCli, null, r.saldoCli>0?C.danger:C.success)}
+          {row("Saldo por pagar a proveedores", r.saldoProv, null, r.saldoProv>0?C.danger:C.success)}
+          {row("Margen a la fecha", r.margen, "(Presupuesto − Pagado real · "+r.margenPct+"%)", r.margen>=0?C.success:C.danger)}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",padding:"10px 0 2px",fontSize:16,fontWeight:700,borderTop:"2px solid "+C.accent2,marginTop:6}}>
+            <span>Flujo neto a la fecha <span style={{color:C.dim,fontSize:12,fontWeight:400}}>(Cobrado − Pagado prov.)</span></span>
+            <span style={{color:r.flujo>=0?C.success:C.danger}}>{money(r.flujo)}</span>
+          </div>
+        </div>
+      </div>
+      <p style={{fontSize:12,color:"#7a7a70",marginTop:12,lineHeight:1.6,maxWidth:720}}>Se calcula solo a partir de lo que ya capturas: el Gran Total de la Cotización, los pagos del cliente (Balance de Pagos) y los Pagos a Proveedores.</p>
+    </div>
+  );
+}
+
+function ResumenPrintView({project, grandTotal, payments, providers, mgmt, mgmtPct}) {
+  const r = resumenCalc(grandTotal, payments, providers);
+  let dateStr = "";
+  try { dateStr = new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } catch(e){}
+  const line = (label,val,strong,color)=>(
+    <tr style={{borderBottom:"0.5px solid #e8e8e8"}}>
+      <td style={{padding:"7px 8px",fontSize:strong?11:10,fontWeight:strong?700:400,color:"#333"}}>{label}</td>
+      <td style={{padding:"7px 8px",fontSize:strong?12:10,fontWeight:strong?700:600,textAlign:"right",color:color||"#333"}}>{money(val)}</td>
+    </tr>
+  );
+  return (
+    <div id="print-area" style={{padding:"24px 32px 32px",fontFamily:"Arial, Helvetica, sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:60}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:34,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <div style={{fontSize:10,lineHeight:1.7,paddingTop:6,minWidth:240}}>
+          <div><span style={{fontWeight:700}}>Obra: </span>{project.name}</div>
+          <div><span style={{fontWeight:700}}>Cliente: </span>{project.client||""}</div>
+          <div><span style={{fontWeight:700}}>Fecha: </span>{dateStr}</div>
+          <div><span style={{fontWeight:700}}>Ubicación: </span>{project.location||""}</div>
+        </div>
+      </div>
+      <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
+      <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>RESUMEN FINANCIERO DE OBRA</span>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",maxWidth:480,marginLeft:"auto",marginRight:"auto"}}>
+        <tbody>
+          <tr style={{background:"#efece6",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={2} style={{padding:"5px 8px",fontSize:8,fontWeight:700,letterSpacing:1,color:"#555"}}>CLIENTE</td></tr>
+          {line("Presupuesto (Gran Total)", r.gt)}
+          {line("Gerenciamiento ("+(mgmtPct||0)+"%)", mgmt||0)}
+          {line("Cobrado al cliente", r.cobrado, false, "#3b7a3b")}
+          {line("Saldo por cobrar", r.saldoCli, true, r.saldoCli>0?"#9a3b3b":"#3b7a3b")}
+          <tr style={{background:"#efece6",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={2} style={{padding:"5px 8px",fontSize:8,fontWeight:700,letterSpacing:1,color:"#555"}}>PROVEEDORES</td></tr>
+          {line("Asignado a proveedores", r.asignado)}
+          {line("Pagado a proveedores", r.pagadoProv, false, "#3b7a3b")}
+          {line("Saldo por pagar", r.saldoProv, true, r.saldoProv>0?"#9a3b3b":"#3b7a3b")}
+          <tr style={{background:"#efece6",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={2} style={{padding:"5px 8px",fontSize:8,fontWeight:700,letterSpacing:1,color:"#555"}}>RESULTADO</td></tr>
+          {line("Margen a la fecha (Presupuesto − Pagado real · "+r.margenPct+"%)", r.margen, true, r.margen>=0?"#3b7a3b":"#9a3b3b")}
+        </tbody>
+      </table>
+      <div style={{maxWidth:480,margin:"16px auto 0"}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"10px 8px",fontWeight:700,fontSize:14,borderTop:"2px solid #b5a393"}}><span>FLUJO NETO A LA FECHA</span><span style={{color:r.flujo>=0?"#3b7a3b":"#9a3b3b"}}>{money(r.flujo)}</span></div>
+        <div style={{fontSize:8,color:"#888",textAlign:"right",paddingRight:8}}>Cobrado del cliente − Pagado a proveedores</div>
+      </div>
+      <div id="page-footer" style={{marginTop:28,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
+        <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
+        <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
+        <div>administracion@herzastudio.com · 56.5688.6986</div>
+      </div>
+    </div>
+  );
+}
+
+function ProveedoresTab({providers, setProviders, categories, items}) {
+  const list = providers || [];
+  const catSubtotal = (catId) => ((items&&items[catId])||[]).reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
+  const catList = [...(categories||[])].sort((a,b)=>(parseFloat(a.num)||0)-(parseFloat(b.num)||0)).filter(c=>c.name && c.name.trim());
+  useEffect(()=>{ if((providers||[]).length===0 && catList.length){ setProviders(catList.map(c=>({id:"PV_"+uid(),nombre:c.name,asignado:catSubtotal(c.id),pagos:[]}))); } }, []);
+  const cargarRubros = ()=>setProviders(prev=>{ const ex=prev||[]; const names=new Set(ex.map(p=>(p.nombre||"").trim().toUpperCase())); const add=catList.filter(c=>!names.has(c.name.trim().toUpperCase())).map(c=>({id:"PV_"+uid(),nombre:c.name,asignado:catSubtotal(c.id),pagos:[]})); return [...ex,...add]; });
+  const updProv = (id,f,v)=>setProviders(prev=>(prev||[]).map(p=>p.id===id?{...p,[f]:v}:p));
+  const addProv = ()=>setProviders(prev=>[...(prev||[]),emptyProvider()]);
+  const delProv = (id)=>setProviders(prev=>(prev||[]).filter(p=>p.id!==id));
+  const addPago = (pid)=>setProviders(prev=>(prev||[]).map(p=>p.id===pid?{...p,pagos:[...(p.pagos||[]),emptyProvPago()]}:p));
+  const updPago = (pid,rid,f,v)=>setProviders(prev=>(prev||[]).map(p=>p.id===pid?{...p,pagos:(p.pagos||[]).map(r=>r.id===rid?{...r,[f]:v}:r)}:p));
+  const delPago = (pid,rid)=>setProviders(prev=>(prev||[]).map(p=>p.id===pid?{...p,pagos:(p.pagos||[]).filter(r=>r.id!==rid)}:p));
+  const paidOf = (p)=>(p.pagos||[]).reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totAsig = list.reduce((s,p)=>s+(parseFloat(p.asignado)||0),0);
+  const totPaid = list.reduce((s,p)=>s+paidOf(p),0);
+  const totSaldo = totAsig-totPaid;
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:12,flexWrap:"wrap"}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text}}>Pagos a Proveedores</h2>
+        <button onClick={cargarRubros} style={{...sb,background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Agregar como proveedores los rubros del presupuesto que falten">↻ Cargar del presupuesto</button>
+      </div>
+      {list.length===0 && (
+        <div style={{background:C.card,border:"1px dashed "+C.border,borderRadius:12,padding:"32px 20px",textAlign:"center",marginBottom:16,color:C.muted,fontSize:13}}>Aún no hay proveedores. Agrega el primero para llevar el control de pagos y saldos.</div>
+      )}
+      {list.map((p,pi)=>{
+        const paid = paidOf(p);
+        const saldo = (parseFloat(p.asignado)||0) - paid;
+        return (
+        <div key={p.id} style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,marginBottom:16,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,background:"#a39e90",padding:"10px 12px",flexWrap:"wrap"}}>
+            <span style={{color:"#fff",fontSize:12,fontWeight:700,opacity:0.85}}>{String(pi+1).padStart(2,"0")}</span>
+            <input value={p.nombre} onChange={e=>updProv(p.id,"nombre",e.target.value)} placeholder="Nombre del proveedor" style={{flex:1,minWidth:160,background:"transparent",border:"none",borderBottom:"1px solid rgba(255,255,255,0.4)",color:"#fff",fontSize:14,fontWeight:700,letterSpacing:0.5,outline:"none",padding:"2px 0"}}/>
+            <span style={{color:"#fff",fontSize:11,fontWeight:600,opacity:0.9}}>Asignado</span>
+            <input type="number" min="0" step="1000" value={p.asignado} onChange={e=>updProv(p.id,"asignado",parseFloat(e.target.value)||0)} style={{width:120,background:"rgba(255,255,255,0.92)",border:"none",borderRadius:6,color:C.text,fontSize:13,fontWeight:600,textAlign:"right",padding:"5px 8px",outline:"none"}}/>
+            <button onClick={()=>addPago(p.id)} style={{...sb,padding:"5px 12px",background:"rgba(255,255,255,0.2)",color:"#fff",fontSize:12}}>+ Pago</button>
+            <button onClick={()=>delProv(p.id)} style={{...sb,padding:"5px 9px",background:"transparent",color:"#fff",fontSize:14}} title="Eliminar proveedor">✕</button>
+          </div>
+          <div style={{padding:"8px 14px 14px"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>
+                {["FECHA DE PAGO","MÉTODO","MONTO",""].map((h,i)=>(<th key={i} style={{padding:"6px 6px",fontSize:10,color:C.dim,textAlign:i===2?"right":"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>))}
+              </tr></thead>
+              <tbody>
+                {(p.pagos||[]).map(r=>(
+                  <tr key={r.id}>
+                    <td style={{padding:"4px 6px"}}><input type="date" value={r.fecha} onChange={e=>updPago(p.id,r.id,"fecha",e.target.value)} style={{...si,width:160,fontSize:12}}/></td>
+                    <td style={{padding:"4px 6px"}}><select value={r.metodo||"TRANSFERENCIA"} onChange={e=>updPago(p.id,r.id,"metodo",e.target.value)} style={{...si,width:150,fontSize:12}}><option>TRANSFERENCIA</option><option>EFECTIVO</option><option>CHEQUE</option><option>TARJETA</option></select></td>
+                    <td style={{padding:"4px 6px"}}><input type="number" min="0" step="100" value={r.monto} onChange={e=>updPago(p.id,r.id,"monto",parseFloat(e.target.value)||0)} style={{...si,width:140,textAlign:"right",fontSize:12}}/></td>
+                    <td style={{padding:"4px 2px"}}><button onClick={()=>delPago(p.id,r.id)} style={{...sb,padding:6,background:"transparent",color:C.dim}}><IconTrash/></button></td>
+                  </tr>
+                ))}
+                {(p.pagos||[]).length===0 && <tr><td colSpan={4} style={{padding:"8px 6px",fontSize:12,color:C.dim}}>Sin pagos registrados</td></tr>}
+              </tbody>
+            </table>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:24,marginTop:10,fontSize:12,flexWrap:"wrap"}}>
+              <span style={{color:C.muted}}>Pagado: <strong style={{color:C.success}}>{fmt(paid)}</strong></span>
+              <span style={{color:C.muted}}>Saldo: <strong style={{color:saldo>0?C.danger:C.success}}>{fmt(saldo)}</strong></span>
+            </div>
+          </div>
+        </div>
+        );
+      })}
+      <button onClick={addProv} style={{...sb,background:"transparent",color:C.accent,fontWeight:700,fontSize:13}}><IconPlus/> Proveedor</button>
+      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,marginTop:20,maxWidth:420,marginLeft:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Asignado</span><span style={{fontWeight:600}}>{fmt(totAsig)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Pagado</span><span style={{fontWeight:600,color:C.success}}>{fmt(totPaid)}</span></div>
+        <div style={{borderTop:"2px solid "+(totSaldo>0?C.danger:C.success),marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:700}}>
+          <span>Saldo Total</span><span style={{color:totSaldo>0?C.danger:C.success}}>{fmt(totSaldo)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProveedoresPrintView({project, providers}) {
+  const fmtP = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const list = (providers||[]).filter(p=>p.nombre || (parseFloat(p.asignado)||0) || (p.pagos||[]).length);
+  const paidOf = (p)=>(p.pagos||[]).reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totAsig = list.reduce((s,p)=>s+(parseFloat(p.asignado)||0),0);
+  const totPaid = list.reduce((s,p)=>s+paidOf(p),0);
+  const totSaldo = totAsig-totPaid;
+  let dateStr = "";
+  try { dateStr = new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } catch(e){}
+  const pDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
+  return (
+    <div id="print-area" style={{padding:"24px 32px 32px",fontFamily:"Arial, Helvetica, sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:60}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:34,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <div style={{fontSize:10,lineHeight:1.7,paddingTop:6,minWidth:240}}>
+          <div><span style={{fontWeight:700}}>Obra: </span>{project.name}</div>
+          <div><span style={{fontWeight:700}}>Cliente: </span>{project.client||""}</div>
+          <div><span style={{fontWeight:700}}>Fecha: </span>{dateStr}</div>
+          <div><span style={{fontWeight:700}}>Ubicación: </span>{project.location||""}</div>
+        </div>
+      </div>
+      <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
+      <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>CONTROL DE PAGOS A PROVEEDORES</span>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+        <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+          {["#","FECHA DE PAGO","MÉTODO","MONTO"].map((h,i)=>(<th key={i} style={{padding:"7px 6px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i===0?"center":(i===3?"right":"left"),fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+        </tr></thead>
+        <tbody>
+          {list.map((p,pi)=>{
+            const pagos=(p.pagos||[]).filter(r=>(parseFloat(r.monto)||0)||r.fecha);
+            const paid=paidOf(p);
+            const asig=parseFloat(p.asignado)||0;
+            const saldo=asig-paid;
+            return [
+              <tr key={p.id+"_h"} style={{background:"#c2b098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={3} style={{padding:"6px 8px",fontSize:9,fontWeight:700,letterSpacing:1,color:"#fff"}}>{String(pi+1).padStart(2,"0")} — {(p.nombre||"").toUpperCase()}</td><td style={{padding:"6px 8px",fontSize:9,fontWeight:700,color:"#fff",textAlign:"right"}}>Asignado: {fmtP(asig)}</td></tr>,
+              ...(pagos.length?pagos.map((r,ri)=>(
+                <tr key={r.id} style={{borderBottom:"0.5px solid #e0e0e0"}}>
+                  <td style={{padding:"6px",textAlign:"center"}}>{ri+1}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{pDate(r.fecha)}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.metodo||""}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmtP(parseFloat(r.monto)||0)}</td>
+                </tr>
+              )):[<tr key={p.id+"_e"}><td colSpan={4} style={{padding:"6px",textAlign:"center",color:"#999"}}>Sin pagos</td></tr>]),
+              <tr key={p.id+"_s"} style={{borderBottom:"1px solid #ccc"}}><td colSpan={2} style={{padding:"5px 8px"}}></td><td style={{padding:"5px 8px",textAlign:"right",fontWeight:600,fontSize:9}}>Pagado {fmtP(paid)} · Saldo</td><td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:saldo>0?"#9a3b3b":"#3b7a3b"}}>{fmtP(saldo)}</td></tr>
+            ];
+          })}
+          {list.length===0 && <tr><td colSpan={4} style={{padding:"10px",textAlign:"center",color:"#999"}}>Sin proveedores registrados</td></tr>}
+        </tbody>
+      </table>
+      <div style={{maxWidth:320,marginLeft:"auto",marginTop:16,fontSize:11}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Asignado</span><span>{fmtP(totAsig)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Pagado</span><span>{fmtP(totPaid)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14,borderTop:"2px solid #b5a393",marginTop:6}}><span>SALDO TOTAL</span><span style={{color:"#9a8774"}}>{fmtP(totSaldo)}</span></div>
+      </div>
+      <div style={{marginTop:24,fontSize:9,color:"#666",lineHeight:1.6}}>
+        <p style={{margin:"2px 0"}}>• Documento de control interno de pagos a proveedores por obra.</p>
+      </div>
+      <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
+        <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
+        <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
+        <div>administracion@herzastudio.com · 56.5688.6986</div>
+      </div>
+    </div>
+  );
+}
+
+function PersonalTab({personal, setPersonal, project}) {
+  const p = personal || defaultPersonal(project);
+  const setP = (patch) => setPersonal(prev=>({...(prev||defaultPersonal(project)), ...patch}));
+  const setGroups = (fn) => setPersonal(prev=>{const base=prev||defaultPersonal(project);return {...base, groups: fn(base.groups||[])};});
+  const updField = (id,f,v)=>setGroups(gs=>gs.map(g=>g.id===id?{...g,[f]:v}:g));
+  const updRow = (gid,rid,f,v)=>setGroups(gs=>gs.map(g=>g.id===gid?{...g,rows:g.rows.map(r=>r.id===rid?{...r,[f]:v}:r)}:g));
+  const addRow = (gid)=>setGroups(gs=>gs.map(g=>g.id===gid?{...g,rows:[...g.rows,{id:"R_"+uid(),n:"",ap:"",am:""}]}:g));
+  const delRow = (gid,rid)=>setGroups(gs=>gs.map(g=>g.id===gid?{...g,rows:g.rows.filter(r=>r.id!==rid)}:g));
+  const addGroup = ()=>setGroups(gs=>[...gs,{id:"G_"+uid(),oficio:"NUEVO OFICIO",rows:[{id:"R_"+uid(),n:"",ap:"",am:""}]}]);
+  const delGroup = (gid)=>setGroups(gs=>gs.filter(g=>g.id!==gid));
+  const prefill = ()=>setPersonal(prev=>{const base=prev||defaultPersonal(project);return {...base, obra: base.obra||project.name||"", dir: base.dir||project.location||""};});
+  const fechaStr = new Date().toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text}}>Personal de Obra</h2>
+        <button onClick={prefill} style={{...sb,background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Copiar Obra y Dirección desde los datos del proyecto">↻ Usar datos del proyecto</button>
+      </div>
+      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <div>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:1,marginBottom:6}}>OBRA</label>
+            <input value={p.obra||""} onChange={e=>setP({obra:e.target.value})} placeholder="Nombre de la obra" style={si}/>
+          </div>
+          <div>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:1,marginBottom:6}}>DIRECCIÓN DE OBRA</label>
+            <input value={p.dir||""} onChange={e=>setP({dir:e.target.value})} placeholder="Dirección" style={si}/>
+          </div>
+          <div>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:1,marginBottom:6}}>ELABORÓ</label>
+            <input value={p.elab||""} onChange={e=>setP({elab:e.target.value})} placeholder="Quién elaboró" style={si}/>
+          </div>
+          <div>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:1,marginBottom:6}}>FECHA DE ACTUALIZACIÓN</label>
+            <input value={fechaStr} readOnly style={{...si,background:"#f1f0ea",color:C.dim}}/>
+          </div>
+        </div>
+      </div>
+      {(p.groups||[]).map(g=>(
+        <div key={g.id} style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,marginBottom:16,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"#a39e90",padding:"10px 12px"}}>
+            <input value={g.oficio} onChange={e=>updField(g.id,"oficio",e.target.value)} style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:14,fontWeight:700,letterSpacing:1,outline:"none"}}/>
+            <button onClick={()=>addRow(g.id)} style={{...sb,padding:"5px 12px",background:"rgba(255,255,255,0.2)",color:"#fff",fontSize:12}}>+ Trabajador</button>
+            <button onClick={()=>delGroup(g.id)} style={{...sb,padding:"5px 9px",background:"transparent",color:"#fff",fontSize:14}} title="Eliminar oficio">✕</button>
+          </div>
+          <div style={{padding:"8px 14px 14px"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 32px",gap:10,padding:"6px 0",fontSize:10,fontWeight:700,color:C.dim,letterSpacing:1}}>
+              <span>NOMBRE</span><span>APELLIDO PATERNO</span><span>APELLIDO MATERNO</span><span></span>
+            </div>
+            {g.rows.map(r=>(
+              <div key={r.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 32px",gap:10,marginBottom:8,alignItems:"center"}}>
+                <input value={r.n} onChange={e=>updRow(g.id,r.id,"n",e.target.value)} style={si}/>
+                <input value={r.ap} onChange={e=>updRow(g.id,r.id,"ap",e.target.value)} style={si}/>
+                <input value={r.am} onChange={e=>updRow(g.id,r.id,"am",e.target.value)} style={si}/>
+                <button onClick={()=>delRow(g.id,r.id)} style={{...sb,padding:6,background:"transparent",color:C.danger,justifyContent:"center"}}><IconTrash/></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <button onClick={addGroup} style={{...sb,background:"transparent",color:C.accent,fontWeight:700,fontSize:13}}><IconPlus/> Oficio</button>
+    </div>
+  );
+}
+
+function PersonalPrintView({project, personal}) {
+  const p = personal || {};
+  const groups = (p.groups||[]).filter(g=>g.oficio || (g.rows||[]).some(r=>r.n||r.ap||r.am));
+  const totalTrab = groups.reduce((s,g)=>s+(g.rows||[]).filter(r=>r.n||r.ap||r.am).length,0);
+  let dateStr = "";
+  try { dateStr = new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } catch(e){}
+  return (
+    <div id="print-area" style={{padding:"24px 32px 32px",fontFamily:"Arial, Helvetica, sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:60}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:34,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <div style={{fontSize:10,lineHeight:1.7,paddingTop:6,minWidth:240}}>
+          <div><span style={{fontWeight:700}}>Obra: </span>{p.obra||project.name||""}</div>
+          <div><span style={{fontWeight:700}}>Dirección: </span>{p.dir||project.location||""}</div>
+          <div><span style={{fontWeight:700}}>Elaboró: </span>{p.elab||""}</div>
+          <div><span style={{fontWeight:700}}>Fecha: </span>{dateStr}</div>
+        </div>
+      </div>
+      <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
+      <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>PERSONAL DE OBRA</span>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+        <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+          {["#","NOMBRE","APELLIDO PATERNO","APELLIDO MATERNO"].map((h,i)=>(<th key={i} style={{padding:"7px 6px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i===0?"center":"left",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+        </tr></thead>
+        <tbody>
+          {groups.map((g,gi)=>{
+            const rows=(g.rows||[]).filter(r=>r.n||r.ap||r.am);
+            return [
+              <tr key={g.id+"_h"} style={{background:"#c2b098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={4} style={{padding:"6px 8px",fontSize:9,fontWeight:700,letterSpacing:1,color:"#fff"}}>{String(gi+1).padStart(2,"0")} — {(g.oficio||"").toUpperCase()}</td></tr>,
+              ...(rows.length?rows.map((r,ri)=>(
+                <tr key={r.id} style={{borderBottom:"0.5px solid #e0e0e0"}}>
+                  <td style={{padding:"6px",textAlign:"center"}}>{ri+1}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.n||""}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.ap||""}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.am||""}</td>
+                </tr>
+              )):[<tr key={g.id+"_e"}><td colSpan={4} style={{padding:"6px",textAlign:"center",color:"#999"}}>Sin trabajadores</td></tr>])
+            ];
+          })}
+          {groups.length===0 && <tr><td colSpan={4} style={{padding:"10px",textAlign:"center",color:"#999"}}>Sin personal registrado</td></tr>}
+        </tbody>
+      </table>
+      <div style={{maxWidth:300,marginLeft:"auto",marginTop:16,fontSize:11}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14,borderTop:"2px solid #b5a393",marginTop:6}}><span>TOTAL TRABAJADORES</span><span style={{color:"#9a8774"}}>{totalTrab}</span></div>
+      </div>
+      <div style={{marginTop:24,fontSize:9,color:"#666",lineHeight:1.6}}>
+        <p style={{margin:"2px 0"}}>• Para cualquier queja o aclaración sobre el personal en obra, comunicarse al 56.5688.6986 o administracion@herzastudio.com.</p>
+      </div>
+      <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
+        <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
+        <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
+        <div>administracion@herzastudio.com · 56.5688.6986</div>
+      </div>
+    </div>
+  );
+}
+
+function PrintView({project, categories, items, mgmtPct, ivaPct}) {
+  const subtotal = Object.values(items).flat().reduce((s,i)=>s+i.qty*i.price,0);
+  const mgmt = subtotal*(mgmtPct/100);
+  const iva = (subtotal+mgmt)*(ivaPct/100);
+  const total = subtotal+mgmt+iva;
+  const fmt = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+  let dateStr = "";
+  try { if (project.date) { dateStr = new Date(project.date+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } } catch(e){}
+  return (
+    <div id="print-area" style={{padding:"24px 32px 32px",fontFamily:"Arial, Helvetica, sans-serif",color:"#333",boxSizing:"border-box"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:60}}>
+        <div style={{flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:34,fontWeight:300,color:"#333",letterSpacing:0,lineHeight:1}}>Herza Studio.</h1>
+          <svg width="245" height="12" viewBox="0 0 245 12" style={{display:"block",marginTop:6}}><text x="122.5" y="9" fontSize="7.5" fill="#888" fontFamily="Arial,Helvetica,sans-serif" textAnchor="middle" textLength="225" lengthAdjust="spacingAndGlyphs">INTERIOR DESIGN STUDIO · COMMERCIAL ARCHITECTURE</text></svg>
+        </div>
+        <div style={{fontSize:10,lineHeight:1.7,paddingTop:6,minWidth:240}}>
+          <div><span style={{fontWeight:700}}>Proyecto: </span>{project.name}</div>
+          <div><span style={{fontWeight:700}}>Cliente: </span>{project.client||""}</div>
+          <div><span style={{fontWeight:700}}>Fecha: </span>{dateStr}</div>
+          <div><span style={{fontWeight:700}}>Ubicación: </span>{project.location||""}</div>
+        </div>
+      </div>
+      <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
+      <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>{(project.docTitle||"Cotización de Servicios").toUpperCase()}</span>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+        <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
+          {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE",""].map((h,i)=>(<th key={i} style={{padding:"7px 4px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0&&h?"0.5px solid #bdbdbd":"none",textAlign:i>=4?(i===7?"center":"right"):"center",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+        </tr></thead>
+        {categories.sort((a,b)=>{var na=parseFloat(a.num)||0;var nb=parseFloat(b.num)||0;return na-nb;}).map(cat=><CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} printMode />)}
+      </table>
+      <div style={{maxWidth:300,marginLeft:"auto",marginTop:16,fontSize:11}}>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Gerenciamiento {mgmtPct}%</span><span>{fmt(mgmt)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>IVA {ivaPct}%</span><span>{fmt(iva)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14,borderTop:"2px solid #b5a393",marginTop:6}}><span>GRAN TOTAL</span><span style={{color:"#9a8774"}}>{fmt(total)}</span></div>
+      </div>
+      <div style={{marginTop:24,fontSize:9,color:"#666",lineHeight:1.6}}>
+        <p style={{margin:"2px 0"}}>• Esta cotización será válida hasta 10 días naturales posteriores a su entrega, aunque el trabajo cotizado se haya realizado o no.</p>
+        <p style={{margin:"2px 0"}}>• Cualquier imprevisto que surja en obra siendo caso de remodelación, puede generar un sobre costo al mismo.</p>
+        <p style={{margin:"2px 0"}}>• No incluye licencias, peritos o tramitología ante cualquier dependencia.</p>
+        <p style={{margin:"2px 0"}}>• Se requiere de un 60% de anticipo para comenzar cualquier trabajo.</p>
+      </div>
+      <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
+        <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
+        <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
+        <div>administracion@herzastudio.com · 56.5688.6986</div>
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen({ onLogin }) {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (user.trim().toLowerCase() === "admin" && pass === "579312") {
+      onLogin();
+    } else {
+      setError("Usuario o contraseña incorrectos");
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight:"100vh",
+      background:"#d6d3cd",
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"center",
+      fontFamily:"'Lato',sans-serif",
+      padding:"20px"
+    }}>
+      <div style={{
+        background:"#ffffff",
+        borderRadius:12,
+        padding:"50px 32px",
+        width:"90%",
+        maxWidth:380,
+        boxShadow:"0 4px 20px rgba(0,0,0,0.08)"
+      }}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <h1 style={{margin:0,fontSize:36,fontWeight:300,color:"#4a4a4a",fontFamily:"'Cormorant Garamond',serif",letterSpacing:1}}>Herza Studio.</h1>
+          <p style={{margin:"6px 0 0",fontFamily:"'Lato',sans-serif",fontSize:12,color:"#7a7a7a",letterSpacing:3,fontWeight:300}}>Presupuesto</p>
+          <div style={{width:40,height:2,background:"#aa9170",margin:"16px auto 0",borderRadius:1}}></div>
+          <p style={{margin:"16px 0 0",fontFamily:"'Lato',sans-serif",fontSize:13,fontWeight:300,color:"#a0a0a0"}}>Inicia sesión para continuar</p>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div style={{marginBottom:16}}>
+            <label style={{display:"block",fontSize:12,fontWeight:400,color:"#888",marginBottom:6,letterSpacing:1}}>Usuario</label>
+            <input
+              type="text"
+              placeholder="Ingresa tu usuario"
+              value={user}
+              onChange={(e)=>{setUser(e.target.value);setError("")}}
+              style={{
+                width:"100%",
+                padding:"11px 14px",
+                borderRadius:6,
+                border:"1px solid #ddd",
+                fontSize:13,
+                color:"#4a4a4a",
+                background:"#fafafa",
+                outline:"none",
+                boxSizing:"border-box"
+              }}
+            />
+          </div>
+          <div style={{marginBottom:20}}>
+            <label style={{display:"block",fontSize:12,fontWeight:400,color:"#888",marginBottom:6,letterSpacing:1}}>Contraseña</label>
+            <input
+              type="password"
+              placeholder="Ingresa tu contraseña"
+              value={pass}
+              onChange={(e)=>{setPass(e.target.value);setError("")}}
+              style={{
+                width:"100%",
+                padding:"11px 14px",
+                borderRadius:6,
+                border:"1px solid #ddd",
+                fontSize:13,
+                color:"#4a4a4a",
+                background:"#fafafa",
+                outline:"none",
+                boxSizing:"border-box"
+              }}
+            />
+          </div>
+          {error && <p style={{color:"#c0392b",fontSize:12,margin:"0 0 12px",textAlign:"center"}}>{error}</p>}
+          <button type="submit" style={{
+            width:"100%",
+            padding:"12px",
+            borderRadius:6,
+            border:"none",
+            background:"#6b7c3e",
+            color:"#ffffff",
+            fontSize:14,
+            fontWeight:400,
+            cursor:"pointer",
+            letterSpacing:1,
+            transition:"background 0.2s"
+          }}>
+            Entrar
+          </button>
+        </form>
+      </div>
+      <a href="https://herzastudio.vercel.app/" style={{position:"fixed",top:24,left:24,padding:"10px 24px",background:"#6b7c3e",color:"#fff",textDecoration:"none",borderRadius:6,fontSize:14,fontWeight:600,letterSpacing:1,boxShadow:"0 2px 8px rgba(0,0,0,0.1)",zIndex:10}} title="Ir a Herza Studio Home">⌂ HOME</a>
+    </div>
+  );
+}
+
+function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpdate, onRestore, onDuplicate }) {
+  const sorted = useMemo(()=>[...quotes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)),[quotes]);
+  const TIPOS = ["Comercial","Residencial","Interiorismo","Varias"];
+  const TIPO_ICONS = {Comercial:"🏢",Residencial:"🏠",Interiorismo:"🛋",Varias:"📁"};
+  const [selectedType, setSelectedType] = React.useState(null);
+  const [showTypePicker, setShowTypePicker] = React.useState(false);
+  const filtered = selectedType === "__bin__" ? sorted.filter(q => q.deleted) : selectedType ? sorted.filter(q => !q.deleted && (q.type || "Varias") === selectedType) : sorted.filter(q => !q.deleted);
+  const tipoCounts = TIPOS.reduce((acc,t)=>{ acc[t] = sorted.filter(q => !q.deleted && (q.type || "Varias") === t).length; return acc; }, {}); const binCount = sorted.filter(q => q.deleted).length;
+  const fileRef = React.useRef(null);
+  const handleImport = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    importBackupFromFile(f).then(arr => {
+      const mode = window.confirm("Importar "+arr.length+" cotización(es).\n\nOK = Reemplazar todas las cotizaciones actuales.\nCancelar = Agregar a las existentes (fusionar).");
+      onImport(arr, mode ? "replace" : "merge");
+    }).catch(err => window.alert("Error al importar: "+err.message));
+    e.target.value = "";
+  };
+  const fmtWhen = (t) => {
+    if (!t) return "";
+    const d = new Date(t);
+    return d.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"})+" · "+d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+  };
+  const quoteTotal = (q) => {
+    const sub = Object.values(q.items||{}).flat().reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
+    const mgmt = sub*((q.mgmtPct||0)/100);
+    const iva = mgmt*((q.ivaPct||0)/100);
+    return sub+mgmt+iva;
+  };
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,sans-serif"}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"32px 24px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:32,gap:16,flexWrap:"wrap"}}>
+          <div>
+            <h1 style={{margin:0,fontSize:28,color:"#3a3a3a",fontWeight:400,letterSpacing:0.5,fontFamily:"'Cormorant Garamond','Playfair Display',Georgia,serif"}}>Herza Studio.</h1>
+            <p style={{margin:"4px 0 0",fontSize:11,color:C.dim,letterSpacing:3,textTransform:"uppercase"}}>Presupuesto · Mis Cotizaciones</p>
+            <div style={{width:40,height:1,background:C.accent2,marginTop:8}}></div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} style={{display:"none"}} />
+            <button onClick={()=>fileRef.current && fileRef.current.click()} style={{...sb,padding:"6px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Importar respaldo JSON">↑ Importar</button>
+            <button onClick={()=>exportBackup(quotes)} style={{...sb,padding:"6px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Descargar respaldo JSON de todas las cotizaciones">↓ Exportar respaldo</button>
+            <button onClick={onLogout} style={{...sb,padding:"6px 14px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Cerrar sesión">Cerrar sesión</button>
+            <button onClick={()=>setShowTypePicker(true)} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,padding:"10px 20px"}}><IconPlus/> Nueva cotización</button>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:20}}>{TIPOS.map(t=>(<div key={t} onClick={()=>setSelectedType(selectedType===t?null:t)} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";e.currentTarget.style.background=C.accent+"22";e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.transform="scale(1.02)";}} onDragLeave={e=>{e.currentTarget.style.background=selectedType===t?C.accent+"15":C.card;e.currentTarget.style.borderColor=selectedType===t?C.accent:C.border;e.currentTarget.style.transform="scale(1)";}} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id&&onUpdate)onUpdate(id,{type:t,deleted:false});e.currentTarget.style.background=selectedType===t?C.accent+"15":C.card;e.currentTarget.style.borderColor=selectedType===t?C.accent:C.border;e.currentTarget.style.transform="scale(1)";}} style={{background:selectedType===t?C.accent+"15":C.card,borderRadius:12,border:"2px solid "+(selectedType===t?C.accent:C.border),padding:"16px 14px",cursor:"pointer",transition:"all 0.15s",textAlign:"center"}} onMouseEnter={e=>{if(selectedType!==t){e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}} onMouseLeave={e=>{if(selectedType!==t){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}}><div style={{fontSize:24,marginBottom:6}}>{TIPO_ICONS[t]}</div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:2}}>{t}</div><div style={{fontSize:11,color:C.muted}}>{tipoCounts[t]} {tipoCounts[t]===1?"cotización":"cotizaciones"}</div></div>))}<div key="__bin__" onClick={()=>setSelectedType(selectedType==="__bin__"?null:"__bin__")} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";e.currentTarget.style.background="#dc262622";e.currentTarget.style.borderColor="#dc2626";e.currentTarget.style.transform="scale(1.02)";}} onDragLeave={e=>{e.currentTarget.style.background=selectedType==="__bin__"?"#dc262615":C.card;e.currentTarget.style.borderColor=selectedType==="__bin__"?"#dc2626":C.border;e.currentTarget.style.transform="scale(1)";}} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id&&onUpdate)onUpdate(id,{deleted:true});e.currentTarget.style.background=selectedType==="__bin__"?"#dc262615":C.card;e.currentTarget.style.borderColor=selectedType==="__bin__"?"#dc2626":C.border;e.currentTarget.style.transform="scale(1)";}} style={{background:selectedType==="__bin__"?"#dc262615":C.card,borderRadius:12,border:"2px solid "+(selectedType==="__bin__"?"#dc2626":C.border),padding:"16px 14px",cursor:"pointer",transition:"all 0.15s",textAlign:"center"}} onMouseEnter={e=>{if(selectedType!=="__bin__"){e.currentTarget.style.borderColor="#dc2626";e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}} onMouseLeave={e=>{if(selectedType!=="__bin__"){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}}><div style={{fontSize:24,marginBottom:6}}>🗑️</div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:2}}>Papelera</div><div style={{fontSize:11,color:C.muted}}>{binCount} {binCount===1?"cotización":"cotizaciones"}</div></div></div>{selectedType && (<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,fontSize:13,color:C.muted,flexWrap:"wrap"}}><span>Mostrando carpeta: <strong style={{color:C.text}}>{TIPO_ICONS[selectedType]} {selectedType}</strong></span><button onClick={()=>setSelectedType(null)} style={{...sb,padding:"4px 10px",background:"transparent",color:C.accent,fontSize:12,fontWeight:600}}>Mostrar todas</button></div>)}
+        {selectedType && (filtered.length===0 ? (
+          <div style={{background:C.card,border:"1px dashed "+C.border,borderRadius:12,padding:"60px 24px",textAlign:"center"}}>
+            <p style={{margin:0,fontSize:16,color:C.muted,marginBottom:8}}>Aún no tienes cotizaciones guardadas.</p>
+            <p style={{margin:0,fontSize:13,color:C.dim,marginBottom:20}}>Crea tu primera cotización para comenzar.</p>
+            <button onClick={()=>{ if(selectedType) onNew(selectedType); else setShowTypePicker(true); }} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,padding:"10px 24px"}}><IconPlus/> Nueva cotización</button>
+          </div>
+        ) : (
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
+            {filtered.map(q=>(
+              <div key={q.id} draggable={true} onDragStart={e=>{e.dataTransfer.setData("text/plain",q.id);e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.5";}} onDragEnd={e=>{e.currentTarget.style.opacity="1";}} style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,cursor:"grab",transition:"all 0.15s",position:"relative"}} onClick={()=>onOpen(q.id)}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}
+              >
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:10}}>
+                  <h3 style={{margin:0,fontSize:15,fontWeight:600,color:C.text,wordBreak:"break-word",flex:1}}>{q.project?.name || "Cotización sin nombre"}</h3>
+                  <div style={{display:"flex",gap:4}}>
+                    {q.deleted ? (<button onClick={e=>{e.stopPropagation();if(onRestore)onRestore(q.id)}} title="Restaurar a su carpeta" style={{...sb,padding:"3px 10px",background:C.accent,color:"#fff",fontSize:10,fontWeight:700,marginRight:4,borderRadius:4,cursor:"pointer",border:"none"}}>↻ Restaurar</button>) : (<select value={q.type || "Varias"} onChange={e=>{e.stopPropagation();onUpdate(q.id,{type:e.target.value})}} onClick={e=>e.stopPropagation()} title="Mover a otra carpeta" style={{fontSize:10,padding:"3px 4px",border:"1px solid "+C.border,borderRadius:4,background:C.bg,color:C.muted,marginRight:4,cursor:"pointer"}}><option>Comercial</option><option>Residencial</option><option>Interiorismo</option><option>Varias</option></select>)}<button onClick={e=>{e.stopPropagation();exportSingleQuote(q)}} style={{...sb,padding:"6px 8px",background:"transparent",color:C.accent2,fontSize:12,fontWeight:700}} title="Descargar esta cotización como archivo JSON">↓</button>
+                    {!q.deleted && onDuplicate && <button onClick={e=>{e.stopPropagation();onDuplicate(q.id)}} style={{...sb,padding:6,background:"transparent",color:C.accent}} title="Duplicar cotización"><IconCopy/></button>}
+                    <button onClick={e=>{e.stopPropagation();onDelete(q.id)}} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar cotización"><IconTrash/></button>
+                  </div>
+                </div>
+                <p style={{margin:0,fontSize:12,color:C.muted,marginBottom:4}}>{q.project?.client || "Sin cliente"}</p>
+                <p style={{margin:0,fontSize:11,color:C.dim,marginBottom:14}}>{q.project?.location || "—"}</p>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid "+C.border,paddingTop:12}}>
+                  <span style={{fontSize:10,color:C.dim}}>Actualizada {fmtWhen(q.updatedAt)}</span>
+                  <span style={{fontSize:14,fontWeight:700,color:C.accent}}>{fmt(quoteTotal(q))}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+        {showTypePicker && (<div onClick={()=>setShowTypePicker(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}}><div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"28px 24px",maxWidth:560,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,0.18)"}}><h3 style={{margin:0,fontSize:18,fontWeight:700,color:C.text,marginBottom:6,textAlign:"center"}}>¿Qué tipo de proyecto es?</h3><p style={{margin:0,fontSize:13,color:C.muted,textAlign:"center",marginBottom:20}}>La cotización se guardará en esa carpeta automáticamente.</p><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:18}}>{TIPOS.map(t=>(<button key={t} onClick={()=>{setShowTypePicker(false);onNew(t);}} style={{...sb,background:C.bg,border:"2px solid "+C.border,borderRadius:12,padding:"18px 12px",cursor:"pointer",transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:6}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accent+"15";e.currentTarget.style.transform="translateY(-2px)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.bg;e.currentTarget.style.transform="translateY(0)";}}><div style={{fontSize:32}}>{TIPO_ICONS[t]}</div><div style={{fontSize:13,fontWeight:700,color:C.text}}>{t}</div></button>))}</div><div style={{textAlign:"center"}}><button onClick={()=>setShowTypePicker(false)} style={{...sb,padding:"8px 16px",background:"transparent",color:C.muted,fontSize:13}}>Cancelar</button></div></div></div>)}
+        <div style={{marginTop:40,textAlign:"center",padding:20,borderTop:"1px solid "+C.border,fontSize:11,color:C.dim}}>
+          <p style={{margin:0}}>Herza Studio · Arquitectura comercial & de interiores</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuoteEditor({ quote, onSave, onHome }) {
+  const [project, setProject] = useState(quote.project||{name:"",client:"",date:today(),location:"",docTitle:"Cotización de Servicios"});
+  const [categories, setCategories] = useState(quote.categories||defaultCategories);
+  const [items, setItems] = useState(quote.items||defaultItemsMap());
+  const [mgmtPct, setMgmtPct] = useState(quote.mgmtPct??18);
+  const [ivaPct, setIvaPct] = useState(quote.ivaPct??16);
+  const [activeTab, setActiveTab] = useState("quote");
+  const [payments, setPayments] = useState(quote.payments||[]);
+  const [expenseWeeks, setExpenseWeeks] = useState(()=>migrateExpenseWeeks(quote));
+  const expenses = expenseWeeks.reduce((a,w)=>a.concat(w.expenses||[]),[]);
+  const [materials, setMaterials] = useState(quote.materials||[]);
+  const [electricReqs, setElectricReqs] = useState(()=> migrateElectricReqs(quote));
+  const [personal, setPersonal] = useState(quote.personal||defaultPersonal(quote.project));
+  const [providers, setProviders] = useState(quote.providers||[]);
+  const [printing, setPrinting] = useState(false);
+  const [savedLabel, setSavedLabel] = useState("");
+
+  // Auto-save on any change
+  useEffect(()=>{
+    const t = setTimeout(()=>{
+      onSave({ project, categories, items, mgmtPct, ivaPct, payments, expenses, expenseWeeks, materials, electricReqs, personal, providers });
+      setSavedLabel("✓ Guardado");
+      const t2 = setTimeout(()=>setSavedLabel(""), 1500);
+      return ()=>clearTimeout(t2);
+    }, 400);
+    return ()=>clearTimeout(t);
+  }, [project, categories, items, mgmtPct, ivaPct, payments, expenseWeeks, materials, electricReqs, personal, providers]);
+
+  const subtotal = Object.values(items).flat().reduce((s,i)=>s+i.qty*i.price,0);
+  const mgmt = subtotal*(mgmtPct/100);
+  const iva = (subtotal+mgmt)*(ivaPct/100);
+  const grandTotal = subtotal+mgmt+iva;
+
+  const handleItemChange = useCallback((catId,itemId,field,val)=>{
+    setItems(prev=>({...prev,[catId]:prev[catId].map(i=>i.id===itemId?{...i,[field]:val}:i)}));
+  },[]);
+  const addItem = useCallback((catId,prefix)=>{
+    setItems(prev=>{const existing=prev[catId]||[];return{...prev,[catId]:[...existing,emptyItem(prefix,existing.length+1)]}});
+  },[]);
+  const removeItem = useCallback((catId,itemId)=>{
+    setItems(prev=>({...prev,[catId]:prev[catId].filter(i=>i.id!==itemId)}));
+  },[]);
+  const moveItem = useCallback((catId,itemId,direction)=>{
+    setItems(prev=>{
+      const arr = [...(prev[catId]||[])];
+      const idx = arr.findIndex(i=>i.id===itemId);
+      const newIdx = idx + direction;
+      if (idx < 0 || newIdx < 0 || newIdx >= arr.length) return prev;
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return {...prev,[catId]:arr};
+    });
+  },[]);
+  const addCategory = () => {
+    const num=String(categories.length+1).padStart(2,"0");
+    const id="CAT_"+uid();
+    setCategories(prev=>[...prev,{id,num,name:"NUEVA CATEGORÍA",prefix:"NC"}]);
+    setItems(prev=>({...prev,[id]:[]}));
+  };
+  const removeCategory = (catId) => {
+    setCategories(prev=>prev.filter(c=>c.id!==catId));
+    setItems(prev=>{const n={...prev};delete n[catId];return n});
+  };
+  const moveCategory = (catId, direction) => {
+    setCategories(prev=>{
+      const idx = prev.findIndex(c=>c.id===catId);
+      const newIdx = idx + direction;
+      if (idx < 0 || newIdx < 0 || newIdx >= prev.length) return prev;
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr.map((c,i)=>({...c,num:String(i+1).padStart(2,"0")}));
+    });
+  };
+  const swapCategoriesByDrop = (sourceCatId, targetCatId) => {
+    if (!sourceCatId || !targetCatId || sourceCatId===targetCatId) return;
+    setCategories(prev=>{
+      const src = prev.find(c=>c.id===sourceCatId);
+      const tgt = prev.find(c=>c.id===targetCatId);
+      if (!src || !tgt) return prev;
+      const srcNum = src.num, tgtNum = tgt.num;
+      return prev.map(c=>{
+        if (c.id===sourceCatId) return {...c,num:tgtNum};
+        if (c.id===targetCatId) return {...c,num:srcNum};
+        return c;
+      });
+    });
+  };
+  const updateCategory = (catId,field,val) => {
+    setCategories(prev=>prev.map(c=>c.id===catId?{...c,[field]:val}:c));
+  };
+  const handlePrint = () => {
+    setPrinting(true);
+    var onAfter = () => { setPrinting(false); window.removeEventListener("afterprint", onAfter); };
+    window.addEventListener("afterprint", onAfter);
+    setTimeout(()=>window.print(),350);
+  };
+
+  const tabs=[{id:"quote",label:"Cotización"},{id:"payments",label:"Balance de Pagos"},{id:"expenses",label:"Gastos Semanales"},{id:"materials",label:"Entrega Material"},{id:"electrico",label:"Requisición Eléctrico"},{id:"personal",label:"Personal de Obra"},{id:"providers",label:"Pagos a Proveedores"},{id:"resumen",label:"Resumen"}];
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,sans-serif"}}>
+      {printing && (
+        activeTab==="payments" ? <PaymentsPrintView project={project} payments={payments} grandTotal={grandTotal} />
+        : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} />
+        : activeTab==="electrico" ? <ElectricReqPrintView reqs={electricReqs} />
+        : activeTab==="personal" ? <PersonalPrintView project={project} personal={personal} />
+        : activeTab==="providers" ? <ProveedoresPrintView project={project} providers={providers} />
+        : activeTab==="resumen" ? <ResumenPrintView project={project} grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />
+        : <PrintView project={project} categories={categories} items={items} mgmtPct={mgmtPct} ivaPct={ivaPct} />
+      )}
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"32px 24px"}}>
+        <Header project={project} setProject={setProject} onHome={onHome} savedLabel={savedLabel}
+          onSaveNow={()=>{ const ok = onSave({ project, categories, items, mgmtPct, ivaPct, payments, expenses, expenseWeeks, materials, electricReqs, personal, providers }); setSavedLabel(ok===false?"⚠ Error":"✓ Guardado"); setTimeout(()=>setSavedLabel(""), 2000); }}
+          onDownload={()=>{ exportSingleQuote({ ...quote, project, categories, items, mgmtPct, ivaPct, payments, expenses, expenseWeeks, materials, electricReqs, personal, providers, updatedAt: Date.now() }); }}
+        />
+        <div style={{display:"flex",gap:4,marginBottom:24,borderBottom:"1px solid "+C.border,paddingBottom:0}}>
+          {tabs.map(tab=>(
+            <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{...sb,background:activeTab===tab.id?C.card:"transparent",color:activeTab===tab.id?C.accent:C.muted,borderRadius:"8px 8px 0 0",padding:"10px 20px",borderBottom:activeTab===tab.id?"2px solid "+C.accent:"2px solid transparent",fontSize:13}}>{tab.label}</button>
+          ))}
+          <div style={{flex:1}} />
+          <button onClick={handlePrint} style={{...sb,background:C.accent,color:"#fff",padding:"8px 20px",fontWeight:700}}><IconPdf/> Exportar PDF</button>
+        </div>
+        {activeTab==="quote" && (
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <input value={project.docTitle || "Cotización de Servicios"} onChange={e=>setProject(p=>({...p,docTitle:e.target.value}))} title="Editar título del documento (se usa en el PDF)" placeholder="Título del documento" style={{fontSize:18,fontWeight:600,margin:0,flex:1,maxWidth:520,border:"none",borderBottom:"1px dashed "+C.border,background:"transparent",color:C.text,outline:"none",padding:"2px 0",fontFamily:"inherit"}} onFocus={e=>e.target.style.borderBottomColor=C.accent} onBlur={e=>e.target.style.borderBottomColor=C.border} />
+              <button onClick={addCategory} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}><IconPlus/> Nueva categoría</button>
+            </div>
+            {[...categories].sort((a,b)=>{const na=parseFloat(a.num)||0;const nb=parseFloat(b.num)||0;return na-nb;}).map(cat=>(
+              <CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} onItemChange={(itemId,f,v)=>handleItemChange(cat.id,itemId,f,v)} onAddItem={()=>addItem(cat.id,cat.prefix)} onRemoveItem={itemId=>removeItem(cat.id,itemId)} onMoveItem={(itemId,dir)=>moveItem(cat.id,itemId,dir)} onUpdateCat={(f,v)=>updateCategory(cat.id,f,v)} onRemoveCat={()=>removeCategory(cat.id)} onMoveUp={()=>moveCategory(cat.id,-1)} onMoveDown={()=>moveCategory(cat.id,1)} canMoveUp={categories[0]?.id!==cat.id} canMoveDown={categories[categories.length-1]?.id!==cat.id} onSwapWith={(srcId)=>swapCategoriesByDrop(srcId,cat.id)} />
+            ))}
+            <TotalsSection categories={categories} items={items} mgmtPct={mgmtPct} setMgmtPct={setMgmtPct} ivaPct={ivaPct} setIvaPct={setIvaPct} />
+            <div style={{marginTop:24,padding:16,background:C.card,borderRadius:10,border:"1px solid "+C.border,fontSize:11,color:C.dim,lineHeight:1.8}}>
+              <p style={{margin:0}}>• Esta cotización será válida hasta 10 días naturales posteriores a su entrega, aunque el trabajo cotizado se haya realizado o no.</p>
+              <p style={{margin:0}}>• Cualquier imprevisto que surja en obra siendo caso de remodelación, puede generar un sobre costo al mismo.</p>
+              <p style={{margin:0}}>• No incluye licencias, peritos o tramitología ante cualquier dependencia.</p>
+              <p style={{margin:0}}>• Se requiere de un 60% de anticipo para comenzar cualquier trabajo. En caso de requerir factura, sumar impuestos aplicables.</p>
+            </div>
+          </div>
+        )}
+        {activeTab==="payments" && <PaymentsTab payments={payments} setPayments={setPayments} grandTotal={grandTotal} />}
+        {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} />}
+        {activeTab==="materials" && <MaterialsTab materials={materials} setMaterials={setMaterials} />}
+        {activeTab==="electrico" && <ElectricReqTab reqs={electricReqs} setReqs={setElectricReqs} />}
+        {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} />}
+        {activeTab==="providers" && <ProveedoresTab providers={providers} setProviders={setProviders} categories={categories} items={items} />}
+        {activeTab==="resumen" && <ResumenTab grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />}
+        <div style={{marginTop:40,textAlign:"center",padding:20,borderTop:"1px solid "+C.border,fontSize:11,color:C.dim}}>
+          <p style={{margin:0}}>Herza Studio · Arquitectura comercial & de interiores</p>
+          <p style={{margin:"4px 0"}}>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</p>
+          <p style={{margin:0}}>administracion@herzastudio.com · 56.5688.6986</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [quotes, setQuotes] = useState(loadQuotes);
+  useEffect(()=>{ const ref=fbDb.ref("presupuestos"); const unsub=ref.on("value",(snap)=>{ const cloud=snap.val(); if(cloud&&Array.isArray(cloud)){ setQuotes(function(prev){var m=new Map();var ts=function(q){return (q&&(q.updatedAt||q.at))||0;};var ord=[];var i;for(i=0;i<(cloud||[]).length;i++){var qc=cloud[i];if(qc&&qc.id){ord.push(qc.id);m.set(qc.id,qc);}}var lastSync=window._lastSyncAt||0;for(i=0;i<(prev||[]).length;i++){var qp=prev[i];if(!qp||!qp.id)continue;if(m.has(qp.id)){if(ts(qp)>ts(m.get(qp.id)))m.set(qp.id,qp);}else if(ts(qp)>lastSync){ord.push(qp.id);m.set(qp.id,qp);}}var merged=ord.map(function(id){return m.get(id);}).filter(Boolean);try{localStorage.setItem(QKEY,JSON.stringify(merged));}catch(e){}window._lastSyncAt=Date.now();try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}return merged;}); } }); return ()=>ref.off("value",unsub); },[]);
+
+  const [currentId, setCurrentId] = useState(null);
+
+  const current = currentId ? quotes.find(q => q.id === currentId) : null;
+
+  const openQuote = (id) => setCurrentId(id);
+  const newQuote = (tipo) => {
+    const q = makeNewQuote();
+    if (tipo) q.type = tipo;
+    setQuotes(prev => { const nx = [q, ...prev]; saveAllQuotes(nx); return nx; });
+    setCurrentId(q.id);
+  };
+  const goHome = () => setCurrentId(null);
+  const isQuoteEmpty = (q) => !q || (!q.project?.name?.trim() && !q.project?.client?.trim() && !Object.values(q.items || {}).some(arr => Array.isArray(arr) && arr.some(it => (it.concept && it.concept.trim()) || Number(it.qty) > 0 || Number(it.cost) > 0)));
+  const deleteQuote = (id) => {
+    setQuotes(prev => {
+      const q = prev.find(x => x.id === id);
+      if (q?.deleted || isQuoteEmpty(q)) {
+        if (!window.confirm("¿Eliminar esta cotización permanentemente?")) return prev;
+        const nx = prev.filter(x => x.id !== id);
+        saveAllQuotes(nx);
+        return nx;
+      }
+      const nx = prev.map(x => x.id === id ? {...x, deleted: true, updatedAt: Date.now()} : x);
+      saveAllQuotes(nx);
+      return nx;
+    });
+  };
+  const restoreQuote = (id) => { setQuotes(prev => { const nx = prev.map(x => x.id === id ? {...x, deleted: false, updatedAt: Date.now()} : x); saveAllQuotes(nx); return nx; }); };
+  const duplicateQuote = (id) => {
+    setQuotes(prev => {
+      const orig = prev.find(x => x.id === id);
+      if (!orig) return prev;
+      const copy = JSON.parse(JSON.stringify(orig));
+      copy.id = "Q_"+uid();
+      copy.deleted = false;
+      copy.createdAt = Date.now();
+      copy.updatedAt = Date.now();
+      copy.project = { ...(copy.project || {}), name: ((orig.project && orig.project.name) || "Cotización") + " (copia)" };
+      const idx = prev.findIndex(x => x.id === id);
+      const nx = [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
+      saveAllQuotes(nx);
+      return nx;
+    });
+  };
+  const saveCurrent = (data) => {
+    let ok = true;
+    setQuotes(prev => {
+      const nx = prev.map(q => q.id === currentId ? { ...q, ...data, updatedAt: Date.now() } : q);
+      ok = saveAllQuotes(nx);
+      return nx;
+    });
+    return ok;
+  };
+  const updateQuote = (id, data) => { setQuotes(prev => { const nx = prev.map(q => q.id === id ? { ...q, ...data, updatedAt: Date.now() } : q); saveAllQuotes(nx); return nx; }); };
+  const importQuotes = (arr, mode) => {
+    setQuotes(prev => {
+      let nx;
+      if (mode === "replace") {
+        nx = arr;
+      } else {
+        const byId = new Map(prev.map(q => [q.id, q]));
+        arr.forEach(q => {
+          if (!q.id) q.id = "Q_"+Math.random().toString(36).slice(2,9);
+          if (byId.has(q.id)) q.id = q.id+"_imp"+Math.random().toString(36).slice(2,5);
+          byId.set(q.id, q);
+        });
+        nx = Array.from(byId.values());
+      }
+      saveAllQuotes(nx);
+      return nx;
+    });
+    window.alert("Respaldo importado: "+arr.length+" cotización(es).");
+  };
+
+  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
+  if (!current) return <Dashboard quotes={quotes} onOpen={openQuote} onNew={newQuote} onDelete={deleteQuote} onLogout={() => setLoggedIn(false)} onImport={importQuotes} onUpdate={updateQuote} onRestore={restoreQuote} onDuplicate={duplicateQuote} />;
+  return <QuoteEditor key={current.id} quote={current} onSave={saveCurrent} onHome={goHome} />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+<style>.herza-sync-pill{position:fixed;bottom:14px;right:14px;background:rgba(255,255,255,.96);border:1px solid #d6d6cf;color:#5b6a47;font:600 12px/1 -apple-system,system-ui,sans-serif;padding:7px 11px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.06);z-index:9999;display:flex;gap:7px;align-items:center;transition:opacity .25s}.herza-sync-pill.idle{opacity:.55}.herza-sync-pill.sync .dot{background:#d4a017;animation:herza-pulse 1s infinite}.herza-sync-pill.ok .dot{background:#7a8b4b}.herza-sync-pill.off .dot{background:#c44}.herza-sync-pill .dot{width:9px;height:9px;border-radius:50%;background:#7a8b4b;display:inline-block}@keyframes herza-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5);opacity:.7}}</style><script>(function(){function build(){var pill=document.createElement("div");pill.className="herza-sync-pill idle";var dot=document.createElement("span");dot.className="dot";var lbl=document.createElement("span");lbl.className="lbl";lbl.textContent="En la nube";pill.appendChild(dot);pill.appendChild(lbl);document.body.appendChild(pill);var setState=function(st,txt){pill.className="herza-sync-pill "+st;lbl.textContent=txt;};document.addEventListener("herza-sync-start",function(){setState("sync","Sincronizando...");});document.addEventListener("herza-sync-end",function(){setState("ok","Sincronizado");setTimeout(function(){if(pill.classList.contains("ok"))setState("idle","En la nube");},2200);});var tryConn=function(){if(typeof fbDb==="undefined"){setTimeout(tryConn,400);return;}fbDb.ref(".info/connected").on("value",function(s){if(s.val()===false)setState("off","Sin conexion");else setState("idle","En la nube");});};tryConn();}if(document.readyState!=="loading")build();else document.addEventListener("DOMContentLoaded",build);})();</script>
+<script>
+(function(){
+  const SUPA_URL='https://eabzxwjkilotnynviqfs.supabase.co';
+  const SUPA_KEY='sb_publishable_QBRw8sjPLHW9Vov8TmASGg_wBm66ygt';
+  const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+  const fmtM=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtD=d=>{try{return d?new Date(d+'T00:00:00').toLocaleDateString('es-MX'):''}catch(e){return d||''}};
+  function toast(m,ok){var t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:'+(ok===false?'#a33':'#3a3a32')+';color:#fff;padding:11px 18px;border-radius:10px;font:500 13px/1.3 Inter,sans-serif;z-index:100000;max-width:82vw;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.2)';document.body.appendChild(t);setTimeout(function(){t.remove()},3400);}
+  function getObra(){try{return JSON.parse(localStorage.getItem('hz_obra')||'null')}catch(e){return null}}
+  function setObra(o){localStorage.setItem('hz_obra',JSON.stringify(o))}
+  function modal(html){var ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.5);display:flex;align-items:center;justify-content:center;z-index:100001;padding:18px';ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:24px;width:min(94vw,420px);box-shadow:0 24px 70px rgba(0,0,0,.3);font-family:Inter,sans-serif">'+html+'</div>';document.body.appendChild(ov);ov.addEventListener('click',function(e){if(e.target===ov)ov.remove()});return ov;}
+  async function conectar(){
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){
+      const ov=modal('<h3 style="margin:0 0 4px;font-size:18px;font-weight:600">Conectar con app obra</h3><p style="margin:0 0 16px;font-size:13px;color:#777">Inicia sesión con tu cuenta de la oficina (Herza Home).</p><label style="font-size:12px;color:#666">Usuario</label><input id="_hzU" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin:4px 0 12px"><label style="font-size:12px;color:#666">Contraseña</label><input id="_hzP" type="password" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin:4px 0 4px"><div id="_hzErr" style="color:#c0392b;font-size:12px;min-height:16px"></div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px"><button id="_hzC" style="padding:9px 14px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer">Cancelar</button><button id="_hzL" style="padding:9px 16px;border:none;background:#7a8a3f;color:#fff;border-radius:8px;cursor:pointer">Entrar</button></div>');
+      ov.querySelector('#_hzC').onclick=function(){ov.remove()};
+      ov.querySelector('#_hzL').onclick=async function(){
+        const u=(ov.querySelector('#_hzU').value||'').trim().toLowerCase(),p=ov.querySelector('#_hzP').value||'';
+        const r=await sb.auth.signInWithPassword({email:u+'@herzahome.app',password:p});
+        if(r.error){ov.querySelector('#_hzErr').textContent='Usuario o contraseña incorrectos';return}
+        const uid=(await sb.auth.getUser()).data.user.id;
+        const {data:perfil}=await sb.from('perfiles').select('rol,activo').eq('id',uid).single();
+        if(!perfil||['admin','pm','supervisor'].indexOf(perfil.rol)<0||!perfil.activo){ov.querySelector('#_hzErr').textContent='Esta cuenta no tiene permiso de oficina';await sb.auth.signOut();return}
+        ov.remove();pickObra();
+      };
+    } else { pickObra(); }
+  }
+  async function pickObra(){
+    const {data:obras}=await sb.from('obras').select('id,nombre').eq('archivada',false).order('created_at');
+    const opts=(obras||[]).map(function(o){return '<option value="'+o.id+'">'+o.nombre+'</option>'}).join('');
+    const cur=getObra();
+    const ov=modal('<h3 style="margin:0 0 4px;font-size:18px;font-weight:600">Conectar con app obra</h3><p style="margin:0 0 16px;font-size:13px;color:#777">Elige a qué obra se enviarán las relaciones de gastos.</p><select id="_hzO" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:14px">'+(opts||'<option value="">No hay obras disponibles</option>')+'</select><div style="display:flex;gap:10px;justify-content:flex-end"><button id="_hzC" style="padding:9px 14px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer">Cancelar</button><button id="_hzS" style="padding:9px 16px;border:none;background:#7a8a3f;color:#fff;border-radius:8px;cursor:pointer">Conectar</button></div>');
+    if(cur&&cur.id)ov.querySelector('#_hzO').value=cur.id;
+    ov.querySelector('#_hzC').onclick=function(){ov.remove()};
+    ov.querySelector('#_hzS').onclick=function(){var sel=ov.querySelector('#_hzO');var id=sel.value;if(!id){toast('No hay obras para conectar',false);return}setObra({id:id,nombre:sel.options[sel.selectedIndex].text});ov.remove();toast('Conectado a '+sel.options[sel.selectedIndex].text);};
+  }
+  async function enviar(week, idx, total){
+    const {data:{session}}=await sb.auth.getSession();
+    const obra=getObra();
+    if(!session||!obra||!obra.id){toast('Primero conecta con la app de obra',false);conectar();return}
+    toast('Enviando relación de gastos…');
+    try{
+      const {jsPDF}=window.jspdf;const doc=new jsPDF();
+      doc.setFontSize(15);doc.text('Relación de Gastos — Semana '+(idx+1),14,18);
+      doc.setFontSize(10);doc.setTextColor(90);
+      doc.text('Obra: '+obra.nombre,14,26);doc.text('Fecha: '+fmtD(week.date),14,32);
+      const rows=(week.expenses||[]).map(function(e){return [fmtD(e.date),e.agent||'',e.concept||'',e.unit||'',String(e.qty||0),fmtM(e.price),fmtM((e.qty||0)*(e.price||0)),e.method||'']});
+      doc.autoTable({startY:38,head:[['Fecha','Categoría','Concepto','Und','Cant','P.U.','Importe','Método']],body:rows,styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[122,138,63]}});
+      const fy=doc.lastAutoTable.finalY||40;
+      doc.setFontSize(12);doc.setTextColor(40);doc.text('Total pagado: '+fmtM(total),14,fy+12);
+      doc.text('Gerenciamiento 10%: '+fmtM(total*0.10),14,fy+19);
+      const blob=doc.output('blob');
+      const sem='Semana '+(idx+1);
+      const path=obra.id+'/'+sem.replace(' ','')+'_'+Date.now()+'.pdf';
+      const up=await sb.storage.from('gastos').upload(path,blob,{contentType:'application/pdf'});
+      if(up.error)throw up.error;
+      const uid=(await sb.auth.getUser()).data.user.id;
+      const ai=await sb.from('archivos').insert({obra_id:obra.id,tipo:'gasto',nombre:'Relación de gastos — '+sem,semana:sem,storage_path:path,subido_por:uid,subido_por_nombre:'Presupuestos'});
+      if(ai.error)throw ai.error;
+      await sb.from('notificaciones').insert({obra_id:obra.id,tipo:'gasto',titulo:'Nueva relación de gastos',detalle:sem+' · '+fmtM(total),ruta:'gastos'});
+      toast('✓ Enviada a '+obra.nombre);
+    }catch(e){toast('No se pudo enviar: '+((e&&e.message)||e),false);}
+  }
+  window.HZObra={conectar:conectar,enviar:enviar,getObra:getObra};
+})();
+</script></body>
+</html>
