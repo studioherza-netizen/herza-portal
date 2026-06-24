@@ -289,6 +289,7 @@
   // ---------- router ----------
   function go(route){window.scrollTo(0,0);window._route=route;
     if(rol==='supervisor'&&['solicitudes','clientes','equipo','obra_nueva','sup_nuevo'].includes(route))route='obras';
+    if(rol==='pm'&&['equipo','sup_nuevo'].includes(route))route='obras';
     updateNav(route);
     if(route==='panel')return panel();
     if(route==='obras')return listaObras();
@@ -502,7 +503,7 @@
           <div class="kv"><span class="k">Usuario</span><span class="v" style="font-family:ui-monospace,Menlo,monospace">${c.usuario}</span></div>
           <div class="kv"><span class="k">Estado</span><span class="v">${c.activo?'Activo':'Inhabilitado'}</span></div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-            <button class="btn-ghost btn-sm" onclick="toast('Se generará y enviará una nueva contraseña al cliente')">${I.refresh} Restablecer contraseña</button>
+            <button class="btn-ghost btn-sm" onclick="resetPass('${c.id}','${(c.nombre||'').replace(/'/g,'')}')">${I.refresh} Restablecer contraseña</button>
             <button class="btn-beige btn-sm" onclick="toggleClienteAcceso('${o.id}','${c.id}')">${c.activo?'Inhabilitar acceso':'Habilitar acceso'}</button>
           </div></div>`).join('')}
         <button type="button" class="add-row" onclick="agregarClienteObra('${o.id}')">${I.plus} Agregar otro cliente a esta obra</button>
@@ -513,10 +514,10 @@
     S.innerHTML=`<div class="obra-head"><div><h2>${o.nombre} ${o.archivada?'<span class="pill gray" style="font-size:12px;vertical-align:3px">Archivada</span>':''}</h2><div class="loc">${I_pin()} ${o.dir}</div></div><span class="pill ${o.cliente.activo?'ok':'off'}" style="font-size:13px">${o.cliente.activo?'Cliente activo':'Cliente inhabilitado'}</span></div>
       <div class="tabs">${tabs.map(t=>`<button class="${t[0]===tab?'active':''}" onclick="go('obra__${o.id}__${t[0]}')">${t[1]}${t[0]==='solicitudes'&&o.solicitudes.length?` (${o.solicitudes.length})`:''}</button>`).join('')}</div>
       <div>${body}</div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:28px;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap">
+      ${rol==='admin'?`<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:28px;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap">
         ${o.archivada?`<button class="btn-beige btn-sm" onclick="archivarObra('${o.id}',false)">${I.refresh} Reactivar obra</button>`:`<button class="btn-beige btn-sm" onclick="archivarObra('${o.id}',true)">Archivar obra</button>`}
         <button class="btn-sm" style="background:#a23b2d;color:#fff;border:none" onclick="borrarObra('${o.id}')">${I.trash} Borrar obra</button>
-      </div>`;
+      </div>`:''}`;
   }
   function I_pin(){return `<span style="display:inline-flex;width:14px;height:14px;color:var(--olive);vertical-align:-2px">${I.pin}</span>`}
   function toggleAcceso(id){const o=obras.find(x=>x.id===id);o.cliente.activo=!o.cliente.activo;toast(o.cliente.activo?'Acceso habilitado':'Acceso inhabilitado');fichaObra(id,'acceso')}
@@ -547,7 +548,7 @@
         <td><div class="pwc"><span class="pw" id="pw${i}" data-pw="${c.pass||'—'}">••••••••</span><button class="pwbtn" title="Ver" onclick="revPw(${i})">${I.eye}</button><button class="pwbtn" title="Copiar" onclick="copyTxt('${c.pass||''}')">${I.copy}</button></div></td>
         <td><a href="#" onclick="go('obra__${o.id}');return false" style="color:var(--olive-dark);font-weight:600">${o.nombre}</a></td>
         <td><span class="pill ${c.activo?'ok':'off'}">${c.activo?'Activo':'Inhabilitado'}</span></td>
-        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="toast('Se generaría y enviaría una nueva contraseña')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleClienteAcceso('${o.id}','${c.id}')">${c.activo?'Inhabilitar':'Habilitar'}</button></td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="resetPass('${c.id}','${(c.nombre||'').replace(/'/g,'')}')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleClienteAcceso('${o.id}','${c.id}')">${c.activo?'Inhabilitar':'Habilitar'}</button></td>
       </tr>`).join('')}
     </tbody></table>
     <p style="font-size:11.5px;color:var(--muted);padding:12px 18px;border-top:1px solid var(--line)">La contraseña se muestra para entregarla al cliente. Pulsa el ojo para revelarla o el ícono de copiar.</p></div>`;
@@ -581,35 +582,44 @@
 
   // ---------- EQUIPO (supervisores) ----------
   function equipo(){
-    head('Equipo','',`<button class="btn" onclick="go('sup_nuevo')">${I.plus} Nuevo supervisor</button>`);
-    S.innerHTML=`<div class="panel-card"><table><thead><tr><th>Supervisor</th><th>Usuario</th><th>Contraseña</th><th>Obras asignadas</th><th>Acceso</th><th></th></tr></thead><tbody>
-      ${supervisores.map((s,i)=>`<tr>
-        <td><div class="cli"><div class="av" style="background:${avColor[i%avColor.length]}">${ini(s.nombre)}</div><b>${s.nombre}</b></div></td>
+    head('Equipo','',`<button class="btn" onclick="go('sup_nuevo')">${I.plus} Nuevo miembro de equipo</button>`);
+    const mem=(window.miembros&&window.miembros.length)?window.miembros:supervisores.map(s=>Object.assign({rol:'supervisor'},s));
+    const yo=window._yo||null;
+    S.innerHTML=`<div class="panel-card"><table><thead><tr><th>Miembro</th><th>Usuario</th><th>Contraseña</th><th>Rol</th><th>Obras</th><th>Acceso</th><th></th></tr></thead><tbody>
+      ${mem.map((s,i)=>`<tr>
+        <td><div class="cli"><div class="av" style="background:${avColor[i%avColor.length]}">${ini(s.nombre)}</div><b>${s.nombre}${s.id===yo?' <span style="font-size:10.5px;color:var(--olive-dark);font-weight:600">· tú</span>':''}</b></div></td>
         <td style="font-family:ui-monospace,Menlo,monospace">${s.usuario}</td>
         <td><div class="pwc"><span class="pw" id="spw${i}" data-pw="${s.pass}">••••••••</span><button class="pwbtn" onclick="revSPw(${i})">${I.eye}</button><button class="pwbtn" onclick="copyTxt('${s.pass}')">${I.copy}</button></div></td>
-        <td>${s.obras.map(id=>{const o=obras.find(x=>x.id===id);return o?o.nombre:''}).filter(Boolean).join(', ')||'<span style="color:var(--muted)">—</span>'}</td>
+        <td><select class="fld" style="padding:7px 9px;font-size:12.5px;width:auto" onchange="cambiarRol('${s.id}',this.value)" ${s.id===yo?'disabled':''}>
+          <option value="admin" ${s.rol==='admin'?'selected':''}>Administrador</option>
+          <option value="pm" ${s.rol==='pm'?'selected':''}>Project manager</option>
+          <option value="supervisor" ${s.rol==='supervisor'?'selected':''}>Supervisor</option>
+        </select></td>
+        <td>${(s.obras||[]).map(id=>{const o=obras.find(x=>x.id===id);return o?o.nombre:''}).filter(Boolean).join(', ')||'<span style="color:var(--muted)">'+(s.rol==='supervisor'?'—':'Todas')+'</span>'}</td>
         <td><span class="pill ${s.activo?'ok':'off'}">${s.activo?'Activo':'Inhabilitado'}</span></td>
-        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="toast('Se generaría una nueva contraseña')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleSup(${i})">${s.activo?'Inhabilitar':'Habilitar'}</button></td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="resetPass('${s.id}','${(s.nombre||'').replace(/'/g,'')}')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleMiembro('${s.id}')" ${s.id===yo?'disabled':''}>${s.activo?'Inhabilitar':'Habilitar'}</button> <button class="btn-sm" style="background:#a23b2d;color:#fff;border:none;${s.id===yo?'opacity:.4;pointer-events:none':''}" onclick="borrarMiembro('${s.id}','${(s.nombre||'').replace(/'/g,'')}')">Eliminar</button></td>
       </tr>`).join('')}
     </tbody></table>
-    <p style="font-size:11.5px;color:var(--muted);padding:12px 18px;border-top:1px solid var(--line)">El supervisor entra a la plataforma con estas credenciales. Todo lo que sube (reportes y notas) queda firmado con su nombre.</p></div>`;
+    <p style="font-size:11.5px;color:var(--muted);padding:12px 18px;border-top:1px solid var(--line)">Administrador y Project manager gestionan obras y contenido; el Supervisor solo ve sus obras asignadas. Todo lo que sube cada quien queda firmado con su nombre.</p></div>`;
   }
   function revSPw(i){const el=document.getElementById('spw'+i);el.textContent=el.textContent==='••••••••'?el.getAttribute('data-pw'):'••••••••'}
   function toggleSup(i){supervisores[i].activo=!supervisores[i].activo;toast(supervisores[i].activo?'Acceso habilitado':'Acceso inhabilitado');equipo()}
   function supNuevo(){
-    head('Nuevo supervisor',`<a href="#" onclick="go('equipo');return false" style="color:var(--olive-dark)">Equipo</a> / Nuevo`);
+    head('Nuevo miembro de equipo',`<a href="#" onclick="go('equipo');return false" style="color:var(--olive-dark)">Equipo</a> / Nuevo`);
     S.innerHTML=`<form class="form-wrap" style="max-width:640px" onsubmit="guardarSup(event)">
-      <div class="form-sec"><div class="sh"><span class="si">${I.user}</span><h3>Datos del supervisor</h3></div>
-        <p class="sd">Cuenta interna con rol de supervisor. Solo podrá subir reportes y notas de sus obras asignadas.</p>
-        <div class="grid2"><div class="fg"><label>Nombre *</label><input class="fld" id="sNombre" placeholder="Nombre y apellido" required></div><div class="fg"><label>Usuario *</label><input class="fld" id="sUsuario" placeholder="usuario" required></div></div>
-        <div class="fg"><label>Contraseña *</label><div class="with-btn"><input class="fld" id="sPass" placeholder="contraseña" required><button type="button" class="btn-ghost" onclick="document.getElementById('sPass').value=genStr()">${I.refresh} Generar</button></div></div>
+      <div class="form-sec"><div class="sh"><span class="si">${I.user}</span><h3>Datos del miembro</h3></div>
+        <p class="sd">Cuenta interna del equipo. El rol define qué puede hacer dentro de la plataforma.</p>
+        <div class="grid2"><div class="fg"><label>Nombre *</label><input class="fld" id="sNombre" placeholder="Nombre y apellido" required></div>
+          <div class="fg"><label>Rol *</label><select class="fld" id="sRol" onchange="document.getElementById('sObrasSec').style.display=this.value==='admin'?'none':'block'"><option value="supervisor">Supervisor</option><option value="pm">Project manager</option><option value="admin">Administrador</option></select></div></div>
+        <div class="grid2"><div class="fg"><label>Usuario *</label><input class="fld" id="sUsuario" placeholder="usuario" required></div>
+          <div class="fg"><label>Contraseña *</label><div class="with-btn"><input class="fld" id="sPass" placeholder="contraseña" required><button type="button" class="btn-ghost" onclick="document.getElementById('sPass').value=genStr()">${I.refresh} Generar</button></div></div></div>
         <label class="toggle on" id="sActivo" onclick="this.classList.toggle('on')"><span class="sw"></span> Activo (puede iniciar sesión)</label>
       </div>
-      <div class="form-sec"><div class="sh"><span class="si">${I.building}</span><h3>Obras asignadas</h3></div>
-        <p class="sd">Selecciona las obras que este supervisor podrá ver y reportar.</p>
+      <div class="form-sec" id="sObrasSec"><div class="sh"><span class="si">${I.building}</span><h3>Obras asignadas</h3></div>
+        <p class="sd">Para un Supervisor, define qué obras puede ver y reportar. El Project manager y el Administrador ven todas las obras.</p>
         <div id="sObras">${obras.map(o=>`<label class="chk-obra"><input type="checkbox" value="${o.id}"> ${o.nombre}</label>`).join('')}</div>
       </div>
-      <div class="form-foot"><span class="hint-inline">Comparte el usuario y contraseña con el supervisor de forma segura.</span><div style="display:flex;gap:10px"><button type="button" class="btn-ghost" onclick="go('equipo')">Cancelar</button><button type="submit" class="btn">${I.check} Crear supervisor</button></div></div>
+      <div class="form-foot"><span class="hint-inline">Comparte el usuario y contraseña de forma segura.</span><div style="display:flex;gap:10px"><button type="button" class="btn-ghost" onclick="go('equipo')">Cancelar</button><button type="submit" class="btn">${I.check} Crear miembro</button></div></div>
     </form>`;
   }
   function genStr(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let p='';for(let i=0;i<8;i++)p+=s[Math.floor(Math.random()*s.length)];return p}
@@ -665,6 +675,8 @@
       notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''}))
     };});
     supervisores=perf.filter(p=>p.rol==='supervisor').map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,pass:'••••••',obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
+    window._yo=ofUid;
+    window.miembros=perf.filter(p=>['admin','supervisor','pm'].includes(p.rol)).map(p=>({id:p.id,nombre:p.nombre,usuario:p.usuario,rol:p.rol,pass:'••••••',obras:(SO.data||[]).filter(so=>so.supervisor_id===p.id).map(so=>so.obra_id),activo:p.activo}));
     reportes={}; obras.forEach(o=>reportes[o.id]=[]);
     const grp={};
     arch.filter(a=>a.tipo==='foto').forEach(a=>{const k=a.obra_id+'|'+(a.semana||'');if(!grp[k])grp[k]={obra:a.obra_id,sem:a.semana,fotos:0,autor:a.subido_por_nombre,fecha:a.created_at};grp[k].fotos++});
@@ -685,7 +697,7 @@
     if(error){err.textContent='Usuario o contraseña incorrectos';return}
     const {data:{user}}=await sb.auth.getUser();ofUid=user.id;
     const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();
-    if(!perfil||!['admin','supervisor'].includes(perfil.rol)){err.textContent='Esta cuenta no tiene acceso a la oficina';await sb.auth.signOut();return}
+    if(!perfil||!['admin','supervisor','pm'].includes(perfil.rol)){err.textContent='Esta cuenta no tiene acceso a la oficina';await sb.auth.signOut();return}
     if(!perfil.activo){err.textContent='Tu acceso está inhabilitado';await sb.auth.signOut();return}
     ofNombre=perfil.nombre;rol=perfil.rol;
     try{await cargarOficina()}catch(x){err.textContent='No se pudieron cargar los datos';return}
@@ -773,15 +785,50 @@
     go(window._route||'obras');
   };
   guardarSup=async function(e){e.preventDefault();
-    const nombre=document.getElementById('sNombre').value.trim(),usuario=document.getElementById('sUsuario').value.trim().toLowerCase(),pass=document.getElementById('sPass').value.trim();
+    const nombre=document.getElementById('sNombre').value.trim(),usuario=document.getElementById('sUsuario').value.trim().toLowerCase(),pass=document.getElementById('sPass').value.trim(),miRol=(document.getElementById('sRol')||{}).value||'supervisor';
     if(!nombre||!usuario||!pass){toast('Completa los campos obligatorios');return}
-    const obs=[...document.querySelectorAll('#sObras input:checked')].map(c=>c.value);
-    toast('Creando supervisor…');
-    const inv=await sb.functions.invoke('crear-usuario',{body:{nombre,usuario,password:pass,rol:'supervisor'}});
+    const obs=miRol==='supervisor'?[...document.querySelectorAll('#sObras input:checked')].map(c=>c.value):[];
+    const etq={supervisor:'Supervisor',pm:'Project manager',admin:'Administrador'}[miRol];
+    toast('Creando miembro…');
+    const inv=await sb.functions.invoke('crear-usuario',{body:{nombre,usuario,password:pass,rol:miRol}});
     if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo crear (¿usuario repetido?)');return}
     if(obs.length)await sb.from('supervisor_obras').insert(obs.map(id=>({supervisor_id:inv.data.id,obra_id:id})));
-    await cargarOficina();toast('Supervisor creado · usuario '+usuario);go('equipo');
+    if(!document.getElementById('sActivo').classList.contains('on'))await sb.from('perfiles').update({activo:false}).eq('id',inv.data.id);
+    await cargarOficina();
+    alert('Miembro creado ('+etq+').\n\nUsuario: '+usuario+'\nContraseña: '+pass+'\n\nComparte estas credenciales de forma segura.');
+    go('equipo');
   };
+  resetPass=async function(id,nombre){
+    let np='';const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';for(let i=0;i<8;i++)np+=s[Math.floor(Math.random()*s.length)];
+    if(!confirm('Se generará una NUEVA contraseña para '+(nombre||'este usuario')+'. La anterior dejará de funcionar.\n\n¿Continuar?'))return;
+    toast('Generando contraseña…');
+    const inv=await sb.functions.invoke('resetear-password',{body:{user_id:id,password:np}});
+    if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo restablecer');return}
+    if(window.miembros){const m=window.miembros.find(x=>x.id===id);if(m)m.pass=np;}
+    obras.forEach(o=>{(o.clientes||[]).forEach(c=>{if(c.id===id)c.pass=np});if(o.cliente&&o.cliente.id===id)o.cliente.pass=np});
+    alert('Nueva contraseña de '+(nombre||'')+':\n\n'+np+'\n\nCópiala y compártela. No se puede volver a mostrar; si se pierde, genera otra.');
+    go(window._route||'equipo');
+  };
+  cambiarRol=async function(id,nuevoRol){
+    const {error}=await sb.from('perfiles').update({rol:nuevoRol}).eq('id',id);
+    if(error){toast('No se pudo cambiar el rol');return}
+    await cargarOficina();toast('Rol actualizado');equipo();
+  };
+  toggleMiembro=async function(id){
+    const m=(window.miembros||[]).find(x=>x.id===id);if(!m)return;
+    const nv=!m.activo;await sb.from('perfiles').update({activo:nv}).eq('id',id);
+    await cargarOficina();toast(nv?'Acceso habilitado':'Acceso inhabilitado');equipo();
+  };
+  borrarMiembro=async function(id,nombre){
+    if(id===window._yo){toast('No puedes eliminar tu propia cuenta');return}
+    if(!confirm('Vas a ELIMINAR la cuenta de '+(nombre||'este miembro')+'. Perderá el acceso por completo y no se puede deshacer.\n\n¿Continuar?'))return;
+    toast('Eliminando…');
+    const inv=await sb.functions.invoke('borrar-usuario',{body:{user_id:id}});
+    if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo eliminar');return}
+    await cargarOficina();toast('Miembro eliminado');equipo();
+  };
+  window.revPw=function(i){const el=document.getElementById('pw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('La contraseña está cifrada y no se puede mostrar. Usa "Restablecer" para generar una nueva.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
+  window.revSPw=function(i){const el=document.getElementById('spw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('La contraseña está cifrada y no se puede mostrar. Usa "Restablecer" para generar una nueva.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
   toggleAcceso=async function(id){const o=obras.find(x=>x.id===id);if(!o||!o.cliente.id)return;const nv=!o.cliente.activo;await sb.from('perfiles').update({activo:nv}).eq('id',o.cliente.id);o.cliente.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');fichaObra(id,'acceso')};
   toggleSup=async function(i){const s=supervisores[i];const nv=!s.activo;await sb.from('perfiles').update({activo:nv}).eq('id',s.id);s.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');equipo()};
 
@@ -798,7 +845,7 @@
   const _rw=document.querySelector('.rolesw'); if(_rw)_rw.style.display='none';
 
   // mantener sesión al recargar
-  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');}}}catch(e){}})();
+  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor','pm'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');}}}catch(e){}})();
 </script>
 </body>
 </html>
