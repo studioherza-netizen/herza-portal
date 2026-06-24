@@ -934,13 +934,36 @@
     if(error){toast('No se pudo confirmar la cita');return}
     toast('¡Cita confirmada!'); await cargarDatos(); go('cita');
   };
+  function _modalFechaCli(titulo,defF,defH,defD,onOk){
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.5);display:flex;align-items:center;justify-content:center;z-index:99999;color-scheme:light;padding:18px';
+    ov.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;width:min(94vw,400px);box-shadow:0 24px 70px rgba(0,0,0,.3)">
+      <h3 style="margin:0 0 4px;font-size:19px">${titulo}</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">Propón la fecha y hora que te acomoden; Herza la confirmará.</p>
+      <label class="lab" style="display:block;margin-bottom:5px">Fecha</label>
+      <input type="date" id="_cmF" class="fld" style="width:100%;margin-bottom:12px" value="${defF||''}">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label class="lab" style="display:block;margin-bottom:5px">Hora</label><input type="time" id="_cmH" class="fld" style="width:100%" value="${defH||''}"></div>
+        <div style="flex:1"><label class="lab" style="display:block;margin-bottom:5px">Duración</label><select id="_cmD" class="fld" style="width:100%"><option value="30">30 min</option><option value="60">1 hora</option><option value="90">1½ hora</option><option value="120">2 horas</option></select></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn-share" id="_cmC" style="flex:1">Cancelar</button>
+        <button class="btn-olive" id="_cmO" style="flex:1;justify-content:center">${ICON.check} Enviar</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    if(defD)ov.querySelector('#_cmD').value=String(defD);
+    const close=()=>ov.remove();
+    ov.querySelector('#_cmC').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+    ov.querySelector('#_cmO').onclick=()=>{const f=ov.querySelector('#_cmF').value,h=ov.querySelector('#_cmH').value,d=parseInt(ov.querySelector('#_cmD').value,10);if(!f){toast('Elige una fecha');return}close();onOk(f,h,d)};
+  }
   contraCita=async function(id){
-    const f=prompt('Propón otra FECHA (formato AAAA-MM-DD):'); if(f===null)return;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test((f||'').trim())){toast('Fecha inválida. Usa AAAA-MM-DD');return}
-    const h=(prompt('Propón otra HORA (HH:MM en 24h, ej. 16:30). Déjalo vacío si no aplica:')||'').trim();
-    const {error}=await sb.from('citas').update({fecha_propuesta:f.trim(),hora:h||null,estado:'Pendiente',propuesta_por:'cliente'}).eq('id',id);
-    if(error){toast('No se pudo enviar la propuesta');return}
-    toast('Tu propuesta fue enviada a Herza Studio'); await cargarDatos(); go('cita');
+    const c=(citas||[]).find(x=>x.id===id)||{};
+    _modalFechaCli('Proponer otra fecha', c.fecha_propuesta, c.hora, c.duracion_min, async (f,h,d)=>{
+      const {error}=await sb.from('citas').update({fecha_propuesta:f,hora:h||null,duracion_min:d,estado:'Pendiente',propuesta_por:'cliente'}).eq('id',id);
+      if(error){toast('No se pudo enviar la propuesta');return}
+      toast('Tu propuesta fue enviada a Herza Studio'); await cargarDatos(); go('cita');
+    });
   };
   enviarDuda=async function(){
     const ubic=document.getElementById('dudaUbic').value,nota=document.getElementById('dudaNota').value.trim();

@@ -897,20 +897,43 @@
     return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}${extra}</span></div>${acts}</div>`;
   };
   atenderSol=async function(t,id){if(t==='duda')await sb.from('dudas').update({estado:'Respondida',respuesta:'Atendida desde la oficina'}).eq('id',id);await cargarOficina();toast('Solicitud atendida');go(window._route||'solicitudes')};
-  async function _obraDeCita(id){const {data}=await sb.from('citas').select('obra_id,fecha_propuesta,hora').eq('id',id).single();return data||null;}
+  async function _obraDeCita(id){const {data}=await sb.from('citas').select('obra_id,fecha_propuesta,hora,duracion_min').eq('id',id).single();return data||null;}
   aprobarCita=async function(id){
     const c=await _obraDeCita(id);
     await sb.from('citas').update({estado:'Confirmada'}).eq('id',id);
     if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Cita confirmada',detalle:(c.fecha_propuesta||'')+(c.hora?' '+c.hora:''),ruta:'cita'});
     await cargarOficina();toast('Cita confirmada · se notificó al cliente');go(window._route||'solicitudes');
   };
+  function _modalFecha(titulo,defF,defH,defD,onOk){
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.45);display:flex;align-items:center;justify-content:center;z-index:99999;color-scheme:light';
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;width:min(92vw,380px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
+      <h3 style="margin:0 0 4px;font-size:18px">${titulo}</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">Elige la nueva fecha y hora propuestas.</p>
+      <label style="display:block;font-size:12.5px;color:#6b665b;margin-bottom:5px">Fecha</label>
+      <input type="date" id="_mF" class="fld" style="width:100%;margin-bottom:12px" value="${defF||''}">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label style="display:block;font-size:12.5px;color:#6b665b;margin-bottom:5px">Hora</label><input type="time" id="_mH" class="fld" style="width:100%" value="${defH||''}"></div>
+        <div style="flex:1"><label style="display:block;font-size:12.5px;color:#6b665b;margin-bottom:5px">Duración</label><select id="_mD" class="fld" style="width:100%"><option value="30">30 min</option><option value="60">1 hora</option><option value="90">1½ hora</option><option value="120">2 horas</option></select></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+        <button class="btn-ghost" id="_mC">Cancelar</button>
+        <button class="btn" id="_mO">${I.check} Enviar propuesta</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    if(defD)ov.querySelector('#_mD').value=String(defD);
+    const close=()=>ov.remove();
+    ov.querySelector('#_mC').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+    ov.querySelector('#_mO').onclick=()=>{const f=ov.querySelector('#_mF').value,h=ov.querySelector('#_mH').value,d=parseInt(ov.querySelector('#_mD').value,10);if(!f){toast('Elige una fecha');return}close();onOk(f,h,d)};
+  }
   proponerOtra=async function(id){
-    const f=prompt('Propón otra FECHA (formato AAAA-MM-DD):'); if(f===null)return; if(!/^\d{4}-\d{2}-\d{2}$/.test((f||'').trim())){toast('Fecha inválida. Usa AAAA-MM-DD');return}
-    const h=(prompt('Propón otra HORA (HH:MM en 24h, ej. 16:30). Déjalo vacío si no aplica:')||'').trim();
     const c=await _obraDeCita(id);
-    await sb.from('citas').update({fecha_propuesta:f.trim(),hora:h||null,estado:'Propuesta oficina',propuesta_por:'oficina',en_calendar:false}).eq('id',id);
-    if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Herza Studio propuso otra fecha',detalle:f.trim()+(h?' · '+h:'')+' — revísala y confirma en la app',ruta:'cita'});
-    await cargarOficina();toast('Propuesta enviada al cliente');go(window._route||'solicitudes');
+    _modalFecha('Proponer otra fecha', c&&c.fecha_propuesta, c&&c.hora, c&&c.duracion_min, async (f,h,d)=>{
+      await sb.from('citas').update({fecha_propuesta:f,hora:h||null,duracion_min:d,estado:'Propuesta oficina',propuesta_por:'oficina',en_calendar:false}).eq('id',id);
+      if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Herza Studio propuso otra fecha',detalle:f+(h?' · '+h:'')+' — revísala y confirma en la app',ruta:'cita'});
+      await cargarOficina();toast('Propuesta enviada al cliente');go(window._route||'solicitudes');
+    });
   };
 
   subirReporte=async function(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));await sb.from('archivos').insert({obra_id:id,tipo:'foto',nombre:'Avance '+sem,semana:sem,subido_por:ofUid,subido_por_nombre:ofNombre});await sb.from('notificaciones').insert({obra_id:id,tipo:'foto',titulo:'Nuevo reporte fotográfico',detalle:sem,ruta:'fotografico'});await cargarOficina();toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')};
