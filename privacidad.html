@@ -1,68 +1,95 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aviso de Privacidad — Herza Home</title>
-<meta name="color-scheme" content="light">
 <style>
-  :root{--olive:#6e7d39;--olive-d:#55622c;--bg:#f3efe6;--ink:#3a3a32;--muted:#6b665b;--line:#e3ded3}
+  :root{
+    --olivo:#5f6642; --olivo-osc:#474d33; --greige:#efece4; --crema:#faf8f3;
+    --texto:#2c2a25; --tenue:#6f6a5f; --linea:#e2ddd1;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.65}
-  .wrap{max-width:760px;margin:0 auto;padding:48px 22px 80px}
-  .brand{font-weight:700;font-size:24px;letter-spacing:-.5px}
-  .brand span{color:var(--muted);font-weight:400;font-size:12px;letter-spacing:2px;display:block;margin-top:2px}
-  h1{font-size:26px;margin:34px 0 6px}
-  h2{font-size:18px;margin:30px 0 8px;color:var(--olive-d)}
-  p,li{font-size:15px;color:#46453d}
-  .upd{color:var(--muted);font-size:13px}
-  a{color:var(--olive-d)}
-  .rule{height:3px;width:54px;background:var(--olive);border-radius:3px;margin:18px 0 0}
-  ul{padding-left:20px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-top:24px}
+  body{
+    margin:0; background:var(--crema); color:var(--texto);
+    font-family:Georgia,"Times New Roman",serif; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 80px}
+  header{
+    background:var(--olivo); color:var(--crema); padding:48px 24px 40px; text-align:center;
+  }
+  .word{font-size:26px; letter-spacing:.5px; font-family:Helvetica,Arial,sans-serif; font-weight:600}
+  .sub{font-size:12px; letter-spacing:2px; text-transform:uppercase; opacity:.85; margin-top:6px; font-family:Helvetica,Arial,sans-serif}
+  h1{font-size:28px; margin:44px 0 6px; font-weight:600}
+  .fecha{color:var(--tenue); font-size:14px; margin-bottom:28px; font-family:Helvetica,Arial,sans-serif}
+  h2{font-size:19px; margin:34px 0 10px; color:var(--olivo-osc); font-weight:600}
+  p,li{font-size:16px}
+  ul{padding-left:22px}
+  li{margin:6px 0}
+  a{color:var(--olivo)}
+  .nota{background:var(--greige); border-left:4px solid var(--olivo); padding:14px 18px; border-radius:6px; margin:18px 0; font-size:15px}
+  footer{border-top:1px solid var(--linea); margin-top:48px; padding-top:20px; color:var(--tenue); font-size:13px; font-family:Helvetica,Arial,sans-serif}
 </style>
 </head>
 <body>
+<header>
+  <div class="word">Herza Studio.</div>
+  <div class="sub">Arquitectura Residencial · Interiorismo</div>
+</header>
+
 <div class="wrap">
-  <div class="brand">Herza Studio.<span>ARQUITECTURA RESIDENCIAL · INTERIORISMO</span></div>
-  <div class="rule"></div>
-  <h1>Aviso de Privacidad — Herza Home</h1>
-  <p class="upd">Última actualización: junio de 2026</p>
+  <h1>Aviso de Privacidad</h1>
+  <div class="fecha">Aplicación: Herza Home — Portal de clientes · Última actualización: 2 de julio de 2026</div>
 
-  <div class="card">
-  <p>Herza Studio ("nosotros") opera <b>Herza Home</b>, el portal mediante el cual nuestros clientes consultan el avance de su obra. Este aviso explica qué datos tratamos y cómo los protegemos. Solo recopilamos lo necesario para prestar el servicio.</p>
+  <p>Este Aviso de Privacidad describe cómo Herza Studio ("nosotros") recopila, usa y protege la información de los clientes que utilizan la aplicación <strong>Herza Home</strong> (la "App"), un portal privado para dar seguimiento al avance de su obra.</p>
 
-  <h2>1. Responsable</h2>
-  <p>Herza Studio es responsable del tratamiento de los datos. Contacto: <a href="mailto:studioherza@gmail.com">studioherza@gmail.com</a>.</p>
+  <div class="nota">Herza Home es una aplicación de acceso privado. No existe registro público: cada acceso es creado y asignado por Herza Studio a un cliente específico, y cada cliente solo puede ver la información de su propia obra.</div>
 
-  <h2>2. Datos que tratamos</h2>
+  <h2>1. Responsable de los datos</h2>
+  <p>El responsable del tratamiento de sus datos personales es Herza Studio. Para cualquier asunto relacionado con este aviso o con sus datos, puede contactarnos en <a href="mailto:studioherza@gmail.com">studioherza@gmail.com</a>.</p>
+
+  <h2>2. Información que recopilamos</h2>
   <ul>
-    <li><b>Datos de acceso</b>: nombre y nombre de usuario asignados por la oficina para iniciar sesión. La contraseña se almacena de forma cifrada.</li>
-    <li><b>Datos de tu obra</b>: dirección, estado de avance, contactos, planos, renders, relaciones de gastos y reporte fotográfico que la oficina carga para ti.</li>
-    <li><b>Lo que tú envías</b>: solicitudes de cita (motivo, fecha y hora propuestas, notas), dudas (ubicación dentro de la casa, nota y, si la adjuntas, una foto) y comprobantes de pago (tipo, proveedor, monto, fecha, referencia y, si la adjuntas, una imagen).</li>
+    <li><strong>Datos de la cuenta:</strong> el nombre de usuario y la contraseña que Herza Studio le asigna para ingresar, y su nombre para identificarle dentro de la obra.</li>
+    <li><strong>Datos de su obra:</strong> dirección, ubicación, estado y avance, contactos, relación de gastos, planos, renders y reporte fotográfico que Herza Studio carga para usted.</li>
+    <li><strong>Contenido que usted comparte:</strong> fotografías, ubicaciones dentro de la vivienda y notas que envía al reportar una duda, agendar una cita o subir un comprobante de pago.</li>
+    <li><strong>Notificaciones:</strong> si acepta recibir avisos, un identificador del dispositivo utilizado únicamente para enviarle notificaciones sobre su obra.</li>
   </ul>
-  <p>No recopilamos tu ubicación del dispositivo, ni contactos del teléfono, ni usamos rastreadores publicitarios.</p>
+  <p>No recopilamos datos con fines publicitarios, no usamos rastreadores de terceros para publicidad y no vendemos su información.</p>
 
-  <h2>3. Para qué los usamos</h2>
-  <p>Únicamente para operar el portal: mostrarte la información de tu obra, atender tus solicitudes y dudas, registrar tus comprobantes y enviarte notificaciones relacionadas con tu proyecto. No vendemos ni compartimos tus datos con terceros para fines de marketing.</p>
+  <h2>3. Cómo usamos su información</h2>
+  <ul>
+    <li>Para autenticar su acceso y mostrarle la información de su obra.</li>
+    <li>Para gestionar sus solicitudes de citas, dudas y comprobantes, y responderlas.</li>
+    <li>Para enviarle notificaciones sobre actualizaciones de su obra.</li>
+    <li>Para operar, mantener y mejorar la App.</li>
+  </ul>
 
-  <h2>4. Dónde se guardan</h2>
-  <p>Los datos y archivos se alojan en servicios de infraestructura en la nube (Supabase) con cifrado en tránsito y reglas de seguridad que garantizan que <b>cada cliente solo puede ver su propia obra</b>. El acceso administrativo está restringido al equipo de Herza Studio.</p>
+  <h2>4. Cámara y fotografías</h2>
+  <p>La App puede solicitar acceso a su cámara o a sus fotos únicamente cuando usted decide adjuntar una imagen a una duda o a un comprobante. Estas imágenes se almacenan de forma privada y solo son visibles para usted y para el equipo de Herza Studio a cargo de su obra.</p>
 
-  <h2>5. Conservación</h2>
-  <p>Conservamos la información mientras tu proyecto esté activo o archivado en nuestro sistema. Cuando una obra se elimina, se borran también sus archivos y el acceso asociado.</p>
+  <h2>5. Almacenamiento y seguridad</h2>
+  <p>La información se almacena en servidores gestionados por nuestro proveedor de infraestructura (Supabase) mediante conexiones cifradas (HTTPS). El acceso está restringido por reglas de seguridad que garantizan que cada cliente solo pueda ver los datos de su propia obra.</p>
 
-  <h2>6. Tus derechos</h2>
-  <p>Puedes solicitar acceso, corrección o eliminación de tus datos, así como dar de baja tu cuenta, escribiéndonos a <a href="mailto:studioherza@gmail.com">studioherza@gmail.com</a>.</p>
+  <h2>6. Con quién compartimos su información</h2>
+  <p>No compartimos sus datos con terceros salvo con los proveedores de infraestructura necesarios para operar la App (almacenamiento y notificaciones), o cuando la ley lo exija. Estos proveedores solo procesan los datos por nuestra instrucción.</p>
 
-  <h2>7. Menores</h2>
-  <p>Herza Home está dirigido a clientes adultos de Herza Studio y no está destinado a menores de edad.</p>
+  <h2>7. Conservación de datos</h2>
+  <p>Conservamos la información mientras su obra esté activa y durante el tiempo razonable posterior para fines administrativos y legales. Puede solicitar la eliminación de su cuenta y de sus datos escribiéndonos.</p>
 
-  <h2>8. Cambios</h2>
-  <p>Podemos actualizar este aviso; publicaremos aquí la versión vigente con su fecha de actualización.</p>
-  </div>
+  <h2>8. Sus derechos</h2>
+  <p>Usted puede solicitar acceder, rectificar, actualizar o eliminar sus datos personales, así como retirar su consentimiento, escribiendo a <a href="mailto:studioherza@gmail.com">studioherza@gmail.com</a>. Atenderemos su solicitud conforme a la legislación aplicable.</p>
 
-  <p class="upd" style="margin-top:26px">© Herza Studio · Arquitectura Residencial &amp; Interiorismo</p>
+  <h2>9. Menores de edad</h2>
+  <p>La App está dirigida a los clientes de Herza Studio y no está destinada a menores de edad.</p>
+
+  <h2>10. Cambios a este aviso</h2>
+  <p>Podemos actualizar este Aviso de Privacidad. Publicaremos la versión vigente en esta misma página con su fecha de actualización.</p>
+
+  <footer>
+    Herza Studio · Arquitectura Residencial e Interiorismo · studioherza@gmail.com
+  </footer>
 </div>
 </body>
 </html>
