@@ -890,6 +890,23 @@
     dudas=(dd||[]).map((d,i)=>({id:d.id,ubic:d.ubicacion,nota:d.nota,img:_gp(i),estado:d.estado,fecha:_fc(d.created_at),resp:d.respuesta}));
     const {data:nt}=await sb.from('notificaciones').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
     notificaciones=(nt||[]).map(n=>({id:n.id,tipo:_NIC[n.tipo]||'receipt',titulo:n.titulo,detalle:n.detalle||'',tiempo:_rel(n.created_at),ruta:n.ruta||'home',nuevo:!n.leida}));
+    try{_registrarPush();}catch(e){}
+  }
+  let _pushReady=false;
+  async function _registrarPush(){
+    if(_pushReady)return;
+    const C=window.Capacitor;
+    if(!C||!C.isNativePlatform||!C.isNativePlatform())return; // solo en la app nativa iOS
+    const PN=C.Plugins&&C.Plugins.PushNotifications;
+    if(!PN)return;
+    _pushReady=true;
+    try{
+      PN.addListener('registration',async(t)=>{try{if(!_uid||!t||!t.value)return;await sb.from('push_tokens').upsert({token:t.value,user_id:_uid,platform:'ios',updated_at:new Date().toISOString()},{onConflict:'token'});}catch(e){}});
+      PN.addListener('registrationError',()=>{});
+      let perm=await PN.checkPermissions();
+      if(perm.receive!=='granted')perm=await PN.requestPermissions();
+      if(perm.receive==='granted')await PN.register();
+    }catch(e){_pushReady=false;}
   }
   function _mostrarApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden');
     try{const nm=(CLIENTE&&CLIENTE.nombre)||'Cliente';const an=document.getElementById('uChipName');if(an)an.textContent=nm;const av=document.getElementById('uChipAv');if(av)av.textContent=_ini(nm);}catch(e){}const ca=document.getElementById('cloudApp');if(ca)ca.style.display='inline-flex';const lc=document.querySelector('#login .cloud');if(lc)lc.style.display='none';go('home');window.scrollTo(0,0)}
