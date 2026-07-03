@@ -396,6 +396,15 @@
   <div class="cloud"><span class="gd"></span> En la nube</div>
 </section>
 
+<!-- ================= BLOQUEO FACE ID ================= -->
+<div id="faceLock" style="display:none;position:fixed;inset:0;z-index:60;background:#e9e4d8;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center">
+  <svg viewBox="0 0 100 100" style="width:74px;height:74px;margin-bottom:18px" aria-hidden="true"><rect width="100" height="100" rx="23" fill="#6e7d39"/><g fill="none" stroke="#f3efe6" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="6.5"><path d="M34 30 V72"/><path d="M66 30 V72"/><path d="M34 51 L50 41 L66 51"/></g><path stroke-width="5" d="M43.5 72 V64 Q43.5 58.5 50 58.5 Q56.5 58.5 56.5 64 V72"/></g></svg>
+  <div style="font-weight:700;font-size:20px;color:#2c2a25">Herza Home</div>
+  <div id="faceLockState" style="color:#6f6a5f;font-size:13.5px;margin:8px 0 22px">Portal de clientes · protegido</div>
+  <button onclick="_desbloquearFaceID()" style="background:#5f6642;color:#fff;border:none;border-radius:12px;padding:14px 22px;font-size:15px;font-weight:600;cursor:pointer;min-width:240px">Desbloquear con Face ID</button>
+  <button onclick="_usarPassword()" style="background:none;border:none;color:#474d33;font-size:13.5px;margin-top:16px;cursor:pointer">Entrar con contraseña</button>
+</div>
+
 <!-- ================= APP ================= -->
 <section id="app" class="hidden">
   <div class="wrap">
@@ -485,11 +494,15 @@
   function updateTab(route){const tab=route==='home'?'home':route==='avisos'?'avisos':route==='contactos'?'contactos':'';document.querySelectorAll('#tabbar .tab').forEach(t=>t.classList.toggle('active',t.getAttribute('data-tab')===tab))}
   function notisHTML(){
     const nuevos=notificaciones.filter(n=>n.nuevo).length;
+    if(!notificaciones.length){
+      return `<div class="notis" id="notis"><div class="notis-head"><span class="nb">${ICON.bell}</span><span class="t">Notificaciones</span></div><div style="padding:16px 18px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)">No tienes notificaciones.</div></div>`;
+    }
     return `<div class="notis" id="notis">
-      <div class="notis-head"><span class="nb">${ICON.bell}</span><span class="t">Notificaciones</span>${nuevos?`<span class="badge">${nuevos} nuevas</span>`:''}${nuevos?`<button class="seen" onclick="marcarLeidas()">Marcar como leídas</button>`:''}</div>`+
-      notificaciones.map((n,i)=>`<div class="noti ${n.nuevo?'unread':''}" onclick="abrirNoti(${i})"><div class="ni">${ICON[n.tipo]}</div><div class="nc"><b>${n.titulo}</b><span>${n.detalle}</span></div><div class="nt">${n.tiempo}</div>${n.nuevo?'<span class="udot"></span>':''}</div>`).join('')+
+      <div class="notis-head"><span class="nb">${ICON.bell}</span><span class="t">Notificaciones</span>${nuevos?`<span class="badge">${nuevos} nuevas</span>`:''}<div style="margin-left:auto;display:flex;gap:8px">${nuevos?`<button class="seen" onclick="marcarLeidas()">Marcar como leídas</button>`:''}<button class="seen" onclick="borrarTodasNotis()">Borrar todas</button></div></div>`+
+      notificaciones.map((n,i)=>`<div class="noti ${n.nuevo?'unread':''}" onclick="abrirNoti(${i})"><div class="ni">${ICON[n.tipo]}</div><div class="nc"><b>${n.titulo}</b><span>${n.detalle}</span></div><div class="nt">${n.tiempo}</div>${n.nuevo?'<span class="udot"></span>':''}<button title="Borrar" aria-label="Borrar" onclick="event.stopPropagation();borrarNoti(${i})" style="margin-left:8px;background:none;border:none;color:var(--muted);font-size:19px;line-height:1;cursor:pointer;padding:4px 8px;border-radius:8px">×</button></div>`).join('')+
     `</div>`;
   }
+  function _refreshNotis(){const el=document.getElementById('notis');if(el)el.outerHTML=notisHTML();updateBell();}
   function abrirNoti(i){notificaciones[i].nuevo=false;go(notificaciones[i].ruta)}
   function marcarLeidas(){notificaciones.forEach(n=>n.nuevo=false);go('home')}
   function irNotis(){go('home');setTimeout(()=>{const e=document.getElementById('notis');if(e)e.scrollIntoView({behavior:'smooth',block:'center'})},60)}
@@ -924,12 +937,15 @@
     if(error){toast('Usuario o contraseña incorrectos');if(btn){btn.textContent=txt;btn.disabled=false}return}
     try{await cargarDatos()}catch(err){toast('No se pudo cargar tu obra');await sb.auth.signOut();if(btn){btn.textContent=txt;btn.disabled=false}return}
     if(btn){btn.textContent=txt;btn.disabled=false}
+    try{await _bioGuardar(u,p);}catch(e){}
     _mostrarApp();
   };
-  salir=async function(){await sb.auth.signOut();document.getElementById('app').classList.add('hidden');document.getElementById('login').classList.remove('hidden');const ca=document.getElementById('cloudApp');if(ca)ca.style.display='none';const lc=document.querySelector('#login .cloud');if(lc)lc.style.display='inline-flex';window.scrollTo(0,0)};
+  salir=async function(){await sb.auth.signOut();try{await _bioBorrar();}catch(e){}document.getElementById('app').classList.add('hidden');document.getElementById('login').classList.remove('hidden');const ca=document.getElementById('cloudApp');if(ca)ca.style.display='none';const lc=document.querySelector('#login .cloud');if(lc)lc.style.display='inline-flex';window.scrollTo(0,0)};
 
   abrirNoti=function(i){const n=notificaciones[i];if(!n)return;n.nuevo=false;updateBell();if(n.id)sb.from('notificaciones').update({leida:true}).eq('id',n.id).then(()=>{});go(n.ruta)};
-  marcarLeidas=async function(){const ids=notificaciones.filter(n=>n.nuevo&&n.id).map(n=>n.id);notificaciones.forEach(n=>n.nuevo=false);if(ids.length)await sb.from('notificaciones').update({leida:true}).in('id',ids);go('home')};
+  marcarLeidas=async function(){const ids=notificaciones.filter(n=>n.nuevo&&n.id).map(n=>n.id);notificaciones.forEach(n=>n.nuevo=false);_refreshNotis();if(ids.length)await sb.from('notificaciones').update({leida:true}).in('id',ids);};
+  borrarNoti=async function(i){const n=notificaciones[i];if(!n)return;notificaciones.splice(i,1);_refreshNotis();try{if(n.id)await sb.from('notificaciones').delete().eq('id',n.id);}catch(e){}};
+  borrarTodasNotis=async function(){if(!notificaciones.length)return;const ids=notificaciones.filter(n=>n.id).map(n=>n.id);notificaciones=[];_refreshNotis();try{if(ids.length)await sb.from('notificaciones').delete().in('id',ids);}catch(e){}};
 
   // ---------- archivos reales (planos / renders): preview + descarga ----------
   async function _signedUrl(bucket,path,downloadName){
@@ -1046,7 +1062,42 @@
   };
 
   // Mantener sesión al recargar
-  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){await cargarDatos();const sp=document.getElementById('splash');if(sp)sp.style.display='none';_mostrarApp();}}catch(e){}})();
+  // ---------- Face ID / biometría ----------
+  const BIO_SRV='herzahome.app';
+  function _bioPlugin(){try{const C=window.Capacitor;if(!C||!C.isNativePlatform||!C.isNativePlatform())return null;return (C.Plugins&&C.Plugins.NativeBiometric)||null;}catch(e){return null}}
+  async function _bioDisponible(){const B=_bioPlugin();if(!B)return false;try{const r=await B.isAvailable();return !!(r&&r.isAvailable);}catch(e){return false}}
+  async function _bioGuardar(u,p){const B=_bioPlugin();if(!B)return;try{if(!(await _bioDisponible()))return;await B.setCredentials({username:u,password:p,server:BIO_SRV});localStorage.setItem('hz_bio','1');}catch(e){}}
+  async function _bioBorrar(){const B=_bioPlugin();try{if(B)await B.deleteCredentials({server:BIO_SRV});}catch(e){}try{localStorage.removeItem('hz_bio');}catch(e){}}
+  function _lockUI(show){const el=document.getElementById('faceLock');if(el)el.style.display=show?'flex':'none';}
+  function _ocultarSplash(){const sp=document.getElementById('splash');if(sp)sp.style.display='none';}
+  _usarPassword=function(){_lockUI(false);_ocultarSplash();document.getElementById('login').classList.remove('hidden');document.getElementById('app').classList.add('hidden');};
+  _desbloquearFaceID=async function(){
+    const B=_bioPlugin();if(!B){_usarPassword();return;}
+    const st=document.getElementById('faceLockState');
+    try{await B.verifyIdentity({reason:'Desbloquea Herza Home',title:'Herza Home',subtitle:'Confirma tu identidad',description:''});}
+    catch(e){if(st)st.textContent='No se pudo verificar. Toca para reintentar.';return;}
+    try{
+      const {data:{session}}=await sb.auth.getSession();
+      if(!session){
+        const cred=await B.getCredentials({server:BIO_SRV});
+        if(cred&&cred.username){const {error}=await sb.auth.signInWithPassword({email:cred.username+'@herzahome.app',password:cred.password});if(error){if(st)st.textContent='Tu acceso cambió. Entra con contraseña.';return;}}
+        else{_usarPassword();return;}
+      }
+      await cargarDatos();_lockUI(false);_ocultarSplash();_mostrarApp();
+    }catch(e){if(st)st.textContent='No se pudo cargar tu obra.';}
+  };
+
+  // ---------- arranque ----------
+  (async()=>{
+    try{
+      const native=!!_bioPlugin();
+      const {data:{session}}=await sb.auth.getSession();
+      const bioOn = native && (localStorage.getItem('hz_bio')==='1') && await _bioDisponible();
+      if(bioOn){ _ocultarSplash(); _lockUI(true); _desbloquearFaceID(); return; }
+      if(session){ await cargarDatos(); _ocultarSplash(); _mostrarApp(); return; }
+      _ocultarSplash();
+    }catch(e){ _ocultarSplash(); }
+  })();
 </script>
 </body>
 </html>
