@@ -539,7 +539,7 @@
       body=o.solicitudes.length?o.solicitudes.map(s=>solRow(o,s,true)).join(''):`<div class="ok-card" style="box-shadow:none;background:var(--paper)"><div class="oi">${I.inbox}</div><h3>Sin solicitudes</h3><p>Cuando el cliente envíe una cita, duda o comprobante, aparecerá aquí.</p></div>`;
       if(o.dudasHist&&o.dudasHist.length){
         body+=`<h4 style="margin:28px 0 4px;font-size:15px">Historial de dudas</h4><p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">Todas las dudas de esta obra con su respuesta, para control y seguimiento.</p>`+
-        o.dudasHist.map(d=>`<div class="sol" style="align-items:flex-start"><span class="si duda">${I.help}</span><div class="info" style="flex:1;min-width:0"><b>${d.ubicacion||'Duda'} · ${d.fecha}${d.cliente&&d.cliente!=='—'?' · '+d.cliente:''}</b><span style="white-space:normal">${d.nota.replace(/</g,'&lt;')}</span>${d.respuesta?`<span style="white-space:normal;display:block;margin-top:7px;padding:8px 11px;background:var(--field,#f4f2ec);border-left:3px solid var(--olive);border-radius:0 8px 8px 0;color:#5c574c"><b style="display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--olive-dark,#5a662e);margin-bottom:2px">Respuesta de Herza Studio</b>${d.respuesta.replace(/</g,'&lt;')}</span>`:''}</div><div class="acts" style="flex-direction:column;align-items:flex-end;gap:6px"><span class="pill ${d.estado==='Respondida'?'ok':'warn'}" style="font-size:11.5px">${d.estado}</span>${d.foto?`<button class="btn-sm btn-ghost" onclick="verFotoDuda('${d.id}')">Ver foto</button>`:''}</div></div>`).join('');
+        o.dudasHist.map(d=>`<div class="sol" style="align-items:flex-start"><span class="si duda">${I.help}</span><div class="info" style="flex:1;min-width:0"><b>${d.ubicacion||'Duda'} · ${d.fecha}${d.cliente&&d.cliente!=='—'?' · '+d.cliente:''}</b><span style="white-space:normal">${d.nota.replace(/</g,'&lt;')}</span>${d.respuesta?`<span style="white-space:normal;display:block;margin-top:7px;padding:8px 11px;background:var(--field,#f4f2ec);border-left:3px solid var(--olive);border-radius:0 8px 8px 0;color:#5c574c"><b style="display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--olive-dark,#5a662e);margin-bottom:2px">Respuesta de Herza Studio</b>${d.respuesta.replace(/</g,'&lt;')}</span>`:''}</div><div class="acts" style="flex-direction:column;align-items:flex-end;gap:6px"><span class="pill ${d.estado==='Respondida'?'ok':'warn'}" style="font-size:11.5px">${d.estado}</span>${d.foto?`<button class="btn-sm btn-ghost" onclick="verFotoDuda('${d.id}')">Ver foto</button>`:''}${(rol==='admin'||rol==='pm')?`<button class="btn-sm btn-ghost" style="color:#a23b2d;border-color:#e0c4bf" onclick="borrarDuda('${d.id}','${o.id}')">Eliminar</button>`:''}</div></div>`).join('');
       }
     }
     S.innerHTML=`<div class="obra-head"><div><h2>${o.nombre} ${o.archivada?'<span class="pill gray" style="font-size:12px;vertical-align:3px">Archivada</span>':''}</h2><div class="loc">${I_pin()} ${o.dir}</div></div><span class="pill ${o.cliente.activo?'ok':'off'}" style="font-size:13px">${o.cliente.activo?'Cliente activo':'Cliente inhabilitado'}</span></div>
@@ -606,7 +606,7 @@
       <div style="margin-top:13px;text-align:right"><button class="btn" onclick="guardarNota('${o.id}')">${I.check} Guardar nota</button></div>
     </div>
     <h4 class="sub-h">Notas de avance</h4>
-    ${o.notas.length?o.notas.map(n=>`<div class="sol"><span class="si duda">${I.note}</span><div class="info"><b>${n.fecha} · ${n.autor}</b><span>${n.texto}</span></div></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin notas registradas.</p>'}`;
+    ${o.notas.length?o.notas.map(n=>`<div class="sol"><span class="si duda">${I.note}</span><div class="info"><b>${n.fecha} · ${n.autor}</b><span>${n.texto}</span></div>${(rol==='admin'||rol==='pm')&&n.id?`<div class="acts"><button class="btn-sm btn-ghost" style="color:#a23b2d;border-color:#e0c4bf" onclick="borrarNota('${n.id}','${o.id}')">Eliminar</button></div>`:''}</div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin notas registradas.</p>'}`;
   }
   function subirReporte(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));(reportes[id]=reportes[id]||[]).unshift({semana:sem,fecha:'Hoy',fotos:4,autor:actor().nombre});const o=obras.find(x=>x.id===id);o.contenido.fotos+=4;toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')}
   function guardarNota(id){const el=document.getElementById('notaTxt');const t=(el&&el.value||'').trim();if(!t){toast('Escribe la nota de avance');return}obras.find(x=>x.id===id).notas.unshift({fecha:'Hoy',texto:t,autor:actor().nombre});toast('Nota guardada');fichaObra(id,'avance')}
@@ -709,7 +709,7 @@
         ...(DU.data||[]).filter(d=>d.obra_id===o.id&&d.estado!=='Respondida').map(d=>({tipo:'duda',detalle:(d.ubicacion||'')+' · '+(d.nota||'').slice(0,42),fecha:_rel(d.created_at),estado:d.estado||'Pendiente',_id:d.id})),
         ...(CO.data||[]).filter(c=>c.obra_id===o.id).map(c=>({tipo:'comprobante',detalle:(c.tipo_pago||'')+' · '+(c.proveedor||'')+' · '+(c.monto||''),fecha:_rel(c.created_at),estado:'Nuevo',_id:c.id}))
       ],
-      notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''})),
+      notas:(NO.data||[]).filter(n=>n.obra_id===o.id).map(n=>({id:n.id,fecha:_fc(n.created_at),texto:n.texto,autor:n.autor_nombre||''})),
       dudasHist:(DU.data||[]).filter(d=>d.obra_id===o.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(d=>({id:d.id,ubicacion:d.ubicacion||'',nota:d.nota||'',respuesta:d.respuesta||'',estado:d.estado||'Pendiente',fecha:_fc(d.created_at),cliente:cli(d.cliente_id).nombre,foto:!!d.foto_path}))
     };});
     window._citas=(CI.data||[]).map(c=>{const o=obras.find(x=>x.id===c.obra_id);return {id:c.id,fecha_propuesta:c.fecha_propuesta,hora:c.hora,duracion_min:c.duracion_min,motivo:c.motivo,premura:c.premura,estado:c.estado,obra:o?o.nombre:'',cliente:cli(c.cliente_id).nombre};});
@@ -972,6 +972,19 @@
     }
     const extra = s.tipo==='cita'&&s.estado==='Propuesta oficina' ? ' <span style="color:var(--olive-dark)">· tu propuesta enviada</span>' : (s.tipo==='cita'&&s.propuesta_por==='cliente'?' <span style="color:#a23b2d">· el cliente propuso otra</span>':'');
     return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}${extra}</span></div>${acts}</div>`;
+  };
+  borrarDuda=async function(id,obraId){
+    if(!confirm('¿Eliminar esta duda y su respuesta? Esta acción no se puede deshacer.'))return;
+    try{const {data:d}=await sb.from('dudas').select('foto_path').eq('id',id).single();if(d&&d.foto_path)await sb.storage.from('dudas').remove([d.foto_path]);}catch(e){}
+    const {error}=await sb.from('dudas').delete().eq('id',id);
+    if(error){toast('No se pudo eliminar la duda');return}
+    await cargarOficina();toast('Duda eliminada');fichaObra(obraId,'solicitudes');
+  };
+  borrarNota=async function(id,obraId){
+    if(!confirm('¿Eliminar esta nota de avance?'))return;
+    const {error}=await sb.from('notas_avance').delete().eq('id',id);
+    if(error){toast('No se pudo eliminar la nota');return}
+    await cargarOficina();toast('Nota eliminada');fichaObra(obraId,'avance');
   };
   verFotoDuda=async function(id){
     const {data:d}=await sb.from('dudas').select('foto_path').eq('id',id).single();
