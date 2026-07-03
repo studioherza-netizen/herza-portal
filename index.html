@@ -592,8 +592,11 @@
   }
   function folderCard(route,ic,name,sub,cls){return `<button class="folder ${cls||''}" onclick="go('${route}')"><div class="ic">${ICON[ic]||ic}</div><div class="ftext"><b>${name}</b><span>${sub}</span></div><div class="chev">${ICON.chev}</div></button>`}
   function emptyState(ic,title,sub){return `<div class="empty-state"><div class="es-ic">${ICON[ic]||ic}</div><b>${title}</b><span>${sub}</span></div>`}
-  function fileRows(arr){return arr.map(d=>`<div class="file-row" onclick="preview('${d[0]}','${d[1]}','${d[2]}')"><div class="ficon" style="background:${d[3]}">${d[2]}</div><div class="fmeta"><b>${d[0]}</b><span>${d[1]}</span></div><div class="file-actions"><button class="fa-btn prim" onclick="event.stopPropagation();preview('${d[0]}','${d[1]}','${d[2]}')">${ICON.eye} Previsualizar</button><button class="fa-btn" onclick="event.stopPropagation();toast('Descargando: ${d[0]}')">${ICON.download} Descargar</button></div></div>`).join('')}
-  function gallery(arr,ic){return `<div class="grid">`+arr.map((f,i)=>`<div class="card" onclick="previewImg('${f[0]}','${f[1]}',${i})"><div class="thumb" style="background:${grad[i%grad.length]}">${ICON[ic]||ic}</div><div class="body"><b>${f[0]}</b><span>${f[1]}</span></div></div>`).join('')+`</div>`}
+  function fileRows(arr){return arr.map((d,i)=>`<div class="file-row" onclick="verPlano(${i})"><div class="ficon" style="background:${d[3]}">${d[2]}</div><div class="fmeta"><b>${d[0]}</b><span>${d[1]}</span></div><div class="file-actions"><button class="fa-btn prim" onclick="event.stopPropagation();verPlano(${i})">${ICON.eye} Previsualizar</button><button class="fa-btn" onclick="event.stopPropagation();bajarPlano(${i})">${ICON.download} Descargar</button></div></div>`).join('')}
+  function gallery(arr,ic){return `<div class="grid">`+arr.map((f,i)=>`<div class="card" onclick="verRender(${i})"><div class="thumb" style="background:${grad[i%grad.length]}">${ICON[ic]||ic}</div><div class="body"><b>${f[0]}</b><span>${f[1]}</span></div></div>`).join('')+`</div>`}
+  function verPlano(i){const d=(planos||[])[i];if(!d)return;verArchivo('planos',d[4],d[0],'pdf');}
+  function bajarPlano(i){const d=(planos||[])[i];if(!d)return;descargarArchivo('planos',d[4],d[0]);}
+  function verRender(i){const f=(renders||[])[i];if(!f)return;verArchivo('renders',f[2],f[0],'img');}
 
   function go(route){
     window.scrollTo(0,0);
@@ -876,8 +879,8 @@
     proveedores=(pv||[]).map(p=>[p.nombre,p.banco,p.clabe]);
     const {data:arch}=await sb.from('archivos').select('*').eq('obra_id',_obraId).order('created_at',{ascending:true});
     const A=arch||[];
-    planos=A.filter(a=>a.tipo==='plano').map(a=>[a.nombre,'Documento','PDF','#9c6b4a']);
-    renders=A.filter(a=>a.tipo==='render').map(a=>[a.nombre,'Render']);
+    planos=A.filter(a=>a.tipo==='plano').map(a=>[a.nombre,'Documento','PDF','#9c6b4a',a.storage_path]);
+    renders=A.filter(a=>a.tipo==='render').map(a=>[a.nombre,'Render',a.storage_path]);
     const {data:comps}=await sb.from('comprobantes').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
     const CO=comps||[];
     relGastos=A.filter(a=>a.tipo==='gasto').map(g=>({id:g.id,sem:g.semana||'Semana',fecha:_fc(g.created_at),pdf:[g.nombre,'PDF · '+(g.semana||'')],comps:CO.filter(c=>c.gasto_semana===g.semana).map((c,k)=>({img:_gp(k),tipo:c.tipo_pago,prov:c.proveedor,monto:c.monto,fecha:c.fecha_pago,ref:c.referencia}))}));
@@ -927,6 +930,32 @@
 
   abrirNoti=function(i){const n=notificaciones[i];if(!n)return;n.nuevo=false;updateBell();if(n.id)sb.from('notificaciones').update({leida:true}).eq('id',n.id).then(()=>{});go(n.ruta)};
   marcarLeidas=async function(){const ids=notificaciones.filter(n=>n.nuevo&&n.id).map(n=>n.id);notificaciones.forEach(n=>n.nuevo=false);if(ids.length)await sb.from('notificaciones').update({leida:true}).in('id',ids);go('home')};
+
+  // ---------- archivos reales (planos / renders): preview + descarga ----------
+  async function _signedUrl(bucket,path,downloadName){
+    if(!path)return null;
+    try{const opt=downloadName?{download:downloadName}:undefined;const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,3600,opt);if(error||!data)return null;return data.signedUrl;}catch(e){return null}
+  }
+  verArchivo=async function(bucket,path,nombre,tipo){
+    if(!path){toast('Archivo no disponible');return;}
+    openModal(nombre,tipo==='img'?'Imagen':'Documento','<div style="padding:48px;text-align:center;color:var(--muted)">Cargando…</div>');
+    const url=await _signedUrl(bucket,path);
+    const body=document.getElementById('mBody');
+    if(!url){if(body)body.innerHTML='<div style="padding:48px;text-align:center;color:var(--muted)">No se pudo cargar el archivo.</div>';return;}
+    if(tipo==='img'){
+      if(body)body.innerHTML='<img src="'+url+'" alt="'+(nombre||'')+'" style="width:100%;border-radius:10px;display:block">';
+    }else{
+      if(body)body.innerHTML='<iframe src="'+url+'" style="width:100%;height:62vh;border:none;border-radius:10px;background:#fff"></iframe><p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Si el PDF no se muestra aquí, toca "Descargar" para abrirlo y guardarlo.</p>';
+    }
+    const dl=document.getElementById('mDl');if(dl)dl.onclick=function(){descargarArchivo(bucket,path,nombre);};
+  };
+  descargarArchivo=async function(bucket,path,nombre){
+    if(!path){toast('Archivo no disponible');return;}
+    toast('Preparando archivo…');
+    const url=await _signedUrl(bucket,path,nombre||'archivo');
+    if(!url){toast('No se pudo abrir el archivo');return;}
+    const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';if(nombre)a.setAttribute('download',nombre);document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),1000);
+  };
 
   agendarCita=async function(){
     const f=document.getElementById('citaForm');
