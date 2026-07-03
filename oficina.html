@@ -958,7 +958,7 @@
   solRow=function(o,s,withActs){
     let acts='';
     if(withActs){
-      if(s.tipo==='duda')acts=`<button class="btn-sm btn" onclick="atenderSol('duda','${s._id}')">Responder</button>`;
+      if(s.tipo==='duda')acts=`<button class="btn-sm btn" onclick="responderDuda('${s._id}')">Responder</button>`;
       else if(s.tipo==='cita')acts = (s.estado==='Propuesta oficina')
         ? `<span class="pill off" style="font-size:12px">Esperando al cliente</span>`
         : `<button class="btn-sm btn" onclick="aprobarCita('${s._id}')">Aprobar</button> <button class="btn-sm btn-ghost" onclick="proponerOtra('${s._id}')">Proponer otra fecha</button>`;
@@ -968,7 +968,33 @@
     const extra = s.tipo==='cita'&&s.estado==='Propuesta oficina' ? ' <span style="color:var(--olive-dark)">· tu propuesta enviada</span>' : (s.tipo==='cita'&&s.propuesta_por==='cliente'?' <span style="color:#a23b2d">· el cliente propuso otra</span>':'');
     return `<div class="sol"><span class="si ${s.tipo}">${s.tipo==='cita'?I.calendar:s.tipo==='duda'?I.help:I.receipt}</span><div class="info"><b>${s.tipo==='cita'?'Cita':s.tipo==='duda'?'Duda':'Comprobante de pago'} · ${o.nombre}</b><span>${s.detalle} · ${s.fecha} · ${o.cliente.nombre}${extra}</span></div>${acts}</div>`;
   };
-  atenderSol=async function(t,id){if(t==='duda')await sb.from('dudas').update({estado:'Respondida',respuesta:'Atendida desde la oficina'}).eq('id',id);await cargarOficina();toast('Solicitud atendida');go(window._route||'solicitudes')};
+  responderDuda=async function(id){
+    const {data:d}=await sb.from('dudas').select('*').eq('id',id).single();
+    if(!d){toast('No se encontró la duda');return}
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.45);display:flex;align-items:center;justify-content:center;z-index:99999;color-scheme:light';
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;width:min(92vw,440px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
+      <h3 style="margin:0 0 4px;font-size:18px">Responder duda</h3>
+      <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">${d.ubicacion?d.ubicacion+' · ':''}El cliente verá tu respuesta en su app.</p>
+      <div style="background:var(--field,#f4f2ec);border-left:3px solid var(--olive);border-radius:0 8px 8px 0;padding:11px 13px;font-size:13.5px;color:#5c574c;line-height:1.5;margin-bottom:14px">${(d.nota||'').replace(/</g,'&lt;')}</div>
+      <label style="display:block;font-size:12.5px;color:#6b665b;margin-bottom:5px">Respuesta</label>
+      <textarea id="_rdT" class="fld" style="width:100%;min-height:96px;resize:vertical" placeholder="Escribe la respuesta para el cliente…"></textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button class="btn-ghost" id="_rdC">Cancelar</button><button class="btn" id="_rdO">${I.check} Enviar respuesta</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.querySelector('#_rdC').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+    ov.querySelector('#_rdT').focus();
+    ov.querySelector('#_rdO').onclick=async()=>{
+      const txt=ov.querySelector('#_rdT').value.trim();
+      if(!txt){toast('Escribe la respuesta antes de enviar');return}
+      close();
+      await sb.from('dudas').update({estado:'Respondida',respuesta:txt}).eq('id',id);
+      if(d.obra_id)await sb.from('notificaciones').insert({obra_id:d.obra_id,tipo:'duda',titulo:'Respuesta a tu duda',detalle:(d.ubicacion?d.ubicacion+' · ':'')+txt.slice(0,80),ruta:'dudas'});
+      await cargarOficina();toast('Respuesta enviada al cliente');go(window._route||'solicitudes');
+    };
+  };
   async function _obraDeCita(id){const {data}=await sb.from('citas').select('obra_id,fecha_propuesta,hora,duracion_min').eq('id',id).single();return data||null;}
   aprobarCita=async function(id){
     const c=await _obraDeCita(id);
