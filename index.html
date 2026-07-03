@@ -574,6 +574,74 @@
   const grad=['linear-gradient(135deg,#7d8a4e,#5c6a2f)','linear-gradient(135deg,#b9a06a,#8a7440)','linear-gradient(135deg,#9a8f7d,#6f6557)','linear-gradient(135deg,#8a9b94,#5f6f66)','linear-gradient(135deg,#b08a6a,#7d6450)','linear-gradient(135deg,#6e7d39,#4a5526)'];
 
   const S=document.getElementById('screen'), C=document.getElementById('crumb');
+  const _MESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const _DSEM=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const _dsem=['dom','lun','mar','mié','jue','vie','sáb'];
+  function _fD(s){const p=String(s).split('-').map(Number);return new Date(p[0],p[1]-1,p[2])}
+  function _citasProx(){
+    const hoy=new Date();hoy.setHours(0,0,0,0);
+    return (citas||[]).filter(c=>c.fecha_propuesta&&['Confirmada','Pendiente','Propuesta oficina'].includes(c.estado||'Pendiente')&&_fD(c.fecha_propuesta)>=hoy)
+      .sort((a,b)=>_fD(a.fecha_propuesta)-_fD(b.fecha_propuesta)).slice(0,2);
+  }
+  function _lblCita(c){
+    const f=_fD(c.fecha_propuesta);let t=_dsem[f.getDay()]+' '+f.getDate()+' '+_MESL[f.getMonth()].slice(0,3);
+    if(c.hora){t+=' · '+String(c.hora).slice(0,5);
+      if(c.duracion_min){const hm=String(c.hora).split(':').map(Number);const e=new Date(0,0,0,hm[0],(hm[1]||0)+Number(c.duracion_min));t+='–'+String(e.getHours()).padStart(2,'0')+':'+String(e.getMinutes()).padStart(2,'0')}}
+    return t;
+  }
+  function heroCitasHTML(){
+    const hoy=new Date();const prox=_citasProx();
+    const rows=prox.length?prox.map(c=>`
+      <div style="display:flex;gap:9px;align-items:stretch">
+        <div style="width:3.5px;border-radius:2px;background:${c.estado==='Confirmada'?'var(--olive)':'#b9a77e'};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <b style="display:block;font-size:13px;color:var(--ink-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.motivo||'Cita'}</b>
+          <span style="font-size:12px;color:#8a857a">${_lblCita(c)}${c.ubicacion?' · '+c.ubicacion:''}${c.estado!=='Confirmada'?' · '+(c.estado==='Propuesta oficina'?'Por confirmar':'Sujeta a aprobación'):''}</span>
+        </div>
+        ${c.estado==='Confirmada'?`<button onclick="event.stopPropagation();aggCalendario('${c.id}')" title="Agregar a calendario" style="align-self:center;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:11.5px;color:var(--olive-dark);font-weight:600;cursor:pointer"><span style="display:inline-flex;width:13px;height:13px">${ICON.calendar}</span>Calendario</button>`:''}
+      </div>`).join('<div style="height:9px"></div>'):
+      `<span style="font-size:12.5px;color:#8a857a">Sin citas agendadas · <a href="#" onclick="event.stopPropagation();go('cita');return false" style="color:var(--olive-dark);font-weight:600;text-decoration:none">agendar una</a></span>`;
+    return `<div onclick="go('cita')" style="cursor:pointer;background:var(--field);border-radius:16px;padding:13px 15px;margin-top:18px;display:flex;gap:15px">
+      <div style="min-width:50px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--olive)">${_DSEM[hoy.getDay()]}</div>
+        <div style="font-size:33px;font-weight:300;color:var(--ink-strong);line-height:1.05">${hoy.getDate()}</div>
+        <div style="font-size:11px;color:#8a857a">${_MESL[hoy.getMonth()]}</div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center">${rows}</div>
+    </div>`;
+  }
+  window.aggCalendario=function(id){
+    const c=(citas||[]).find(x=>String(x.id)===String(id));
+    if(!c||!c.fecha_propuesta){toast('No se encontró la cita');return}
+    const p=String(c.fecha_propuesta).split('-').map(Number);
+    const pad=n=>String(n).padStart(2,'0');
+    let dtstart,dtend;
+    if(c.hora){
+      const hm=String(c.hora).split(':').map(Number);
+      const ini=new Date(p[0],p[1]-1,p[2],hm[0],hm[1]||0);
+      const fin=new Date(ini.getTime()+(Number(c.duracion_min)||60)*60000);
+      const F=x=>''+x.getFullYear()+pad(x.getMonth()+1)+pad(x.getDate())+'T'+pad(x.getHours())+pad(x.getMinutes())+'00';
+      dtstart='DTSTART:'+F(ini);dtend='DTEND:'+F(fin);
+    }else{
+      const nx=new Date(p[0],p[1]-1,p[2]+1);
+      dtstart='DTSTART;VALUE=DATE:'+p[0]+pad(p[1])+pad(p[2]);
+      dtend='DTEND;VALUE=DATE:'+nx.getFullYear()+pad(nx.getMonth()+1)+pad(nx.getDate());
+    }
+    const esc=s=>String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+    const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Herza Studio//Herza Home//ES','CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
+      'UID:herza-'+c.id+'@herzahome.app',
+      'DTSTAMP:'+new Date().toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z',
+      dtstart,dtend,
+      'SUMMARY:'+esc('Cita Herza Studio · '+(c.motivo||'Visita')),
+      'LOCATION:'+esc(c.ubicacion||''),
+      'DESCRIPTION:'+esc((window.CLIENTE&&CLIENTE.obra?CLIENTE.obra:'Herza Home')),
+      'END:VEVENT','END:VCALENDAR'].join('\r\n');
+    const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='cita-herza.ics';document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},4000);
+    toast('Abre el archivo para agregar la cita a tu calendario');
+  };
   function heroHTML(){
     const m=metricsObra();
     return `<div class="hero">
@@ -593,6 +661,7 @@
           </div>
         </div>
       </div>
+      ${heroCitasHTML()}
     </div>`;
   }
   function crumb(parts){
@@ -712,7 +781,7 @@
       const _cf=c=>{const f=c.fecha_propuesta?new Date(c.fecha_propuesta+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}):'';return `${c.motivo||'Cita'} · ${f}${c.hora?' '+c.hora:''}`;};
       const citasHtml=(citas&&citas.length)?`<div class="form-card" style="margin-bottom:16px"><div class="lab" style="margin-bottom:4px">Tus citas</div>${citas.map(c=>{
         let badge,acc='';
-        if(c.estado==='Confirmada'){badge='<span class="pill ok">Confirmada</span>';}
+        if(c.estado==='Confirmada'){badge='<span class="pill ok">Confirmada</span>';acc=`<div style="margin-top:10px"><button class="btn-share" onclick="aggCalendario('${c.id}')">${ICON.calendar} Agregar a calendario</button></div>`;}
         else if(c.estado==='Propuesta oficina'){badge='<span class="pill" style="background:#ddd2bc;color:#4a4632">Herza propuso otra fecha</span>';acc=`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn-olive" onclick="aceptarCita('${c.id}')">${ICON.check} Aceptar</button><button class="btn-share" onclick="contraCita('${c.id}')">Proponer otra</button></div>`;}
         else if(c.propuesta_por==='cliente'){badge='<span class="pill" style="background:#ece8df;color:#6b665b">Tu propuesta enviada</span>';}
         else{badge='<span class="pill" style="background:#ece8df;color:#6b665b">En revisión por Herza</span>';}
