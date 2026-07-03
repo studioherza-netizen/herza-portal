@@ -971,11 +971,17 @@
   responderDuda=async function(id){
     const {data:d}=await sb.from('dudas').select('*').eq('id',id).single();
     if(!d){toast('No se encontró la duda');return}
+    let img='';
+    if(d.foto_path){try{const {data:su}=await sb.storage.from('dudas').createSignedUrl(d.foto_path,3600);if(su&&su.signedUrl)img=su.signedUrl}catch(e){}}
+    let cli='';
+    if(d.cliente_id){try{const {data:p}=await sb.from('perfiles').select('nombre').eq('id',d.cliente_id).single();if(p)cli=p.nombre}catch(e){}}
+    const fecha=d.created_at?new Date(d.created_at).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.45);display:flex;align-items:center;justify-content:center;z-index:99999;color-scheme:light';
-    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;width:min(92vw,440px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;width:min(92vw,480px);max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.28)">
       <h3 style="margin:0 0 4px;font-size:18px">Responder duda</h3>
-      <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">${d.ubicacion?d.ubicacion+' · ':''}El cliente verá tu respuesta en su app.</p>
+      <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">${d.ubicacion?'<b style="color:var(--olive-dark,#5a662e)">'+d.ubicacion+'</b> · ':''}${cli?cli+' · ':''}${fecha}</p>
+      ${img?`<a href="${img}" target="_blank" rel="noopener" title="Ver foto completa"><img src="${img}" style="width:100%;max-height:260px;object-fit:cover;border-radius:10px;border:1px solid var(--line,#e4e0d5);margin-bottom:12px;display:block"></a>`:`<p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">El cliente no adjuntó foto.</p>`}
       <div style="background:var(--field,#f4f2ec);border-left:3px solid var(--olive);border-radius:0 8px 8px 0;padding:11px 13px;font-size:13.5px;color:#5c574c;line-height:1.5;margin-bottom:14px">${(d.nota||'').replace(/</g,'&lt;')}</div>
       <label style="display:block;font-size:12.5px;color:#6b665b;margin-bottom:5px">Respuesta</label>
       <textarea id="_rdT" class="fld" style="width:100%;min-height:96px;resize:vertical" placeholder="Escribe la respuesta para el cliente…"></textarea>
