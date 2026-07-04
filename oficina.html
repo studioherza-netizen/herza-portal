@@ -324,7 +324,7 @@
     const activas=obras.filter(o=>o.estado!=='Entregada').length;
     const clientesAct=obras.filter(o=>o.cliente.activo).length;
     const pend=pendientes();
-    const citas=(window._citas||[]).filter(c=>c.fecha_propuesta&&c.estado!=='Atendida');
+    const citas=(window._citas||[]).filter(c=>c.fecha_propuesta&&c.estado!=='Atendida'&&c.estado!=='Cancelada');
     const byDay={}; citas.forEach(c=>{(byDay[c.fecha_propuesta]=byDay[c.fecha_propuesta]||[]).push(c)});
     const now=new Date(),Y=now.getFullYear(),M=now.getMonth();
     const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -354,7 +354,7 @@
             ?`<div class="sol" style="padding:10px 4px"><span class="si duda">${I.note}</span><div class="info"><b>${it.o.nombre} · avance</b><span>${it.n.texto}</span></div></div>`
             :`<div class="sol" style="padding:10px 4px"><span class="si ${it.k==='urgente'?'cita':'duda'}">${it.k==='urgente'?I.calendar:I.help}</span><div class="info"><b>${it.k==='urgente'?'Cita urgente':'Duda'} · ${it.o.nombre}</b><span>${it.s.detalle}</span></div></div>`
           ).join(''):'<p style="color:var(--muted);font-size:13px;padding:6px">Nada urgente por ahora.</p>'}
-          ${prox.length?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">Próximas citas</div>${prox.map(c=>`<div style="font-size:13px;padding:4px 0"><b style="color:var(--olive-dark)">${c.fecha_propuesta.slice(8)}/${c.fecha_propuesta.slice(5,7)}${c.hora?' '+c.hora:''}</b> · ${c.obra} — ${c.motivo||'Cita'} <span style="color:var(--muted)">(${c.cliente})</span></div>`).join('')}</div>`:''}
+          ${prox.length?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">Próximas citas</div>${prox.map(c=>`<div style="font-size:13px;padding:4px 0;display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><b style="color:var(--olive-dark)">${c.fecha_propuesta.slice(8)}/${c.fecha_propuesta.slice(5,7)}${c.hora?' '+c.hora:''}</b> · ${c.obra} — ${c.motivo||'Cita'} <span style="color:var(--muted)">(${c.cliente})</span></div><button class="btn-sm btn-ghost" style="flex:none;font-size:11px;padding:4px 9px" onclick="cancelarCita('${c.id}')">Cancelar</button><button class="btn-sm btn-ghost" style="flex:none;font-size:11px;padding:4px 9px;color:#a23b2d;border-color:#e0c4bf" onclick="borrarCita('${c.id}')">Eliminar</button></div>`).join('')}</div>`:''}
         </div>
       </div>
       <div class="panel-card">
@@ -1012,9 +1012,12 @@
     let acts='';
     if(withActs){
       if(s.tipo==='duda')acts=`<button class="btn-sm btn" onclick="responderDuda('${s._id}')">Responder</button>`;
-      else if(s.tipo==='cita')acts = (s.estado==='Propuesta oficina')
-        ? `<span class="pill off" style="font-size:12px">Esperando al cliente</span>`
-        : `<button class="btn-sm btn" onclick="aprobarCita('${s._id}')">Aprobar</button> <button class="btn-sm btn-ghost" onclick="proponerOtra('${s._id}')">Proponer otra fecha</button>`;
+      else if(s.tipo==='cita'){
+        const cbtns=` <button class="btn-sm btn-ghost" onclick="cancelarCita('${s._id}')">Cancelar</button>`+((rol==='admin'||rol==='pm')?` <button class="btn-sm btn-ghost" style="color:#a23b2d;border-color:#e0c4bf" onclick="borrarCita('${s._id}')">Eliminar</button>`:'');
+        acts = (s.estado==='Propuesta oficina')
+        ? `<span class="pill off" style="font-size:12px">Esperando al cliente</span>`+cbtns
+        : `<button class="btn-sm btn" onclick="aprobarCita('${s._id}')">Aprobar</button> <button class="btn-sm btn-ghost" onclick="proponerOtra('${s._id}')">Proponer otra fecha</button>`+cbtns;
+      }
       else if(s.tipo==='comprobante')acts=`<button class="btn-sm btn-ghost" onclick="toast('Abriendo comprobante')">Ver</button>`;
       acts=`<div class="acts">${acts}</div>`;
     }
@@ -1074,6 +1077,20 @@
     };
   };
   async function _obraDeCita(id){const {data}=await sb.from('citas').select('obra_id,fecha_propuesta,hora,duracion_min').eq('id',id).single();return data||null;}
+  cancelarCita=async function(id){
+    if(!confirm('¿Cancelar esta cita? Se notificará al cliente.'))return;
+    const c=await _obraDeCita(id);
+    const {error}=await sb.from('citas').update({estado:'Cancelada'}).eq('id',id);
+    if(error){toast('No se pudo cancelar la cita');return}
+    if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Cita cancelada',detalle:(c.motivo?c.motivo+' · ':'')+(c.fecha_propuesta||'')+(c.hora?' '+c.hora:''),ruta:'cita'});
+    await cargarOficina();toast('Cita cancelada · se notificó al cliente');go(window._route||'panel');
+  };
+  borrarCita=async function(id){
+    if(!confirm('¿Eliminar esta cita definitivamente? No se notificará al cliente.'))return;
+    const {error}=await sb.from('citas').delete().eq('id',id);
+    if(error){toast('No se pudo eliminar (requiere rol admin o PM)');return}
+    await cargarOficina();toast('Cita eliminada');go(window._route||'panel');
+  };
   aprobarCita=async function(id){
     const c=await _obraDeCita(id);
     await sb.from('citas').update({estado:'Confirmada'}).eq('id',id);

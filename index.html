@@ -818,6 +818,7 @@
         let badge,acc='';
         if(c.estado==='Confirmada'){badge='<span class="pill ok">Confirmada</span>';acc=`<div style="margin-top:10px"><button class="btn-share" onclick="aggCalendario('${c.id}')">${ICON.calendar} Agregar a calendario</button></div>`;}
         else if(c.estado==='Propuesta oficina'){badge='<span class="pill" style="background:#ddd2bc;color:#4a4632">Herza propuso otra fecha</span>';acc=`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn-olive" onclick="aceptarCita('${c.id}')">${ICON.check} Aceptar</button><button class="btn-share" onclick="contraCita('${c.id}')">Proponer otra</button></div>`;}
+        else if(c.estado==='Cancelada'){badge='<span class="pill" style="background:#eddfdb;color:#a23b2d">Cancelada</span>';}
         else if(c.propuesta_por==='cliente'){badge='<span class="pill" style="background:#ece8df;color:#6b665b">Tu propuesta enviada</span>';}
         else{badge='<span class="pill" style="background:#ece8df;color:#6b665b">En revisión por Herza</span>';}
         return `<div style="padding:12px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-weight:500">${_cf(c)}</span>${badge}</div>${acc}</div>`;
