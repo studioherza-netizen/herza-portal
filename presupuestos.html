@@ -1465,8 +1465,10 @@ function LoginScreen({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (user.trim().toLowerCase() === "admin" && pass === "579312") {
-      onLogin();
+    const APP_USERS = [ {u:"admin", p:"579312", role:"admin"}, {u:"spobra", p:"3312", role:"obra"} ];
+    const found = APP_USERS.find(x => x.u === user.trim().toLowerCase() && x.p === pass);
+    if (found) {
+      onLogin(found.role);
     } else {
       setError("Usuario o contraseña incorrectos");
     }
@@ -1560,7 +1562,8 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpdate, onRestore, onDuplicate }) {
+function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpdate, onRestore, onDuplicate, role }) {
+  const restricted = role === "obra";
   const sorted = useMemo(()=>[...quotes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)),[quotes]);
   const TIPOS = ["Comercial","Residencial","Interiorismo","Varias"];
   const TIPO_ICONS = {Comercial:"🏢",Residencial:"🏠",Interiorismo:"🛋",Varias:"📁"};
@@ -1600,10 +1603,10 @@ function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpda
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} style={{display:"none"}} />
-            <button onClick={()=>fileRef.current && fileRef.current.click()} style={{...sb,padding:"6px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Importar respaldo JSON">↑ Importar</button>
-            <button onClick={()=>exportBackup(quotes)} style={{...sb,padding:"6px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Descargar respaldo JSON de todas las cotizaciones">↓ Exportar respaldo</button>
+            {!restricted && <button onClick={()=>fileRef.current && fileRef.current.click()} style={{...sb,padding:"6px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Importar respaldo JSON">↑ Importar</button>}
+            {!restricted && <button onClick={()=>exportBackup(quotes)} style={{...sb,padding:"6px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Descargar respaldo JSON de todas las cotizaciones">↓ Exportar respaldo</button>}
             <button onClick={onLogout} style={{...sb,padding:"6px 14px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:12,fontWeight:600}} title="Cerrar sesión">Cerrar sesión</button>
-            <button onClick={()=>setShowTypePicker(true)} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,padding:"10px 20px"}}><IconPlus/> Nueva cotización</button>
+            {!restricted && <button onClick={()=>setShowTypePicker(true)} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,padding:"10px 20px"}}><IconPlus/> Nueva cotización</button>}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:20}}>{TIPOS.map(t=>(<div key={t} onClick={()=>setSelectedType(selectedType===t?null:t)} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";e.currentTarget.style.background=C.accent+"22";e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.transform="scale(1.02)";}} onDragLeave={e=>{e.currentTarget.style.background=selectedType===t?C.accent+"15":C.card;e.currentTarget.style.borderColor=selectedType===t?C.accent:C.border;e.currentTarget.style.transform="scale(1)";}} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id&&onUpdate)onUpdate(id,{type:t,deleted:false});e.currentTarget.style.background=selectedType===t?C.accent+"15":C.card;e.currentTarget.style.borderColor=selectedType===t?C.accent:C.border;e.currentTarget.style.transform="scale(1)";}} style={{background:selectedType===t?C.accent+"15":C.card,borderRadius:12,border:"2px solid "+(selectedType===t?C.accent:C.border),padding:"16px 14px",cursor:"pointer",transition:"all 0.15s",textAlign:"center"}} onMouseEnter={e=>{if(selectedType!==t){e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}} onMouseLeave={e=>{if(selectedType!==t){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}}><div style={{fontSize:24,marginBottom:6}}>{TIPO_ICONS[t]}</div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:2}}>{t}</div><div style={{fontSize:11,color:C.muted}}>{tipoCounts[t]} {tipoCounts[t]===1?"cotización":"cotizaciones"}</div></div>))}<div key="__bin__" onClick={()=>setSelectedType(selectedType==="__bin__"?null:"__bin__")} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";e.currentTarget.style.background="#dc262622";e.currentTarget.style.borderColor="#dc2626";e.currentTarget.style.transform="scale(1.02)";}} onDragLeave={e=>{e.currentTarget.style.background=selectedType==="__bin__"?"#dc262615":C.card;e.currentTarget.style.borderColor=selectedType==="__bin__"?"#dc2626":C.border;e.currentTarget.style.transform="scale(1)";}} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id&&onUpdate)onUpdate(id,{deleted:true});e.currentTarget.style.background=selectedType==="__bin__"?"#dc262615":C.card;e.currentTarget.style.borderColor=selectedType==="__bin__"?"#dc2626":C.border;e.currentTarget.style.transform="scale(1)";}} style={{background:selectedType==="__bin__"?"#dc262615":C.card,borderRadius:12,border:"2px solid "+(selectedType==="__bin__"?"#dc2626":C.border),padding:"16px 14px",cursor:"pointer",transition:"all 0.15s",textAlign:"center"}} onMouseEnter={e=>{if(selectedType!=="__bin__"){e.currentTarget.style.borderColor="#dc2626";e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}} onMouseLeave={e=>{if(selectedType!=="__bin__"){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}}><div style={{fontSize:24,marginBottom:6}}>🗑️</div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:2}}>Papelera</div><div style={{fontSize:11,color:C.muted}}>{binCount} {binCount===1?"cotización":"cotizaciones"}</div></div></div>{selectedType && (<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,fontSize:13,color:C.muted,flexWrap:"wrap"}}><span>Mostrando carpeta: <strong style={{color:C.text}}>{TIPO_ICONS[selectedType]} {selectedType}</strong></span><button onClick={()=>setSelectedType(null)} style={{...sb,padding:"4px 10px",background:"transparent",color:C.accent,fontSize:12,fontWeight:600}}>Mostrar todas</button></div>)}
@@ -1611,7 +1614,7 @@ function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpda
           <div style={{background:C.card,border:"1px dashed "+C.border,borderRadius:12,padding:"60px 24px",textAlign:"center"}}>
             <p style={{margin:0,fontSize:16,color:C.muted,marginBottom:8}}>Aún no tienes cotizaciones guardadas.</p>
             <p style={{margin:0,fontSize:13,color:C.dim,marginBottom:20}}>Crea tu primera cotización para comenzar.</p>
-            <button onClick={()=>{ if(selectedType) onNew(selectedType); else setShowTypePicker(true); }} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,padding:"10px 24px"}}><IconPlus/> Nueva cotización</button>
+            {!restricted && <button onClick={()=>{ if(selectedType) onNew(selectedType); else setShowTypePicker(true); }} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,padding:"10px 24px"}}><IconPlus/> Nueva cotización</button>}
           </div>
         ) : (
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
@@ -1623,16 +1626,17 @@ function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpda
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:10}}>
                   <h3 style={{margin:0,fontSize:15,fontWeight:600,color:C.text,wordBreak:"break-word",flex:1}}>{q.project?.name || "Cotización sin nombre"}</h3>
                   <div style={{display:"flex",gap:4}}>
-                    {q.deleted ? (<button onClick={e=>{e.stopPropagation();if(onRestore)onRestore(q.id)}} title="Restaurar a su carpeta" style={{...sb,padding:"3px 10px",background:C.accent,color:"#fff",fontSize:10,fontWeight:700,marginRight:4,borderRadius:4,cursor:"pointer",border:"none"}}>↻ Restaurar</button>) : (<select value={q.type || "Varias"} onChange={e=>{e.stopPropagation();onUpdate(q.id,{type:e.target.value})}} onClick={e=>e.stopPropagation()} title="Mover a otra carpeta" style={{fontSize:10,padding:"3px 4px",border:"1px solid "+C.border,borderRadius:4,background:C.bg,color:C.muted,marginRight:4,cursor:"pointer"}}><option>Comercial</option><option>Residencial</option><option>Interiorismo</option><option>Varias</option></select>)}<button onClick={e=>{e.stopPropagation();exportSingleQuote(q)}} style={{...sb,padding:"6px 8px",background:"transparent",color:C.accent2,fontSize:12,fontWeight:700}} title="Descargar esta cotización como archivo JSON">↓</button>
-                    {!q.deleted && onDuplicate && <button onClick={e=>{e.stopPropagation();onDuplicate(q.id)}} style={{...sb,padding:6,background:"transparent",color:C.accent}} title="Duplicar cotización"><IconCopy/></button>}
-                    <button onClick={e=>{e.stopPropagation();onDelete(q.id)}} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar cotización"><IconTrash/></button>
+                    {!restricted && (q.deleted ? (<button onClick={e=>{e.stopPropagation();if(onRestore)onRestore(q.id)}} title="Restaurar a su carpeta" style={{...sb,padding:"3px 10px",background:C.accent,color:"#fff",fontSize:10,fontWeight:700,marginRight:4,borderRadius:4,cursor:"pointer",border:"none"}}>↻ Restaurar</button>) : (<select value={q.type || "Varias"} onChange={e=>{e.stopPropagation();onUpdate(q.id,{type:e.target.value})}} onClick={e=>e.stopPropagation()} title="Mover a otra carpeta" style={{fontSize:10,padding:"3px 4px",border:"1px solid "+C.border,borderRadius:4,background:C.bg,color:C.muted,marginRight:4,cursor:"pointer"}}><option>Comercial</option><option>Residencial</option><option>Interiorismo</option><option>Varias</option></select>))}
+                    {!restricted && <button onClick={e=>{e.stopPropagation();exportSingleQuote(q)}} style={{...sb,padding:"6px 8px",background:"transparent",color:C.accent2,fontSize:12,fontWeight:700}} title="Descargar esta cotización como archivo JSON">↓</button>}
+                    {!restricted && !q.deleted && onDuplicate && <button onClick={e=>{e.stopPropagation();onDuplicate(q.id)}} style={{...sb,padding:6,background:"transparent",color:C.accent}} title="Duplicar cotización"><IconCopy/></button>}
+                    {!restricted && <button onClick={e=>{e.stopPropagation();onDelete(q.id)}} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar cotización"><IconTrash/></button>}
                   </div>
                 </div>
                 <p style={{margin:0,fontSize:12,color:C.muted,marginBottom:4}}>{q.project?.client || "Sin cliente"}</p>
                 <p style={{margin:0,fontSize:11,color:C.dim,marginBottom:14}}>{q.project?.location || "—"}</p>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid "+C.border,paddingTop:12}}>
                   <span style={{fontSize:10,color:C.dim}}>Actualizada {fmtWhen(q.updatedAt)}</span>
-                  <span style={{fontSize:14,fontWeight:700,color:C.accent}}>{fmt(quoteTotal(q))}</span>
+                  {!restricted && <span style={{fontSize:14,fontWeight:700,color:C.accent}}>{fmt(quoteTotal(q))}</span>}
                 </div>
               </div>
             ))}
@@ -1647,13 +1651,14 @@ function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpda
   );
 }
 
-function QuoteEditor({ quote, onSave, onHome }) {
+function QuoteEditor({ quote, onSave, onHome, role }) {
+  const restricted = role === "obra";
   const [project, setProject] = useState(quote.project||{name:"",client:"",date:today(),location:"",docTitle:"Cotización de Servicios"});
   const [categories, setCategories] = useState(quote.categories||defaultCategories);
   const [items, setItems] = useState(quote.items||defaultItemsMap());
   const [mgmtPct, setMgmtPct] = useState(quote.mgmtPct??18);
   const [ivaPct, setIvaPct] = useState(quote.ivaPct??16);
-  const [activeTab, setActiveTab] = useState("quote");
+  const [activeTab, setActiveTab] = useState(restricted ? "materials" : "quote");
   const [payments, setPayments] = useState(quote.payments||[]);
   const [expenseWeeks, setExpenseWeeks] = useState(()=>migrateExpenseWeeks(quote));
   const expenses = expenseWeeks.reduce((a,w)=>a.concat(w.expenses||[]),[]);
@@ -1752,7 +1757,9 @@ function QuoteEditor({ quote, onSave, onHome }) {
     setTimeout(()=>window.print(),350);
   };
 
-  const tabs=[{id:"quote",label:"Cotización"},{id:"payments",label:"Balance de Pagos"},{id:"expenses",label:"Gastos Semanales"},{id:"materials",label:"Entrega Material"},{id:"electrico",label:"Requisición Eléctrico"},{id:"personal",label:"Personal de Obra"},{id:"providers",label:"Pagos a Proveedores"},{id:"resumen",label:"Resumen"}];
+  const allTabs=[{id:"quote",label:"Cotización"},{id:"payments",label:"Balance de Pagos"},{id:"expenses",label:"Gastos Semanales"},{id:"materials",label:"Entrega Material"},{id:"electrico",label:"Requisición Eléctrico"},{id:"personal",label:"Personal de Obra"},{id:"providers",label:"Pagos a Proveedores"},{id:"resumen",label:"Resumen"}];
+  const OBRA_TABS=["materials","electrico","personal"];
+  const tabs = restricted ? allTabs.filter(t=>OBRA_TABS.includes(t.id)) : allTabs;
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,sans-serif"}}>
@@ -1815,6 +1822,7 @@ function QuoteEditor({ quote, onSave, onHome }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [role, setRole] = useState("admin");
   const [quotes, setQuotes] = useState(loadQuotes);
   useEffect(()=>{ const ref=fbDb.ref("presupuestos"); const unsub=ref.on("value",(snap)=>{ const cloud=snap.val(); if(cloud&&Array.isArray(cloud)){ setQuotes(function(prev){var m=new Map();var ts=function(q){return (q&&(q.updatedAt||q.at))||0;};var ord=[];var i;for(i=0;i<(cloud||[]).length;i++){var qc=cloud[i];if(qc&&qc.id){ord.push(qc.id);m.set(qc.id,qc);}}var lastSync=window._lastSyncAt||0;for(i=0;i<(prev||[]).length;i++){var qp=prev[i];if(!qp||!qp.id)continue;if(m.has(qp.id)){if(ts(qp)>ts(m.get(qp.id)))m.set(qp.id,qp);}else if(ts(qp)>lastSync){ord.push(qp.id);m.set(qp.id,qp);}}var merged=ord.map(function(id){return m.get(id);}).filter(Boolean);try{localStorage.setItem(QKEY,JSON.stringify(merged));}catch(e){}window._lastSyncAt=Date.now();try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}return merged;}); } }); return ()=>ref.off("value",unsub); },[]);
 
@@ -1892,9 +1900,9 @@ function App() {
     window.alert("Respaldo importado: "+arr.length+" cotización(es).");
   };
 
-  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
-  if (!current) return <Dashboard quotes={quotes} onOpen={openQuote} onNew={newQuote} onDelete={deleteQuote} onLogout={() => setLoggedIn(false)} onImport={importQuotes} onUpdate={updateQuote} onRestore={restoreQuote} onDuplicate={duplicateQuote} />;
-  return <QuoteEditor key={current.id} quote={current} onSave={saveCurrent} onHome={goHome} />;
+  if (!loggedIn) return <LoginScreen onLogin={(r) => { setRole(r||"admin"); setLoggedIn(true); }} />;
+  if (!current) return <Dashboard role={role} quotes={quotes} onOpen={openQuote} onNew={newQuote} onDelete={deleteQuote} onLogout={() => setLoggedIn(false)} onImport={importQuotes} onUpdate={updateQuote} onRestore={restoreQuote} onDuplicate={duplicateQuote} />;
+  return <QuoteEditor key={current.id} role={role} quote={current} onSave={saveCurrent} onHome={goHome} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
