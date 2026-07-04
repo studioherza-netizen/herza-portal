@@ -125,7 +125,7 @@ const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, 
 const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA" });
 const emptyElectricRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", luz: "", foto: "", ubic: "", plano: "" });
 const emptyMaterialRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", ubic: "", plano: "" });
-const emptyMaterialReq = (project) => ({ id:"MR_"+uid(), collapsed:false, saved:false, titulo:"ENTREGA DE MATERIAL", noOrden:"00", proveedor:"", fecha: today(), semana:"NO APLICA", obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", entregaNombre:"", entregaPuesto:"", recibeNombre:"", recibePuesto:"", rows:[ emptyMaterialRow() ] });
+const emptyMaterialReq = (project) => ({ id:"MR_"+uid(), collapsed:false, saved:false, titulo:"ENTREGA DE MATERIAL", noOrden:"00", fecha: today(), obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", entregaNombre:"", entregaPuesto:"", recibeNombre:"", recibePuesto:"", rows:[ emptyMaterialRow() ] });
 const migrateMaterials = (quote) => {
   const arr = quote && quote.materials;
   if (Array.isArray(arr) && arr.length && arr[0] && Array.isArray(arr[0].rows)) {
@@ -644,9 +644,9 @@ function ElectricReqTab({reqs, setReqs, variant}) {
         <table style={{borderCollapse:"collapse",fontSize:11,minWidth:360}}>
           <tbody>
             <tr><td style={{...hcell,background:TP,color:"#fff"}}>No. Orden</td><td style={{padding:"2px 4px",border:"1px solid #fff"}}>{ed? <input value={d.noOrden||""} onChange={e=>setField(d.id,"noOrden",e.target.value)} style={{...infoInput,fontWeight:600}}/> : <div style={{textAlign:"right",fontWeight:600,padding:"4px 6px"}}>{d.noOrden||""}</div>}</td></tr>
-            {infoRow(d,ed,"Proveedor","proveedor",false)}
+            {!isMat && infoRow(d,ed,"Proveedor","proveedor",false)}
             {infoRow(d,ed,"Fecha","fecha",true)}
-            {infoRow(d,ed,"Semana","semana",false)}
+            {!isMat && infoRow(d,ed,"Semana","semana",false)}
             {infoRow(d,ed,"Obra","obra",false)}
             {infoRow(d,ed,"Dirección de entrega","dir",false)}
             {infoRow(d,ed,"Solicitó","solicito",false)}
@@ -796,7 +796,9 @@ function ElectricReqPrintView({reqs, variant}) {
               <table style={{borderCollapse:"collapse",fontSize:8.5,minWidth:300}}>
                 <tbody>
                   <tr><td style={{padding:"2px 8px",background:TP,color:"#fff",border:"1px solid #fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>No. Orden</td><td style={{padding:"2px 8px",background:TP,color:"#fff",textAlign:"right",border:"1px solid #fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{d.noOrden||""}</td></tr>
-                  {[["Proveedor",d.proveedor],["Fecha",fmtDate(d.fecha)],["Semana",d.semana],["Obra",d.obra],["Dirección de entrega",d.dir],["Solicitó",d.solicito]].map(([lbl,val],i)=>(
+                  {(isMat
+                    ? [["Fecha",fmtDate(d.fecha)],["Obra",d.obra],["Dirección de entrega",d.dir],["Solicitó",d.solicito]]
+                    : [["Proveedor",d.proveedor],["Fecha",fmtDate(d.fecha)],["Semana",d.semana],["Obra",d.obra],["Dirección de entrega",d.dir],["Solicitó",d.solicito]]).map(([lbl,val],i)=>(
                     <tr key={i}><td style={{padding:"2px 8px",background:TPL,border:"1px solid #fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{lbl}</td><td style={{padding:"2px 8px",textAlign:"right",border:"1px solid "+TPL}}>{val||""}</td></tr>
                   ))}
                 </tbody>
