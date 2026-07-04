@@ -26,8 +26,10 @@
   @media print {
     body * { visibility: hidden !important; }
     #print-area, #print-area * { visibility: visible !important; }
-    #print-area { position: static !important; left: 0; top: 0; width: 100%; }
-    #page-footer { page-break-before: avoid; break-before: avoid; page-break-inside: avoid; break-inside: avoid; }
+    #print-area { position: static !important; left: 0; top: 0; width: 100%; display: flex !important; flex-direction: column !important; min-height: 100vh; box-sizing: border-box; }
+    #page-footer { margin-top: auto !important; page-break-before: avoid; break-before: avoid; page-break-inside: avoid; break-inside: avoid; }
+    #print-totals { margin-top: auto !important; }
+    #print-totals ~ #page-footer { margin-top: 0 !important; }
     #print-area tr { page-break-inside: avoid !important; break-inside: avoid !important; }
     #print-area tr.cat-row { page-break-after: avoid !important; break-after: avoid !important; }
     #print-area tr.subtotal-row { page-break-before: avoid !important; break-before: avoid !important; }
@@ -121,8 +123,21 @@ const unitOptions = ["LOTE", "PIEZA", "M2", "ML", "SALIDA", "KG", "GLOBAL"];
 const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0 });
 const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
 const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA" });
-const emptyMaterial = () => ({ id: uid(), code: "ACCE-01", description: "", unit: "PIEZA", qty: 1, brand: "", condition: "NUEVO" });
 const emptyElectricRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", luz: "", foto: "", ubic: "", plano: "" });
+const emptyMaterialRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", foto: "", ubic: "", plano: "" });
+const emptyMaterialReq = (project) => ({ id:"MR_"+uid(), collapsed:false, saved:false, titulo:"ENTREGA DE MATERIAL", noOrden:"00", proveedor:"", fecha: today(), semana:"NO APLICA", obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", autorizo:"Arq. Karim Zaragoza", razonSocial:"NOMBRE EMPRESA O PERSONA", rfc:"", usoCfdi:"Gastos en general", enviarA:"administracion@herzastudio.com", rows:[ emptyMaterialRow() ] });
+const migrateMaterials = (quote) => {
+  const arr = quote && quote.materials;
+  if (Array.isArray(arr) && arr.length && arr[0] && Array.isArray(arr[0].rows)) {
+    return arr.map(r=>({ collapsed:false, saved:false, ...(r||{}), id:(r&&r.id)||("MR_"+uid()), rows:(r&&Array.isArray(r.rows))?r.rows:[] }));
+  }
+  if (Array.isArray(arr) && arr.length) {
+    const req = emptyMaterialReq(quote&&quote.project);
+    req.rows = arr.map(m=>({ id:(m&&m.id)||uid(), cod:(m&&m.code)||"", tipo:(m&&m.unit)||"", cant:(m&&m.qty)||0, desc:[(m&&m.description)||"",(m&&m.brand)||"",(m&&m.condition&&m.condition!=="NUEVO")?m.condition:""].filter(Boolean).join(" · "), foto:"", ubic:"", plano:"" }));
+    return [req];
+  }
+  return [ emptyMaterialReq(quote&&quote.project) ];
+};
 const emptyElectricReq = (project) => ({ id:"ER_"+uid(), collapsed:false, saved:false, titulo:"REQUISICIÓN ELÉCTRICO", noOrden:"00", proveedor:"", fecha: today(), semana:"NO APLICA", obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", autorizo:"Arq. Karim Zaragoza", razonSocial:"NOMBRE EMPRESA O PERSONA", rfc:"", usoCfdi:"Gastos en general", enviarA:"administracion@herzastudio.com", rows:[ emptyElectricRow() ] });
 const migrateElectricReqs = (quote) => {
   const arr = quote && quote.electricReqs;
@@ -220,7 +235,7 @@ const makeNewQuote = () => ({
   payments: [],
   expenses: [],
   expenseWeeks: [ emptyExpenseWeek() ],
-  materials: [],
+  materials: [ emptyMaterialReq(null) ],
   electricReqs: [ emptyElectricReq(null) ],
   personal: defaultPersonal(null),
   providers: []
@@ -441,7 +456,7 @@ function PaymentsTab({payments, setPayments, grandTotal}) {
   );
 }
 
-function ExpensesTab({expenseWeeks, setExpenseWeeks}) {
+function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
   const weeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
   const updWeek = (wid, fn) => setExpenseWeeks(prev => prev.map(w => w.id===wid ? fn(w) : w));
   const updateExp = (wid,id,f,v) => updWeek(wid, w => ({...w, expenses: w.expenses.map(x=>x.id===id?{...x,[f]:v}:x)}));
@@ -529,6 +544,7 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks}) {
                 <span style={{display:"block",fontSize:10,color:C.dim,letterSpacing:0.5}}>PAGADO · GERENC.</span>
                 <span style={{fontWeight:600,color:C.accent,fontSize:13}}>{fmt(total)} · {fmt(ger)}</span>
               </span>
+              <button onClick={e=>{e.stopPropagation(); onPrintWeek&&onPrintWeek(w.id);}} title={"Exportar Semana "+(idx+1)+" a PDF"} style={{...sb,background:C.accent,color:"#fff",fontSize:12,padding:"7px 12px"}}><IconPdf/> PDF</button>
             </div>
             {!w.collapsed && (
               <div style={{padding:"8px 16px 16px"}}>
@@ -539,11 +555,13 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks}) {
                     <button onClick={()=>addExp(w.id,"TRANSFERENCIA")} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}><IconPlus/> Transferencia</button>
                     <button onClick={()=>addExp(w.id,"EFECTIVO")} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}><IconPlus/> Efectivo</button>
                     <button onClick={()=>saveWeek(w.id)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>💾 Guardar y plegar semana</button>
+                    <button onClick={()=>onPrintWeek&&onPrintWeek(w.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12,border:"1px solid "+C.border}}><IconPdf/> Exportar esta semana</button>
                     <button onClick={()=>delWeek(w.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12,marginLeft:"auto"}}><IconTrash/> Eliminar semana</button>
                   </div>
                 ) : (
                   <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
                     <button onClick={()=>reopenWeek(w.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}>✎ Reabrir para editar</button>
+                    <button onClick={()=>onPrintWeek&&onPrintWeek(w.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12,border:"1px solid "+C.border}}><IconPdf/> Exportar esta semana</button>
                     <button onClick={()=>window.HZObra&&window.HZObra.enviar(w, idx, total)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>↗ Enviar a la app de obra</button>
                     <button onClick={()=>delWeek(w.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12}}><IconTrash/> Eliminar semana</button>
                     <span style={{marginLeft:"auto",fontSize:12,color:C.muted}}>Gasto: <b style={{color:C.text}}>{fmt(total)}</b> · Gerenc. 10%: <b style={{color:C.accent}}>{fmt(ger)}</b></span>
@@ -567,37 +585,6 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks}) {
   );
 }
 
-function MaterialsTab({materials, setMaterials}) {
-  const upd = (id,f,v) => setMaterials(prev=>prev.map(x=>x.id===id?{...x,[f]:v}:x));
-  return (
-    <div>
-      <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:C.text}}>Entrega de Material</h2>
-      <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20}}>
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr>
-            {["CÓDIGO","DESCRIPCIÓN","UNIDAD","CANTIDAD","MARCA","ESTADO",""].map((h,i)=>(
-              <th key={i} style={{padding:"6px",fontSize:10,color:C.dim,textAlign:"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>
-            ))}
-          </tr></thead>
-          <tbody>
-            {materials.map(m=>(
-              <tr key={m.id}>
-                <td style={{padding:"4px"}}><input value={m.code} onChange={e=>upd(m.id,"code",e.target.value)} style={{...si,width:90,fontSize:12}} /></td>
-                <td style={{padding:"4px"}}><input value={m.description} onChange={e=>upd(m.id,"description",e.target.value)} placeholder="Material o accesorio" style={{...si,fontSize:12}} /></td>
-                <td style={{padding:"4px"}}><select value={m.unit} onChange={e=>upd(m.id,"unit",e.target.value)} style={{...si,width:80,fontSize:11}}>{unitOptions.map(u=><option key={u}>{u}</option>)}</select></td>
-                <td style={{padding:"4px"}}><input type="number" min="0" value={m.qty} onChange={e=>upd(m.id,"qty",parseFloat(e.target.value)||0)} style={{...si,width:60,textAlign:"center",fontSize:12}} /></td>
-                <td style={{padding:"4px"}}><input value={m.brand} onChange={e=>upd(m.id,"brand",e.target.value)} placeholder="Marca" style={{...si,width:100,fontSize:12}} /></td>
-                <td style={{padding:"4px"}}><select value={m.condition} onChange={e=>upd(m.id,"condition",e.target.value)} style={{...si,width:90,fontSize:11}}><option>NUEVO</option><option>USADO</option><option>DAÑADO</option></select></td>
-                <td style={{padding:"4px"}}><button onClick={()=>setMaterials(prev=>prev.filter(x=>x.id!==m.id))} style={{...sb,padding:6,background:"transparent",color:C.dim}}><IconTrash/></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button onClick={()=>setMaterials(prev=>[...prev,emptyMaterial()])} style={{...sb,background:C.bg,color:C.muted,marginTop:12,fontSize:12}}><IconPlus/> Agregar material</button>
-      </div>
-    </div>
-  );
-}
 
 const HerzaSeal = () => (
   <div style={{width:74,height:74,border:"1px solid #c9c3b6",borderRadius:"50%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",flexShrink:0}}>
@@ -610,25 +597,32 @@ const HerzaSeal = () => (
 
 const LUZ_OPTS = ["","CÁLIDA","NEUTRA","BLANCA","RGB"];
 
-function ElectricReqTab({reqs, setReqs}) {
+function ElectricReqTab({reqs, setReqs, variant}) {
+  const isMat = variant==="material";
+  const defTitle = isMat ? "ENTREGA DE MATERIAL" : "REQUISICIÓN ELÉCTRICO";
+  const docLabel = isMat ? "Entrega" : "Requisición";
+  const newRow = isMat ? emptyMaterialRow : emptyElectricRow;
+  const newReq = isMat ? emptyMaterialReq : emptyElectricReq;
   const TP="#a8a08f", TPL="#efece5";
   const list = Array.isArray(reqs) ? reqs : [];
   const upd = (id, fn)=> setReqs(prev=> prev.map(r=> r.id===id ? fn(r) : r));
   const setField = (id,f,v)=> upd(id, r=>({...r,[f]:v}));
   const updRow = (id,rid,f,v)=> upd(id, r=>({...r, rows:(r.rows||[]).map(x=>x.id===rid?{...x,[f]:v}:x)}));
-  const addRow = (id)=> upd(id, r=>({...r, rows:[...(r.rows||[]), emptyElectricRow()]}));
+  const addRow = (id)=> upd(id, r=>({...r, rows:[...(r.rows||[]), newRow()]}));
   const delRow = (id,rid)=> upd(id, r=>({...r, rows:(r.rows||[]).filter(x=>x.id!==rid)}));
   const onFoto = (id,rid,e)=>{ const f=e.target.files&&e.target.files[0]; if(f) loadResizedImage(f, durl=> updRow(id,rid,"foto",durl)); e.target.value=""; };
   const toggle = (id)=> upd(id, r=>({...r, collapsed:!r.collapsed}));
   const saveReq = (id)=> upd(id, r=>({...r, saved:true, collapsed:true}));
   const reopen = (id)=> upd(id, r=>({...r, saved:false, collapsed:false}));
-  const addReq = ()=> setReqs(prev=>[...prev.map(r=>({...r,collapsed:true})), emptyElectricReq(null)]);
-  const delReq = (id)=>{ if(window.confirm("¿Eliminar esta requisición y todos sus materiales?")) setReqs(prev=>prev.filter(r=>r.id!==id)); };
+  const addReq = ()=> setReqs(prev=>[...prev.map(r=>({...r,collapsed:true})), newReq(null)]);
+  const delReq = (id)=>{ if(window.confirm("¿Eliminar esta "+docLabel.toLowerCase()+" y todos sus materiales?")) setReqs(prev=>prev.filter(r=>r.id!==id)); };
   const fmtDate = (s)=>{ try{ return s? new Date(s+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}):""; }catch(e){return s||"";} };
   const hcell = {padding:"4px 8px",background:TPL,color:"#55504a",fontSize:11,border:"1px solid #fff",whiteSpace:"nowrap"};
   const infoInput = {...si,fontSize:11,padding:"4px 6px",textAlign:"right",border:"1px solid #e7e3da",background:"#fff",width:"100%"};
   const cellRO = {padding:"6px 5px",border:"1px solid #f0ede6",fontSize:11,textAlign:"center",color:"#444"};
-  const cols=["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO",""];
+  const cols= isMat
+    ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO",""]
+    : ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO",""];
 
   const infoRow = (d, ed, lbl, key, isDate) => (
     <tr key={key}><td style={hcell}>{lbl}</td><td style={{padding:"2px 4px",border:"1px solid "+TPL}}>
@@ -663,7 +657,7 @@ function ElectricReqTab({reqs, setReqs}) {
       <div style={{background:TP,textAlign:"center",padding:"6px",minWidth:840}}>
         {ed
           ? <input value={d.titulo||""} onChange={e=>setField(d.id,"titulo",e.target.value)} style={{background:"transparent",border:"none",textAlign:"center",fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:"#2b2620",letterSpacing:1,width:"70%",outline:"none"}}/>
-          : <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:"#2b2620",letterSpacing:1}}>{d.titulo||"REQUISICIÓN ELÉCTRICO"}</span>}
+          : <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:"#2b2620",letterSpacing:1}}>{d.titulo||defTitle}</span>}
       </div>
 
       <table style={{borderCollapse:"collapse",width:"100%",minWidth:840,fontSize:10}}>
@@ -677,7 +671,7 @@ function ElectricReqTab({reqs, setReqs}) {
               <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.tipo} onChange={e=>updRow(d.id,r.id,"tipo",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
               <td style={{padding:"3px",border:"1px solid #f0ede6",width:62}}><input type="number" min="0" value={r.cant} onChange={e=>updRow(d.id,r.id,"cant",parseFloat(e.target.value)||0)} style={{...si,fontSize:11,padding:"4px",textAlign:"center",width:52}}/></td>
               <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.desc} onChange={e=>updRow(d.id,r.id,"desc",e.target.value)} style={{...si,fontSize:11,padding:"4px"}}/></td>
-              <td style={{padding:"3px",border:"1px solid #f0ede6",width:96}}><select value={r.luz} onChange={e=>updRow(d.id,r.id,"luz",e.target.value)} style={{...si,fontSize:10,padding:"4px 2px",width:90}}>{LUZ_OPTS.map(o=><option key={o} value={o}>{o||"—"}</option>)}</select></td>
+              {!isMat && <td style={{padding:"3px",border:"1px solid #f0ede6",width:96}}><select value={r.luz} onChange={e=>updRow(d.id,r.id,"luz",e.target.value)} style={{...si,fontSize:10,padding:"4px 2px",width:90}}>{LUZ_OPTS.map(o=><option key={o} value={o}>{o||"—"}</option>)}</select></td>}
               <td style={{padding:"3px",border:"1px solid #f0ede6",textAlign:"center",width:80}}>
                 {r.foto ? (
                   <div style={{position:"relative",display:"inline-block"}}>
@@ -700,14 +694,14 @@ function ElectricReqTab({reqs, setReqs}) {
               <td style={cellRO}>{r.tipo||""}</td>
               <td style={cellRO}>{r.cant}</td>
               <td style={cellRO}>{r.desc||""}</td>
-              <td style={cellRO}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3}}>{r.luz}</span>:"—"}</td>
+              {!isMat && <td style={cellRO}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3}}>{r.luz}</span>:"—"}</td>}
               <td style={{...cellRO,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:60,maxHeight:44,borderRadius:3}}/>:"—"}</td>
               <td style={cellRO}>{r.ubic||""}</td>
               <td style={cellRO}>{r.plano||""}</td>
               <td></td>
             </tr>
           ))}
-          {(d.rows||[]).length===0 && <tr><td colSpan={9} style={{padding:"8px",textAlign:"center",color:C.dim,fontSize:11}}>Sin materiales</td></tr>}
+          {(d.rows||[]).length===0 && <tr><td colSpan={cols.length} style={{padding:"8px",textAlign:"center",color:C.dim,fontSize:11}}>Sin materiales</td></tr>}
         </tbody>
       </table>
       {ed && <button onClick={()=>addRow(d.id)} style={{...sb,background:TP,color:"#fff",marginTop:12,fontSize:12}}><IconPlus/> Agregar material</button>}
@@ -727,15 +721,15 @@ function ElectricReqTab({reqs, setReqs}) {
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
-        <h2 style={{fontSize:18,fontWeight:600,color:C.text,margin:0}}>Requisición Eléctrico</h2>
-        <button onClick={addReq} style={{...sb,background:C.accent,color:"#fff",fontSize:13}}><IconPlus/> Agregar requisición nueva</button>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text,margin:0}}>{isMat?"Entrega de Material":"Requisición Eléctrico"}</h2>
+        <button onClick={addReq} style={{...sb,background:C.accent,color:"#fff",fontSize:13}}><IconPlus/> Agregar {docLabel.toLowerCase()} nueva</button>
       </div>
 
       {list.map((d,idx)=>(
         <div key={d.id} style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,marginBottom:12,overflow:"hidden"}}>
           <div onClick={()=>toggle(d.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:d.collapsed?"#f3f2ec":"#faf9f4",cursor:"pointer",flexWrap:"wrap"}}>
             <IconChevron open={!d.collapsed}/>
-            <span style={{fontWeight:600,color:C.text,fontSize:14}}>Requisición {idx+1}</span>
+            <span style={{fontWeight:600,color:C.text,fontSize:14}}>{docLabel} {idx+1}</span>
             <span style={{fontSize:12,color:C.muted}}>Orden {d.noOrden||"—"}{d.proveedor?(" · "+d.proveedor):""}</span>
             {d.saved
               ? <span style={{fontSize:10,background:"#e6ebd4",color:"#5b6033",padding:"2px 8px",borderRadius:20,fontWeight:600}}>Guardada</span>
@@ -747,9 +741,9 @@ function ElectricReqTab({reqs, setReqs}) {
               {renderForm(d, !d.saved)}
               <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
                 {!d.saved
-                  ? <button onClick={()=>saveReq(d.id)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>💾 Guardar y plegar requisición</button>
+                  ? <button onClick={()=>saveReq(d.id)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>💾 Guardar y plegar {docLabel.toLowerCase()}</button>
                   : <button onClick={()=>reopen(d.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}>✎ Reabrir para editar</button>}
-                <button onClick={()=>delReq(d.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12,marginLeft:"auto"}}><IconTrash/> Eliminar requisición</button>
+                <button onClick={()=>delReq(d.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12,marginLeft:"auto"}}><IconTrash/> Eliminar {docLabel.toLowerCase()}</button>
               </div>
             </div>
           )}
@@ -759,7 +753,12 @@ function ElectricReqTab({reqs, setReqs}) {
   );
 }
 
-function ElectricReqPrintView({reqs}) {
+function ElectricReqPrintView({reqs, variant}) {
+  const isMat = variant==="material";
+  const defTitle = isMat ? "ENTREGA DE MATERIAL" : "REQUISICIÓN ELÉCTRICO";
+  const pcols = isMat
+    ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"]
+    : ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"];
   const list = (Array.isArray(reqs) && reqs.length) ? reqs : [{}];
   const TP="#a8a08f", TPL="#efece5";
   const cell={padding:"5px 6px",border:"0.5px solid #cfcabf",fontSize:8.5,color:"#333",textAlign:"center"};
@@ -786,11 +785,11 @@ function ElectricReqPrintView({reqs}) {
               </table>
             </div>
             <div style={{background:TP,textAlign:"center",padding:"5px",margin:"10px 0 0",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-              <span style={{fontFamily:"Georgia,serif",fontSize:13,fontWeight:700,color:"#2b2620",letterSpacing:1}}>{d.titulo||"REQUISICIÓN ELÉCTRICO"}</span>
+              <span style={{fontFamily:"Georgia,serif",fontSize:13,fontWeight:700,color:"#2b2620",letterSpacing:1}}>{d.titulo||defTitle}</span>
             </div>
             <table style={{borderCollapse:"collapse",width:"100%",fontSize:8.5}}>
               <thead><tr style={{background:TP,color:"#fff",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-                {["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"].map((h,i)=>(
+                {pcols.map((h,i)=>(
                   <th key={i} style={{padding:"5px 6px",border:"0.5px solid #fff",fontWeight:700,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>
                 ))}
               </tr></thead>
@@ -801,13 +800,13 @@ function ElectricReqPrintView({reqs}) {
                     <td style={cell}>{r.tipo||""}</td>
                     <td style={cell}>{r.cant}</td>
                     <td style={cell}>{r.desc||""}</td>
-                    <td style={cell}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{r.luz}</span>:""}</td>
+                    {!isMat && <td style={cell}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{r.luz}</span>:""}</td>}
                     <td style={{...cell,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:70,maxHeight:50}}/>:""}</td>
                     <td style={cell}>{r.ubic||""}</td>
                     <td style={cell}>{r.plano||""}</td>
                   </tr>
                 ))}
-                {rows.length===0 && <tr><td colSpan={8} style={{...cell,color:"#999"}}>Sin materiales</td></tr>}
+                {rows.length===0 && <tr><td colSpan={pcols.length} style={{...cell,color:"#999"}}>Sin materiales</td></tr>}
               </tbody>
             </table>
             <div style={{marginTop:14,fontSize:9,color:"#444",lineHeight:1.5}}>
@@ -886,9 +885,11 @@ function PaymentsPrintView({project, payments, grandTotal}) {
   );
 }
 
-function ExpensesPrintView({project, expenseWeeks}) {
+function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
   const fmt = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
-  const weeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
+  const allWeeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
+  const singleWeek = printWeekId ? allWeeks.find(w=>w.id===printWeekId) : null;
+  const weeks = singleWeek ? [singleWeek] : allWeeks;
   const wkTotal = (w) => (w.expenses||[]).reduce((s,e)=>s+e.qty*e.price,0);
   const grandMonto = weeks.reduce((s,w)=>s+wkTotal(w),0);
   const grandGer = grandMonto*0.10;
@@ -946,24 +947,40 @@ function ExpensesPrintView({project, expenseWeeks}) {
         const t = wkTotal(w); const g = t*0.10;
         const transf = (w.expenses||[]).filter(e=>e.method==="TRANSFERENCIA");
         const efec = (w.expenses||[]).filter(e=>e.method==="EFECTIVO");
+        const tTransf = transf.reduce((s,e)=>s+e.qty*e.price,0);
+        const tEfec = efec.reduce((s,e)=>s+e.qty*e.price,0);
         return (
           <div key={w.id||i} style={{marginTop:18,breakInside:"avoid",pageBreakInside:"avoid"}}>
+            {!singleWeek && (
             <div style={{margin:"0 0 4px",padding:"5px 10px",background:"#e7e3da",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-              <span style={{fontSize:10,fontWeight:700,color:"#111",letterSpacing:0.5}}>SEMANA {i+1}{w.date?(" — "+pDate(w.date)):""}</span>
+              <span style={{fontSize:10,fontWeight:700,color:"#111",letterSpacing:0.5}}>SEMANA {(singleWeek?allWeeks.indexOf(w):i)+1}{w.date?(" — "+pDate(w.date)):""}</span>
             </div>
+            )}
             {renderTable(transf,"PAGOS VÍA TRANSFERENCIA")}
             {renderTable(efec,"PAGOS EN EFECTIVO")}
+            {singleWeek ? (
+            <div style={{maxWidth:360,marginLeft:"auto",marginTop:16,fontSize:11}}>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Transferencias</span><span>{fmt(tTransf)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Efectivo</span><span>{fmt(tEfec)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Gasto de Obra</span><span>{fmt(t)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Gerenciamiento 10%</span><span>{fmt(g)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL + GERENCIAMIENTO</span><span>{fmt(t+g)}</span></div>
+            </div>
+            ) : (
             <div style={{maxWidth:300,marginLeft:"auto",marginTop:8,fontSize:10}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><span>Monto pagado semana</span><span style={{fontWeight:600}}>{fmt(t)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><span>Gerenciamiento 10%</span><span>{fmt(g)}</span></div>
             </div>
+            )}
           </div>
         );
       })}
+      {!singleWeek && (
       <div style={{maxWidth:320,marginLeft:"auto",marginTop:20,fontSize:11,breakInside:"avoid",pageBreakInside:"avoid"}}>
         <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontWeight:700,fontSize:13,borderTop:"2px solid #b5a393",paddingTop:8}}><span>TOTAL MONTO PAGADO</span><span>{fmt(grandMonto)}</span></div>
         <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14}}><span>TOTAL GERENCIAMIENTO PAGADO</span><span style={{color:"#9a8774"}}>{fmt(grandGer)}</span></div>
       </div>
+      )}
       <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
         <div>Herza Studio · Arquitectura comercial &amp; de interiores</div>
         <div>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</div>
@@ -1382,13 +1399,13 @@ function PrintView({project, categories, items, mgmtPct, ivaPct}) {
         </tr></thead>
         {categories.sort((a,b)=>{var na=parseFloat(a.num)||0;var nb=parseFloat(b.num)||0;return na-nb;}).map(cat=><CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} printMode />)}
       </table>
-      <div style={{maxWidth:300,marginLeft:"auto",marginTop:16,fontSize:11}}>
+      <div id="print-totals" style={{maxWidth:300,marginLeft:"auto",marginTop:16,fontSize:11}}>
         <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
         <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Gerenciamiento {mgmtPct}%</span><span>{fmt(mgmt)}</span></div>
         <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>IVA {ivaPct}%</span><span>{fmt(iva)}</span></div>
         <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14,borderTop:"2px solid #b5a393",marginTop:6}}><span>GRAN TOTAL</span><span style={{color:"#9a8774"}}>{fmt(total)}</span></div>
       </div>
-      <div style={{marginTop:24,fontSize:9,color:"#666",lineHeight:1.6}}>
+      <div id="print-notes" style={{marginTop:24,fontSize:9,color:"#666",lineHeight:1.6}}>
         <p style={{margin:"2px 0"}}>• Esta cotización será válida hasta 10 días naturales posteriores a su entrega, aunque el trabajo cotizado se haya realizado o no.</p>
         <p style={{margin:"2px 0"}}>• Cualquier imprevisto que surja en obra siendo caso de remodelación, puede generar un sobre costo al mismo.</p>
         <p style={{margin:"2px 0"}}>• No incluye licencias, peritos o tramitología ante cualquier dependencia.</p>
@@ -1602,11 +1619,12 @@ function QuoteEditor({ quote, onSave, onHome }) {
   const [payments, setPayments] = useState(quote.payments||[]);
   const [expenseWeeks, setExpenseWeeks] = useState(()=>migrateExpenseWeeks(quote));
   const expenses = expenseWeeks.reduce((a,w)=>a.concat(w.expenses||[]),[]);
-  const [materials, setMaterials] = useState(quote.materials||[]);
+  const [materials, setMaterials] = useState(()=> migrateMaterials(quote));
   const [electricReqs, setElectricReqs] = useState(()=> migrateElectricReqs(quote));
   const [personal, setPersonal] = useState(quote.personal||defaultPersonal(quote.project));
   const [providers, setProviders] = useState(quote.providers||[]);
   const [printing, setPrinting] = useState(false);
+  const [printWeekId, setPrintWeekId] = useState(null);
   const [savedLabel, setSavedLabel] = useState("");
 
   // Auto-save on any change
@@ -1682,8 +1700,16 @@ function QuoteEditor({ quote, onSave, onHome }) {
     setCategories(prev=>prev.map(c=>c.id===catId?{...c,[field]:val}:c));
   };
   const handlePrint = () => {
+    setPrintWeekId(null);
     setPrinting(true);
     var onAfter = () => { setPrinting(false); window.removeEventListener("afterprint", onAfter); };
+    window.addEventListener("afterprint", onAfter);
+    setTimeout(()=>window.print(),350);
+  };
+  const handlePrintWeek = (wid) => {
+    setPrintWeekId(wid);
+    setPrinting(true);
+    var onAfter = () => { setPrinting(false); setPrintWeekId(null); window.removeEventListener("afterprint", onAfter); };
     window.addEventListener("afterprint", onAfter);
     setTimeout(()=>window.print(),350);
   };
@@ -1694,8 +1720,9 @@ function QuoteEditor({ quote, onSave, onHome }) {
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,sans-serif"}}>
       {printing && (
         activeTab==="payments" ? <PaymentsPrintView project={project} payments={payments} grandTotal={grandTotal} />
-        : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} />
+        : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} printWeekId={printWeekId} />
         : activeTab==="electrico" ? <ElectricReqPrintView reqs={electricReqs} />
+        : activeTab==="materials" ? <ElectricReqPrintView reqs={materials} variant="material" />
         : activeTab==="personal" ? <PersonalPrintView project={project} personal={personal} />
         : activeTab==="providers" ? <ProveedoresPrintView project={project} providers={providers} />
         : activeTab==="resumen" ? <ResumenPrintView project={project} grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />
@@ -1732,8 +1759,8 @@ function QuoteEditor({ quote, onSave, onHome }) {
           </div>
         )}
         {activeTab==="payments" && <PaymentsTab payments={payments} setPayments={setPayments} grandTotal={grandTotal} />}
-        {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} />}
-        {activeTab==="materials" && <MaterialsTab materials={materials} setMaterials={setMaterials} />}
+        {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} onPrintWeek={handlePrintWeek} />}
+        {activeTab==="materials" && <ElectricReqTab reqs={materials} setReqs={setMaterials} variant="material" />}
         {activeTab==="electrico" && <ElectricReqTab reqs={electricReqs} setReqs={setElectricReqs} />}
         {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} />}
         {activeTab==="providers" && <ProveedoresTab providers={providers} setProviders={setProviders} categories={categories} items={items} />}
