@@ -202,6 +202,7 @@
 </div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
   const I={
@@ -591,14 +592,35 @@
   // ---------- vista supervisor: reporte y avance ----------
   function reporteView(o){
     const reps=reportes[o.id]||[];
-    return `<div class="up-card" style="max-width:580px;margin-bottom:20px">
-      <div class="uh"><span class="ic">${I.camera}</span><div><b>Subir reporte fotográfico</b><span>Fotos del avance de la semana</span></div></div>
-      <div class="fg" style="margin-top:6px"><label>Semana</label><input class="fld" id="repSem" placeholder="Ej. Semana 13"></div>
-      <div class="up-zone" onclick="toast('En la versión real: selector de fotos del teléfono')">${I.upload} Arrastra o selecciona fotos</div>
-      <div style="margin-top:13px;text-align:right"><button class="btn" onclick="subirReporte('${o.id}')">${I.check} Publicar reporte</button></div>
+    window._repFotos=[];
+    const sug='Semana '+(reps.length+1);
+    return `<div class="up-card" style="max-width:640px;margin-bottom:20px">
+      <div class="uh"><span class="ic">${I.camera}</span><div><b>Nuevo reporte fotográfico</b><span>Sube las fotos con su nota y la app genera el PDF (hoja carta) con el formato Herza</span></div></div>
+      <div class="fg" style="margin-top:6px"><label>Semana</label><input class="fld" id="repSem" value="${sug}" placeholder="Ej. ${sug}"></div>
+      <div class="fg"><label>Notas de la semana</label><textarea class="fld" id="repNotas" style="min-height:74px;resize:vertical" placeholder="Resumen de lo realizado, personal en obra, incidencias, material recibido…"></textarea></div>
+      <label class="up-zone">${I.upload} Agregar fotos del avance<input type="file" accept="image/*" multiple style="display:none" onchange="repAddFotos(this)"></label>
+      <div id="repLista" style="margin-top:10px"></div>
+      <div style="margin-top:13px;text-align:right"><button class="btn" id="repPubBtn" onclick="subirReporte('${o.id}')">${I.check} Generar y publicar PDF</button></div>
     </div>
     <h4 class="sub-h">Reportes publicados</h4>
-    ${reps.length?reps.map(r=>`<div class="sol"><span class="si comprobante">${I.camera}</span><div class="info"><b>${r.semana} · ${r.fotos} fotos</b><span>${r.fecha} · subido por ${r.autor}</span></div></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Aún no hay reportes.</p>'}`;
+    ${reps.length?reps.map(r=>`<div class="sol"><span class="si comprobante">${I.camera}</span><div class="info"><b>${r.semana}</b><span>${r.fecha} · subido por ${r.autor}</span></div></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Aún no hay reportes.</p>'}`;
+  }
+  window._repFotos=[];
+  function repAddFotos(inp){
+    const fs=Array.from(inp&&inp.files?inp.files:[]);inp.value='';
+    if(!fs.length)return;
+    fs.forEach(f=>{const r=new FileReader();r.onload=e=>{window._repFotos.push({url:e.target.result,ub:'',desc:''});renderRepLista()};r.readAsDataURL(f)});
+  }
+  function renderRepLista(){
+    const el=document.getElementById('repLista');if(!el)return;
+    el.innerHTML=(window._repFotos||[]).map((f,i)=>`<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:#fff">
+      <img src="${f.url}" style="width:74px;height:56px;object-fit:cover;border-radius:8px;flex:none">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+        <input class="fld" placeholder="Ubicación (ej. Cocina)" value="${(f.ub||'').replace(/"/g,'&quot;')}" oninput="window._repFotos[${i}].ub=this.value" style="padding:7px 10px;font-size:13px">
+        <input class="fld" placeholder="¿Qué se hizo? (pie de foto)" value="${(f.desc||'').replace(/"/g,'&quot;')}" oninput="window._repFotos[${i}].desc=this.value" style="padding:7px 10px;font-size:13px">
+      </div>
+      <button class="pwbtn" title="Quitar foto" onclick="window._repFotos.splice(${i},1);renderRepLista()" style="font-size:15px;line-height:1">×</button></div>`).join('')+
+      ((window._repFotos||[]).length?`<p style="font-size:11.5px;color:var(--muted);margin:2px 0 0">${window._repFotos.length} foto${window._repFotos.length>1?'s':''} · 4 por hoja carta</p>`:'');
   }
   function avanceView(o){
     return `<div class="up-card" style="max-width:580px;margin-bottom:20px">
@@ -609,7 +631,7 @@
     <h4 class="sub-h">Notas de avance</h4>
     ${o.notas.length?o.notas.map(n=>`<div class="sol"><span class="si duda">${I.note}</span><div class="info"><b>${n.fecha} · ${n.autor}</b><span>${n.texto}</span></div>${(rol==='admin'||rol==='pm')&&n.id?`<div class="acts"><button class="btn-sm btn-ghost" style="color:#a23b2d;border-color:#e0c4bf" onclick="borrarNota('${n.id}','${o.id}')">Eliminar</button></div>`:''}</div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin notas registradas.</p>'}`;
   }
-  function subirReporte(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));(reportes[id]=reportes[id]||[]).unshift({semana:sem,fecha:'Hoy',fotos:4,autor:actor().nombre});const o=obras.find(x=>x.id===id);o.contenido.fotos+=4;toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')}
+  function subirReporte(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));const n=(window._repFotos||[]).length||4;(reportes[id]=reportes[id]||[]).unshift({semana:sem,fecha:'Hoy',fotos:n,autor:actor().nombre});const o=obras.find(x=>x.id===id);o.contenido.fotos+=n;toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')}
   function guardarNota(id){const el=document.getElementById('notaTxt');const t=(el&&el.value||'').trim();if(!t){toast('Escribe la nota de avance');return}obras.find(x=>x.id===id).notas.unshift({fecha:'Hoy',texto:t,autor:actor().nombre});toast('Nota guardada');fichaObra(id,'avance')}
 
   // ---------- EQUIPO (supervisores) ----------
@@ -1099,7 +1121,114 @@
     });
   };
 
-  subirReporte=async function(id){const el=document.getElementById('repSem');const sem=(el&&el.value||'').trim()||('Semana '+((reportes[id]||[]).length+1));await sb.from('archivos').insert({obra_id:id,tipo:'foto',nombre:'Avance '+sem,semana:sem,subido_por:ofUid,subido_por_nombre:ofNombre});await sb.from('notificaciones').insert({obra_id:id,tipo:'foto',titulo:'Nuevo reporte fotográfico',detalle:sem,ruta:'fotografico'});await cargarOficina();toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte')};
+  // ---------- REPORTE FOTOGRÁFICO PDF (hoja carta, formato Herza) ----------
+  async function _repImg(url,boxW,boxH){ // recorte tipo "cover" → dataURL JPEG
+    const img=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=url});
+    const cw=1200, ch=Math.round(1200*boxH/boxW);
+    const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+    const ctx=cv.getContext('2d');
+    const scale=Math.max(cw/img.width,ch/img.height);
+    const sw=cw/scale, sh=ch/scale, sx=(img.width-sw)/2, sy=(img.height-sh)/2;
+    ctx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
+    return cv.toDataURL('image/jpeg',0.82);
+  }
+  window._repPdf=async function(o,sem,notas,fotos){
+    const {jsPDF}=window.jspdf;
+    const d=new jsPDF({unit:'pt',format:'letter'});
+    const W=612,H=792,M=40;
+    const OLIVE='#6e7d39',TAUPE='#9a9286',GOLD='#a98f5c',INK='#3a3a34',INKD='#2a2a25',BORDER='#c7c1b4',GREIGE='#efece6';
+    const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const hoy=new Date(), fecha=hoy.getDate()+' '+meses[hoy.getMonth()]+' '+hoy.getFullYear();
+    const semNum=(sem.match(/\d+/)||[''])[0];
+    const folio='HZ-'+((o&&o.nombre)||'OBRA').split(/\s+/).map(p=>p[0]).join('').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)+(semNum?'-S'+semNum:'');
+    const caps=(x,y,t,size,color,space)=>{d.setFont('helvetica','bold');d.setFontSize(size);d.setTextColor(color);d.text(t,x,y,{charSpace:space})};
+    const capsR=(xr,y,t,size,color,space)=>{d.setFont('helvetica','bold');d.setFontSize(size);const w=d.getTextWidth(t)+space*(t.length-1);d.setTextColor(color);d.text(t,xr-w,y,{charSpace:space})};
+    const header=()=>{
+      d.setFont('helvetica','bold');d.setFontSize(19);d.setTextColor(INKD);d.text('Herza Studio.',M,52);
+      caps(M,66,'ARQUITECTURA RESIDENCIAL · INTERIORISMO',6.3,TAUPE,1.8);
+      capsR(W-M,49,'REPORTE FOTOGRÁFICO',7.5,TAUPE,2.2);
+      d.setFont('times','normal');d.setFontSize(21);d.setTextColor(OLIVE);d.text(sem,W-M,68,{align:'right'});
+      d.setDrawColor(GOLD);d.setLineWidth(1.1);d.line(M,78,W-M,78);
+      return 78;
+    };
+    const footer=(pg,tot)=>{
+      d.setDrawColor(BORDER);d.setLineWidth(0.6);d.line(M,H-44,W-M,H-44);
+      d.setFont('helvetica','normal');d.setFontSize(7);d.setTextColor(TAUPE);
+      d.text('Herza Studio · Arquitectura Residencial · Interiorismo',M,H-33);
+      d.text('Folio '+folio+' · Hoja '+pg+' de '+tot,W-M,H-33,{align:'right'});
+    };
+    const grid=async(gTop,items)=>{
+      const gap=14, cw=(W-2*M-gap)/2, avail=(H-56)-gTop, ch=(avail-gap)/2, imgH=ch-34, pad=6;
+      for(let idx=0;idx<items.length;idx++){
+        const f=items[idx], col=idx%2, row=Math.floor(idx/2);
+        const x=M+col*(cw+gap), top=gTop+row*(ch+gap);
+        d.setFillColor('#ffffff');d.setDrawColor(BORDER);d.setLineWidth(0.8);
+        d.roundedRect(x,top,cw,ch,8,8,'FD');
+        try{const du=await _repImg(f.url,cw-2*pad,imgH);d.addImage(du,'JPEG',x+pad,top+pad,cw-2*pad,imgH);}catch(e){}
+        d.setDrawColor(BORDER);d.setLineWidth(0.5);d.rect(x+pad,top+pad,cw-2*pad,imgH);
+        caps(x+pad+2,top+pad+imgH+12,(f.ub||'AVANCE DE OBRA').toUpperCase(),6.8,OLIVE,1.6);
+        d.setFont('helvetica','normal');d.setFontSize(7.6);d.setTextColor(INK);
+        const lines=d.splitTextToSize(f.desc||'',cw-2*pad-4).slice(0,2);
+        lines.forEach((ln,li)=>d.text(ln,x+pad+2,top+pad+imgH+22+li*9));
+      }
+    };
+    const tot=1+Math.max(0,Math.ceil((fotos.length-4)/4));
+    // -------- página 1 --------
+    header();
+    d.setFillColor(GREIGE);d.setDrawColor(BORDER);d.setLineWidth(0.7);
+    d.roundedRect(M,92,W-2*M,40,9,9,'FD');
+    const datos=[['OBRA',(o&&o.nombre)||''],['SEMANA',sem],['SUPERVISOR',ofNombre||''],['FECHA DE REPORTE',fecha]];
+    const fracs=[0,0.31,0.56,0.80];
+    datos.forEach((kv,i)=>{
+      const x=M+14+fracs[i]*(W-2*M);
+      caps(x,106,kv[0],6,TAUPE,1.5);
+      d.setFont('helvetica','bold');d.setFontSize(9);d.setTextColor(INK);d.text(String(kv[1]).slice(0,34),x,120);
+    });
+    let gTop=148;
+    if(notas){
+      caps(M,157,'NOTAS DE LA SEMANA',7,TAUPE,2);
+      d.setDrawColor(GOLD);d.setLineWidth(2);d.line(M,163,M+22,163);
+      d.setFont('helvetica','normal');d.setFontSize(8.4);
+      const nl=d.splitTextToSize(notas,W-2*M-28).slice(0,6);
+      const nh=Math.max(34,14+nl.length*11);
+      d.setFillColor('#ffffff');d.setDrawColor(BORDER);d.setLineWidth(0.7);
+      d.roundedRect(M,170,W-2*M,nh,9,9,'FD');
+      d.setTextColor(INK);nl.forEach((ln,li)=>d.text(ln,M+14,184+li*11));
+      gTop=170+nh+16;
+    }
+    await grid(gTop,fotos.slice(0,4));
+    footer(1,tot);
+    // -------- páginas siguientes --------
+    for(let p=1;p<tot;p++){
+      d.addPage('letter');
+      header();
+      await grid(94,fotos.slice(p*4,p*4+4));
+      footer(p+1,tot);
+    }
+    return d.output('blob');
+  };
+  subirReporte=async function(id){
+    const sem=((document.getElementById('repSem')||{}).value||'').trim()||('Semana '+((reportes[id]||[]).length+1));
+    const notas=((document.getElementById('repNotas')||{}).value||'').trim();
+    const fotos=window._repFotos||[];
+    if(!fotos.length){toast('Agrega al menos una foto del avance');return}
+    const btn=document.getElementById('repPubBtn');
+    if(btn){btn.disabled=true;btn.textContent='Generando PDF…'}
+    try{
+      const o=obras.find(x=>x.id===id);
+      const blob=await window._repPdf(o,sem,notas,fotos);
+      const path=id+'/'+Date.now()+'_reporte_'+sem.replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_').toLowerCase()+'.pdf';
+      const up=await sb.storage.from('fotos').upload(path,blob,{upsert:false,contentType:'application/pdf'});
+      if(up.error)throw up.error;
+      const ins=await sb.from('archivos').insert({obra_id:id,tipo:'foto',nombre:'Reporte fotográfico · '+sem+' ('+fotos.length+' fotos)',storage_path:path,semana:sem,subido_por:ofUid,subido_por_nombre:ofNombre});
+      if(ins.error)throw ins.error;
+      await sb.from('notificaciones').insert({obra_id:id,tipo:'foto',titulo:'Nuevo reporte fotográfico',detalle:sem+' · '+fotos.length+' fotos',ruta:'fotografico'});
+      window._repFotos=[];
+      await cargarOficina();toast('Reporte publicado · se notificó al cliente');fichaObra(id,'reporte');
+      return;
+    }catch(e){console.error('reporte',e);toast('No se pudo publicar el reporte');}
+    if(btn){btn.disabled=false;btn.innerHTML=I.check+' Generar y publicar PDF'}
+  };
   guardarNota=async function(id){const el=document.getElementById('notaTxt');const t=(el&&el.value||'').trim();if(!t){toast('Escribe la nota de avance');return}await sb.from('notas_avance').insert({obra_id:id,texto:t,autor_id:ofUid,autor_nombre:ofNombre});await cargarOficina();toast('Nota guardada');fichaObra(id,'avance')};
 
   // ocultar el selector de rol demo (el rol viene del login real)
