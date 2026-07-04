@@ -124,8 +124,8 @@ const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num
 const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
 const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA" });
 const emptyElectricRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", luz: "", foto: "", ubic: "", plano: "" });
-const emptyMaterialRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", foto: "", ubic: "", plano: "" });
-const emptyMaterialReq = (project) => ({ id:"MR_"+uid(), collapsed:false, saved:false, titulo:"ENTREGA DE MATERIAL", noOrden:"00", proveedor:"", fecha: today(), semana:"NO APLICA", obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", autorizo:"Arq. Karim Zaragoza", razonSocial:"NOMBRE EMPRESA O PERSONA", rfc:"", usoCfdi:"Gastos en general", enviarA:"administracion@herzastudio.com", rows:[ emptyMaterialRow() ] });
+const emptyMaterialRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", ubic: "", plano: "" });
+const emptyMaterialReq = (project) => ({ id:"MR_"+uid(), collapsed:false, saved:false, titulo:"ENTREGA DE MATERIAL", noOrden:"00", proveedor:"", fecha: today(), semana:"NO APLICA", obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", entregaNombre:"", entregaPuesto:"", recibeNombre:"", recibePuesto:"", rows:[ emptyMaterialRow() ] });
 const migrateMaterials = (quote) => {
   const arr = quote && quote.materials;
   if (Array.isArray(arr) && arr.length && arr[0] && Array.isArray(arr[0].rows)) {
@@ -133,7 +133,7 @@ const migrateMaterials = (quote) => {
   }
   if (Array.isArray(arr) && arr.length) {
     const req = emptyMaterialReq(quote&&quote.project);
-    req.rows = arr.map(m=>({ id:(m&&m.id)||uid(), cod:(m&&m.code)||"", tipo:(m&&m.unit)||"", cant:(m&&m.qty)||0, desc:[(m&&m.description)||"",(m&&m.brand)||"",(m&&m.condition&&m.condition!=="NUEVO")?m.condition:""].filter(Boolean).join(" · "), foto:"", ubic:"", plano:"" }));
+    req.rows = arr.map(m=>({ id:(m&&m.id)||uid(), cod:(m&&m.code)||"", tipo:(m&&m.unit)||"", cant:(m&&m.qty)||0, desc:[(m&&m.description)||"",(m&&m.brand)||"",(m&&m.condition&&m.condition!=="NUEVO")?m.condition:""].filter(Boolean).join(" · "), ubic:"", plano:"" }));
     return [req];
   }
   return [ emptyMaterialReq(quote&&quote.project) ];
@@ -621,7 +621,7 @@ function ElectricReqTab({reqs, setReqs, variant}) {
   const infoInput = {...si,fontSize:11,padding:"4px 6px",textAlign:"right",border:"1px solid #e7e3da",background:"#fff",width:"100%"};
   const cellRO = {padding:"6px 5px",border:"1px solid #f0ede6",fontSize:11,textAlign:"center",color:"#444"};
   const cols= isMat
-    ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO",""]
+    ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","UBICACIÓN","CÓDIGO INTERNO PLANO",""]
     : ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO",""];
 
   const infoRow = (d, ed, lbl, key, isDate) => (
@@ -672,7 +672,7 @@ function ElectricReqTab({reqs, setReqs, variant}) {
               <td style={{padding:"3px",border:"1px solid #f0ede6",width:62}}><input type="number" min="0" value={r.cant} onChange={e=>updRow(d.id,r.id,"cant",parseFloat(e.target.value)||0)} style={{...si,fontSize:11,padding:"4px",textAlign:"center",width:52}}/></td>
               <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.desc} onChange={e=>updRow(d.id,r.id,"desc",e.target.value)} style={{...si,fontSize:11,padding:"4px"}}/></td>
               {!isMat && <td style={{padding:"3px",border:"1px solid #f0ede6",width:96}}><select value={r.luz} onChange={e=>updRow(d.id,r.id,"luz",e.target.value)} style={{...si,fontSize:10,padding:"4px 2px",width:90}}>{LUZ_OPTS.map(o=><option key={o} value={o}>{o||"—"}</option>)}</select></td>}
-              <td style={{padding:"3px",border:"1px solid #f0ede6",textAlign:"center",width:80}}>
+              {!isMat && <td style={{padding:"3px",border:"1px solid #f0ede6",textAlign:"center",width:80}}>
                 {r.foto ? (
                   <div style={{position:"relative",display:"inline-block"}}>
                     <img src={r.foto} style={{maxWidth:60,maxHeight:44,borderRadius:3,display:"block"}}/>
@@ -683,7 +683,7 @@ function ElectricReqTab({reqs, setReqs, variant}) {
                     <input type="file" accept="image/*" onChange={e=>onFoto(d.id,r.id,e)} style={{display:"none"}}/>+ foto
                   </label>
                 )}
-              </td>
+              </td>}
               <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.ubic} onChange={e=>updRow(d.id,r.id,"ubic",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
               <td style={{padding:"3px",border:"1px solid #f0ede6"}}><input value={r.plano} onChange={e=>updRow(d.id,r.id,"plano",e.target.value)} style={{...si,fontSize:11,padding:"4px",textAlign:"center"}}/></td>
               <td style={{padding:"3px"}}><button onClick={()=>delRow(d.id,r.id)} style={{...sb,padding:4,background:"transparent",color:C.dim}}><IconTrash/></button></td>
@@ -695,7 +695,7 @@ function ElectricReqTab({reqs, setReqs, variant}) {
               <td style={cellRO}>{r.cant}</td>
               <td style={cellRO}>{r.desc||""}</td>
               {!isMat && <td style={cellRO}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3}}>{r.luz}</span>:"—"}</td>}
-              <td style={{...cellRO,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:60,maxHeight:44,borderRadius:3}}/>:"—"}</td>
+              {!isMat && <td style={{...cellRO,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:60,maxHeight:44,borderRadius:3}}/>:"—"}</td>}
               <td style={cellRO}>{r.ubic||""}</td>
               <td style={cellRO}>{r.plano||""}</td>
               <td></td>
@@ -706,6 +706,23 @@ function ElectricReqTab({reqs, setReqs, variant}) {
       </table>
       {ed && <button onClick={()=>addRow(d.id)} style={{...sb,background:TP,color:"#fff",marginTop:12,fontSize:12}}><IconPlus/> Agregar material</button>}
 
+      {isMat ? (
+        <div style={{marginTop:18,borderTop:"1px solid #e2ded5",paddingTop:12,fontSize:11,color:"#55504a",minWidth:600}}>
+          <div style={{fontWeight:600,color:"#2f2f2b",marginBottom:8}}>Entrega y recepción:</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 30px",maxWidth:760}}>
+            {[["ENTREGA","entregaNombre","entregaPuesto"],["RECIBE","recibeNombre","recibePuesto"]].map(([lbl,kNom,kPue])=>(
+              <div key={lbl}>
+                <div style={{fontSize:10,letterSpacing:1,color:"#9a958a",fontWeight:700,marginBottom:6}}>{lbl}</div>
+                <div style={{display:"grid",gridTemplateColumns:"70px 1fr",gap:"6px 10px"}}>
+                  <span style={{color:"#9a958a",alignSelf:"center"}}>Nombre</span>{ed? <input value={d[kNom]||""} onChange={e=>setField(d.id,kNom,e.target.value)} style={{...si,fontSize:12,padding:"4px 6px"}}/> : <span style={{padding:"4px 0"}}>{d[kNom]||""}</span>}
+                  <span style={{color:"#9a958a",alignSelf:"center"}}>Puesto</span>{ed? <input value={d[kPue]||""} onChange={e=>setField(d.id,kPue,e.target.value)} style={{...si,fontSize:12,padding:"4px 6px"}}/> : <span style={{padding:"4px 0"}}>{d[kPue]||""}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:8,fontSize:10,color:"#9a958a"}}>La fecha y el lugar de entrega se toman del encabezado (Fecha / Dirección de entrega). Las firmas se recaban en el PDF impreso.</div>
+        </div>
+      ) : (
       <div style={{marginTop:18,borderTop:"1px solid #e2ded5",paddingTop:12,fontSize:11,color:"#55504a",minWidth:600}}>
         <div style={{marginBottom:10,display:"flex",alignItems:"center",gap:8}}><span style={{color:"#9a958a"}}>Autorizó_</span>{ed? <input value={d.autorizo||""} onChange={e=>setField(d.id,"autorizo",e.target.value)} style={{...si,fontSize:12,padding:"4px 6px",width:240}}/> : <b style={{color:"#2f2f2b"}}>{d.autorizo||""}</b>}</div>
         <div style={{fontWeight:600,color:"#2f2f2b",marginBottom:6}}>Emitir Factura a:</div>
@@ -715,6 +732,7 @@ function ElectricReqTab({reqs, setReqs, variant}) {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 
@@ -757,7 +775,7 @@ function ElectricReqPrintView({reqs, variant}) {
   const isMat = variant==="material";
   const defTitle = isMat ? "ENTREGA DE MATERIAL" : "REQUISICIÓN ELÉCTRICO";
   const pcols = isMat
-    ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"]
+    ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","UBICACIÓN","CÓDIGO INTERNO PLANO"]
     : ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"];
   const list = (Array.isArray(reqs) && reqs.length) ? reqs : [{}];
   const TP="#a8a08f", TPL="#efece5";
@@ -801,7 +819,7 @@ function ElectricReqPrintView({reqs, variant}) {
                     <td style={cell}>{r.cant}</td>
                     <td style={cell}>{r.desc||""}</td>
                     {!isMat && <td style={cell}>{r.luz? <span style={{background:"#e3e0d8",padding:"1px 8px",borderRadius:3,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{r.luz}</span>:""}</td>}
-                    <td style={{...cell,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:70,maxHeight:50}}/>:""}</td>
+                    {!isMat && <td style={{...cell,padding:"3px"}}>{r.foto? <img src={r.foto} style={{maxWidth:70,maxHeight:50}}/>:""}</td>}
                     <td style={cell}>{r.ubic||""}</td>
                     <td style={cell}>{r.plano||""}</td>
                   </tr>
@@ -809,6 +827,23 @@ function ElectricReqPrintView({reqs, variant}) {
                 {rows.length===0 && <tr><td colSpan={pcols.length} style={{...cell,color:"#999"}}>Sin materiales</td></tr>}
               </tbody>
             </table>
+            {isMat ? (
+            <div style={{marginTop:14,fontSize:9,color:"#444",lineHeight:1.5}}>
+              <div style={{marginBottom:4}}>Entregado el <b>{fmtDate(d.fecha)||"____________"}</b> en <b>{d.dir||"____________________________"}</b></div>
+              <div style={{display:"flex",justifyContent:"space-around",gap:60,marginTop:44}}>
+                {[["ENTREGA",d.entregaNombre,d.entregaPuesto],["RECIBE",d.recibeNombre,d.recibePuesto]].map(([lbl,nom,pue],i)=>(
+                  <div key={i} style={{textAlign:"center",width:250}}>
+                    <div style={{borderTop:"1px solid #333",paddingTop:5}}>
+                      <div style={{fontWeight:700,fontSize:9.5}}>{nom||" "}</div>
+                      <div style={{fontSize:9}}>{pue||" "}</div>
+                      <div style={{color:"#999",fontSize:7.5,letterSpacing:1,marginTop:3}}>{lbl} — NOMBRE, PUESTO Y FIRMA</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:14,borderTop:"1px solid #ddd",paddingTop:6,fontSize:8,color:"#999",textAlign:"center"}}>Herza Studio · Arquitectura comercial &amp; de interiores · administracion@herzastudio.com</div>
+            </div>
+            ) : (
             <div style={{marginTop:14,fontSize:9,color:"#444",lineHeight:1.5}}>
               <div style={{marginBottom:6}}>Autorizó_ <b>{d.autorizo||""}</b></div>
               <div style={{fontWeight:700}}>Emitir Factura a:</div>
@@ -818,6 +853,7 @@ function ElectricReqPrintView({reqs, variant}) {
               <div>Enviar factura a {d.enviarA||""}</div>
               <div style={{marginTop:8,borderTop:"1px solid #ddd",paddingTop:6,fontSize:8,color:"#999",textAlign:"center"}}>Herza Studio · Arquitectura comercial &amp; de interiores · administracion@herzastudio.com</div>
             </div>
+            )}
           </div>
         );
       })}
