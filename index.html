@@ -478,6 +478,8 @@
   ICON.calendar='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h2M14 14h2M8 18h2M14 18h2"/></svg>';
   ICON.check='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
   ICON.info='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
+  ICON.doc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><circle cx="12" cy="14.5" r="2.3"/><path d="M12 16.8v2.4"/></svg>';
+  ICON.user='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   ICON.help='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 2.5"/><path d="M12 17h.01"/></svg>';
   ICON.upload='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/></svg>';
   ICON.home='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>';
@@ -544,6 +546,14 @@
     ['Hidrosanitario','PDF · 2.9 MB','PDF','#9c6b4a']
   ];
   let renders=[['Fachada principal','Vista diurna'],['Fachada nocturna','Iluminación'],['Sala-comedor','Interior'],['Cocina','Interior'],['Recámara principal','Interior'],['Jardín y terraza','Exterior']];
+  let tramites=[
+    ['Licencia de construcción','PDF · Municipio','PDF','#8a6d3b'],
+    ['Factibilidad de agua y drenaje','PDF · Organismo operador','PDF','#8a6d3b']
+  ];
+  let infoCli=[
+    ['Contrato de obra','PDF · Firmado','PDF','#6e7d39'],
+    ['Presupuesto autorizado','PDF','PDF','#6e7d39']
+  ];
   // Cada relación de gastos es una CARPETA semanal: PDF oficial + comprobantes de pago del cliente
   const TIPOS_PAGO=['Transferencia','Cheque','Efectivo','Depósito en ventanilla','Tarjeta'];
   let compImg=null;
@@ -680,6 +690,11 @@
   function verPlano(i){const d=(planos||[])[i];if(!d)return;verArchivo('planos',d[4],d[0],'pdf');}
   function bajarPlano(i){const d=(planos||[])[i];if(!d)return;descargarArchivo('planos',d[4],d[0]);}
   function verRender(i){const f=(renders||[])[i];if(!f)return;verArchivo('renders',f[2],f[0],'img');}
+  function docRows(arr,vfn,dfn){return (arr&&arr.length)?arr.map((d,i)=>`<div class="file-row" onclick="${vfn}(${i})"><div class="ficon" style="background:${d[3]}">${d[2]}</div><div class="fmeta"><b>${d[0]}</b><span>${d[1]}</span></div><div class="file-actions"><button class="fa-btn prim" onclick="event.stopPropagation();${vfn}(${i})">${ICON.eye} Previsualizar</button><button class="fa-btn" onclick="event.stopPropagation();${dfn}(${i})">${ICON.download} Descargar</button></div></div>`).join(''):'<p class="view-sub" style="margin-top:4px">Aún no hay documentos cargados. Te avisaremos cuando tu equipo suba algo aquí.</p>'}
+  function verTramite(i){const d=(tramites||[])[i];if(!d)return;verArchivo('documentos',d[4],d[0],d[5]||'pdf');}
+  function bajarTramite(i){const d=(tramites||[])[i];if(!d)return;descargarArchivo('documentos',d[4],d[0]);}
+  function verInfoCli(i){const d=(infoCli||[])[i];if(!d)return;verArchivo('documentos',d[4],d[0],d[5]||'pdf');}
+  function bajarInfoCli(i){const d=(infoCli||[])[i];if(!d)return;descargarArchivo('documentos',d[4],d[0]);}
 
   function go(route){
     window.scrollTo(0,0);
@@ -715,7 +730,7 @@
     }
     else if(route==='admin'){
       crumb([['Inicio','home'],['Administración']]);
-      S.innerHTML=`<h2 class="view-title">Administración</h2><p class="view-sub">Relaciones de gastos y datos de pago a proveedores.</p><div class="folders">${folderCard('gastos','receipt','Relación de gastos','PDF + comprobantes')}${folderCard('cuentas','bank','Cuentas de proveedores','CLABE para pago')}</div>`;
+      S.innerHTML=`<h2 class="view-title">Administración</h2><p class="view-sub">Relaciones de gastos, pagos, trámites y documentos de tu expediente.</p><div class="folders">${folderCard('gastos','receipt','Relación de gastos','PDF + comprobantes')}${folderCard('cuentas','bank','Cuentas de proveedores','CLABE para pago')}${folderCard('tramites','doc','Trámites y permisos','Licencias y documentos oficiales')}${folderCard('infocliente','user','Información de cliente','Contratos y expediente')}</div>`;
     }
     else if(route==='gastos'){
       crumb([['Inicio','home'],['Administración','admin'],['Relación de gastos']]);
@@ -765,6 +780,14 @@
       crumb([['Inicio','home'],['Administración','admin'],['Cuentas de proveedores']]);
       S.innerHTML=`<h2 class="view-title">Cuentas bancarias de proveedores</h2><p class="view-sub">Copia la CLABE y pégala en tu app bancaria para realizar el pago.</p>`+
         proveedores.map((p,i)=>`<div class="bank"><div class="bhead"><b>${p[0]}</b><span class="badge">${p[1]}</span></div><div class="line"><span class="lbl">CLABE interbancaria</span><span class="val">${p[2].replace(/(\d{4})(?=\d)/g,'$1 ')}</span></div><div class="line" style="justify-content:flex-end;border-top:none;padding-top:4px"><button class="copy-btn" id="cp${i}" onclick="copiar('${p[2]}',${i})">⧉ Copiar CLABE</button></div></div>`).join('');
+    }
+    else if(route==='tramites'){
+      crumb([['Inicio','home'],['Administración','admin'],['Trámites y permisos']]);
+      S.innerHTML=`<h2 class="view-title">Trámites y permisos</h2><p class="view-sub">Licencias, permisos y documentos oficiales de tu obra.</p>`+docRows(tramites,'verTramite','bajarTramite');
+    }
+    else if(route==='infocliente'){
+      crumb([['Inicio','home'],['Administración','admin'],['Información de cliente']]);
+      S.innerHTML=`<h2 class="view-title">Información de cliente</h2><p class="view-sub">Contratos y documentos de tu expediente con Herza Studio.</p>`+docRows(infoCli,'verInfoCli','bajarInfoCli');
     }
     else if(route==='fotografico'){
       crumb([['Inicio','home'],['Reporte fotográfico']]);
@@ -946,7 +969,7 @@
   function _gp(i){return grad[(i||0)%grad.length]}
   function _fc(iso){try{return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return ''}}
   function _rel(iso){const s=(Date.now()-new Date(iso).getTime())/1000;if(s<3600)return 'Hace '+Math.max(1,Math.round(s/60))+' min';if(s<86400)return 'Hace '+Math.round(s/3600)+' h';return 'Hace '+Math.round(s/86400)+' días'}
-  const _NIC={gasto:'receipt',foto:'camera',plano:'plan',render:'image',image:'image',cita:'calendar',duda:'help'};
+  const _NIC={gasto:'receipt',foto:'camera',plano:'plan',render:'image',image:'image',cita:'calendar',duda:'help',tramite:'doc',infocliente:'user'};
 
   async function cargarDatos(){
     const {data:{user}}=await sb.auth.getUser(); _uid=user.id;
@@ -964,6 +987,9 @@
     const A=arch||[];
     planos=A.filter(a=>a.tipo==='plano').map(a=>[a.nombre,'Documento','PDF','#9c6b4a',a.storage_path]);
     renders=A.filter(a=>a.tipo==='render').map(a=>[a.nombre,'Render',a.storage_path]);
+    const _esImg=n=>/\.(png|jpe?g|webp|heic|gif)$/i.test(n||'');
+    tramites=A.filter(a=>a.tipo==='tramite').map(a=>[a.nombre,_fc(a.created_at),_esImg(a.nombre)?'IMG':'PDF',_esImg(a.nombre)?'#9a9286':'#8a6d3b',a.storage_path,_esImg(a.nombre)?'img':'pdf']);
+    infoCli=A.filter(a=>a.tipo==='infocliente').map(a=>[a.nombre,_fc(a.created_at),_esImg(a.nombre)?'IMG':'PDF',_esImg(a.nombre)?'#9a9286':'#6e7d39',a.storage_path,_esImg(a.nombre)?'img':'pdf']);
     const {data:comps}=await sb.from('comprobantes').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
     const CO=comps||[];
     relGastos=A.filter(a=>a.tipo==='gasto').map(g=>({id:g.id,sem:g.semana||'Semana',fecha:_fc(g.created_at),pdf:[g.nombre,'PDF · '+(g.semana||'')],comps:CO.filter(c=>c.gasto_semana===g.semana).map((c,k)=>({img:_gp(k),tipo:c.tipo_pago,prov:c.proveedor,monto:c.monto,fecha:c.fecha_pago,ref:c.referencia}))}));

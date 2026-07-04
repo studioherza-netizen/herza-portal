@@ -516,6 +516,8 @@
         ${sec(I.image,'Renders',o.contenido.renders,'render','image/*',true,'Arrastra o selecciona imágenes')}
         ${sec(I.receipt,'Relación de gastos',o.contenido.gastos,'gasto','.pdf',false,'Subir PDF de la semana')}
         ${sec(I.camera,'Reporte fotográfico',o.contenido.fotos,'foto','image/*',true,'Subir fotos de la semana')}
+        ${sec(I.note,'Trámites y permisos',o.contenido.tramites||0,'tramite','.pdf,image/*',true,'Licencias y documentos oficiales')}
+        ${sec(I.user,'Información de cliente',o.contenido.infocli||0,'infocliente','.pdf,image/*',true,'Contratos y expediente del cliente')}
       </div>
       <p class="hint-inline" style="margin-top:14px">Las relaciones de gasto y el reporte fotográfico se organizan por semana; cada carga genera una notificación al cliente.</p>`;
     } else if(tab==='datos'){
@@ -727,7 +729,7 @@
       cliente:principal,clientes,
       contactos:(CT.data||[]).filter(c=>c.obra_id===o.id).map(c=>[c.nombre,c.puesto||'',c.whatsapp||'']),
       proveedores:(PV.data||[]).filter(p=>p.obra_id===o.id).map(p=>[p.nombre,p.banco,p.clabe]),
-      contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length},
+      contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length,tramites:arch.filter(a=>a.obra_id===o.id&&a.tipo==='tramite').length,infocli:arch.filter(a=>a.obra_id===o.id&&a.tipo==='infocliente').length},
       solicitudes:[
         ...(CI.data||[]).filter(c=>c.obra_id===o.id&&['Pendiente','Propuesta oficina'].includes(c.estado||'Pendiente')).map(c=>({tipo:'cita',detalle:(c.motivo||'')+(c.hora?' · '+c.hora:'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',propuesta_por:c.propuesta_por,_id:c.id})),
         ...(DU.data||[]).filter(d=>d.obra_id===o.id&&d.estado!=='Respondida').map(d=>({tipo:'duda',detalle:(d.ubicacion||'')+' · '+(d.nota||'').slice(0,42),fecha:_rel(d.created_at),estado:d.estado||'Pendiente',_id:d.id})),
@@ -798,7 +800,7 @@
   subirArchivoInput=async function(inp,obraId,tipo){
     const files=inp&&inp.files?Array.from(inp.files):[];
     if(!files.length)return;
-    const buckets={plano:'planos',render:'renders',gasto:'gastos',foto:'fotos'};
+    const buckets={plano:'planos',render:'renders',gasto:'gastos',foto:'fotos',tramite:'documentos',infocliente:'documentos'};
     const bucket=buckets[tipo]; if(!bucket)return;
     let semana=null;
     if(tipo==='gasto'||tipo==='foto'){
@@ -822,8 +824,8 @@
       ok++;
     }
     if(ok){
-      const titulos={plano:'Nuevos planos',render:'Nuevos renders',gasto:'Nueva relación de gastos',foto:'Reporte fotográfico actualizado'};
-      const rutas={plano:'planos',render:'renders',gasto:'admin',foto:'fotos'};
+      const titulos={plano:'Nuevos planos',render:'Nuevos renders',gasto:'Nueva relación de gastos',foto:'Reporte fotográfico actualizado',tramite:'Nuevo documento en Trámites y permisos',infocliente:'Nuevo documento en tu expediente'};
+      const rutas={plano:'planos',render:'renders',gasto:'admin',foto:'fotos',tramite:'tramites',infocliente:'infocliente'};
       const det=(semana?semana+' · ':'')+ok+' archivo'+(ok>1?'s':'');
       await sb.from('notificaciones').insert({obra_id:obraId,tipo:tipo,titulo:titulos[tipo],detalle:det,ruta:rutas[tipo],leida:false});
     }
