@@ -510,7 +510,7 @@
         <div class="info-card"><h4>Solicitudes</h4>${o.solicitudes.length?o.solicitudes.map(s=>`<div class="kv"><span class="k">${s.tipo[0].toUpperCase()+s.tipo.slice(1)}</span><span class="v" style="max-width:60%">${s.detalle.split('·')[0]}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin solicitudes.</p>'}</div>
       </div>`;
     } else if(tab==='contenido'){
-      const sec=(ic,t,n,tipo,accept,multi,zone)=>`<div class="up-card"><div class="uh"><span class="ic">${ic}</span><div><b>${t}</b><span>${n} cargado${n===1?'':'s'}</span></div></div><label class="up-zone">${I.upload} ${zone}<input type="file" accept="${accept}"${multi?' multiple':''} style="display:none" onchange="subirArchivoInput(this,'${o.id}','${tipo}')"></label></div>`;
+      const sec=(ic,t,n,tipo,accept,multi,zone)=>`<div class="up-card"><div class="uh"><span class="ic">${ic}</span><div><b>${t}</b><span>${n} cargado${n===1?'':'s'}</span></div></div><label class="up-zone">${I.upload} ${zone}<input type="file" accept="${accept}"${multi?' multiple':''} style="display:none" onchange="subirArchivoInput(this,'${o.id}','${tipo}')"></label>${window._archList?window._archList(o.id,tipo):''}</div>`;
       body=`<div class="up-grid">
         ${sec(I.plan,'Planos',o.contenido.planos,'plano','.pdf,.dwg',true,'Arrastra o selecciona PDF/DWG')}
         ${sec(I.image,'Renders',o.contenido.renders,'render','image/*',true,'Arrastra o selecciona imágenes')}
@@ -518,8 +518,9 @@
         ${sec(I.camera,'Reporte fotográfico',o.contenido.fotos,'foto','image/*',true,'Subir fotos de la semana')}
         ${sec(I.note,'Trámites y permisos',o.contenido.tramites||0,'tramite','.pdf,image/*',true,'Licencias y documentos oficiales')}
         ${sec(I.user,'Información de cliente',o.contenido.infocli||0,'infocliente','.pdf,image/*',true,'Contratos y expediente del cliente')}
+        ${sec(I.pin,'Información del predio',o.contenido.predio||0,'predio','.pdf,image/*',true,'Escrituras, predial y documentos del terreno')}
       </div>
-      <p class="hint-inline" style="margin-top:14px">Las relaciones de gasto y el reporte fotográfico se organizan por semana; cada carga genera una notificación al cliente.</p>`;
+      <p class="hint-inline" style="margin-top:14px">Las relaciones de gasto y el reporte fotográfico se organizan por semana; cada carga genera una notificación al cliente. Con el interruptor de cada archivo controlas si el cliente lo ve en su app.</p>`;
     } else if(tab==='datos'){
       body=`<div class="info-grid">
         <div class="info-card"><h4>Contactos (WhatsApp)</h4>${o.contactos.length?o.contactos.map(c=>`<div class="kv"><span class="k">${c[0]}${c[1]?' · '+c[1]:''}</span><span class="v">+${c[2]}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin contactos.</p>'}</div>
@@ -703,7 +704,7 @@
       sb.from('perfiles').select('id,nombre,usuario,rol,activo,whatsapp,puesto'),
       sb.from('contactos').select('*'),
       sb.from('proveedores').select('*'),
-      sb.from('archivos').select('obra_id,tipo,nombre,semana,subido_por_nombre,created_at'),
+      sb.from('archivos').select('id,obra_id,tipo,nombre,semana,subido_por_nombre,created_at,visible'),
       sb.from('citas').select('*'),
       sb.from('dudas').select('*'),
       sb.from('comprobantes').select('*'),
@@ -714,7 +715,7 @@
     ]);
     const perf=P.data||[]; const cli=id=>perf.find(p=>p.id===id)||{nombre:'—',usuario:'',activo:false};
     const creds={}; (CR&&CR.data||[]).forEach(c=>{creds[c.user_id]=c.pass}); const pw=id=>creds[id]||'••••••';
-    const arch=AR.data||[]; const ligas=CLO.data||[];
+    const arch=AR.data||[]; const ligas=CLO.data||[]; window._arch=arch;
     obras=(O.data||[]).map(o=>{
     // clientes ligados a la obra (varios posibles); el principal primero
     let lc=ligas.filter(l=>l.obra_id===o.id);
@@ -729,7 +730,7 @@
       cliente:principal,clientes,
       contactos:(CT.data||[]).filter(c=>c.obra_id===o.id).map(c=>[c.nombre,c.puesto||'',c.whatsapp||'']),
       proveedores:(PV.data||[]).filter(p=>p.obra_id===o.id).map(p=>[p.nombre,p.banco,p.clabe]),
-      contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length,tramites:arch.filter(a=>a.obra_id===o.id&&a.tipo==='tramite').length,infocli:arch.filter(a=>a.obra_id===o.id&&a.tipo==='infocliente').length},
+      contenido:{planos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='plano').length,renders:arch.filter(a=>a.obra_id===o.id&&a.tipo==='render').length,gastos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='gasto').length,fotos:arch.filter(a=>a.obra_id===o.id&&a.tipo==='foto').length,tramites:arch.filter(a=>a.obra_id===o.id&&a.tipo==='tramite').length,infocli:arch.filter(a=>a.obra_id===o.id&&a.tipo==='infocliente').length,predio:arch.filter(a=>a.obra_id===o.id&&a.tipo==='predio').length},
       solicitudes:[
         ...(CI.data||[]).filter(c=>c.obra_id===o.id&&['Pendiente','Propuesta oficina'].includes(c.estado||'Pendiente')).map(c=>({tipo:'cita',detalle:(c.motivo||'')+(c.hora?' · '+c.hora:'')+' · '+(c.premura||''),fecha:_rel(c.created_at),estado:c.estado||'Pendiente',propuesta_por:c.propuesta_por,_id:c.id})),
         ...(DU.data||[]).filter(d=>d.obra_id===o.id&&d.estado!=='Respondida').map(d=>({tipo:'duda',detalle:(d.ubicacion||'')+' · '+(d.nota||'').slice(0,42),fecha:_rel(d.created_at),estado:d.estado||'Pendiente',_id:d.id})),
@@ -797,10 +798,31 @@
       .subscribe();
   }
 
+  // lista de archivos por recuadro con control mostrar/ocultar (solo oficina)
+  window._archList=function(obraId,tipo){
+    const fs=(window._arch||[]).filter(a=>a.obra_id===obraId&&a.tipo===tipo).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    if(!fs.length)return '';
+    return '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:4px">'+fs.map(a=>{
+      const vis=a.visible!==false;
+      const fecha=new Date(a.created_at).toLocaleDateString('es-MX',{day:'numeric',month:'short'});
+      return `<div style="display:flex;align-items:center;gap:9px;padding:7px 2px;border-bottom:1px solid #f0ede6">
+        <div style="flex:1;min-width:0${vis?'':';opacity:.45'}"><b style="font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(a.nombre||'Archivo').replace(/</g,'&lt;')}</b><span style="font-size:11px;color:var(--muted)">${a.semana?a.semana+' · ':''}${fecha}${a.subido_por_nombre?' · '+a.subido_por_nombre:''}</span></div>
+        <button class="btn-sm ${vis?'btn':'btn-ghost'}" style="flex:none;font-size:11px;padding:5px 10px" onclick="event.preventDefault();toggleArchivoVisible('${a.id}','${obraId}')">${vis?'Visible':'Oculto'}</button>
+      </div>`;
+    }).join('')+'<p style="font-size:10.5px;color:var(--muted);margin:6px 0 0">Visible = el cliente lo ve en su app · Oculto = solo oficina</p></div>';
+  };
+  toggleArchivoVisible=async function(id,obraId){
+    const a=(window._arch||[]).find(x=>x.id===id); if(!a)return;
+    const nuevo=!(a.visible!==false);
+    const {error}=await sb.from('archivos').update({visible:nuevo}).eq('id',id);
+    if(error){toast('No se pudo cambiar la visibilidad');return}
+    a.visible=nuevo; toast(nuevo?'Ahora el cliente lo ve':'Oculto para el cliente');
+    fichaObra(obraId,'contenido');
+  };
   subirArchivoInput=async function(inp,obraId,tipo){
     const files=inp&&inp.files?Array.from(inp.files):[];
     if(!files.length)return;
-    const buckets={plano:'planos',render:'renders',gasto:'gastos',foto:'fotos',tramite:'documentos',infocliente:'documentos'};
+    const buckets={plano:'planos',render:'renders',gasto:'gastos',foto:'fotos',tramite:'documentos',infocliente:'documentos',predio:'documentos'};
     const bucket=buckets[tipo]; if(!bucket)return;
     let semana=null;
     if(tipo==='gasto'||tipo==='foto'){
@@ -824,8 +846,8 @@
       ok++;
     }
     if(ok){
-      const titulos={plano:'Nuevos planos',render:'Nuevos renders',gasto:'Nueva relación de gastos',foto:'Reporte fotográfico actualizado',tramite:'Nuevo documento en Trámites y permisos',infocliente:'Nuevo documento en tu expediente'};
-      const rutas={plano:'planos',render:'renders',gasto:'admin',foto:'fotos',tramite:'tramites',infocliente:'infocliente'};
+      const titulos={plano:'Nuevos planos',render:'Nuevos renders',gasto:'Nueva relación de gastos',foto:'Reporte fotográfico actualizado',tramite:'Nuevo documento en Trámites y permisos',infocliente:'Nuevo documento en tu expediente',predio:'Nuevo documento del predio'};
+      const rutas={plano:'planos',render:'renders',gasto:'admin',foto:'fotos',tramite:'tramites',infocliente:'infocliente',predio:'predio'};
       const det=(semana?semana+' · ':'')+ok+' archivo'+(ok>1?'s':'');
       await sb.from('notificaciones').insert({obra_id:obraId,tipo:tipo,titulo:titulos[tipo],detalle:det,ruta:rutas[tipo],leida:false});
     }

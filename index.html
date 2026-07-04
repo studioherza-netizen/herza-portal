@@ -480,6 +480,7 @@
   ICON.info='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
   ICON.doc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><circle cx="12" cy="14.5" r="2.3"/><path d="M12 16.8v2.4"/></svg>';
   ICON.user='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  ICON.land='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z"/><path d="M9 4v13M15 6.5v13"/></svg>';
   ICON.help='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 2.5"/><path d="M12 17h.01"/></svg>';
   ICON.upload='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/></svg>';
   ICON.home='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>';
@@ -553,6 +554,10 @@
   let infoCli=[
     ['Contrato de obra','PDF · Firmado','PDF','#6e7d39'],
     ['Presupuesto autorizado','PDF','PDF','#6e7d39']
+  ];
+  let predioDocs=[
+    ['Escritura del terreno','PDF · Notaría','PDF','#9c6b4a'],
+    ['Levantamiento topográfico','PDF','PDF','#9c6b4a']
   ];
   // Cada relación de gastos es una CARPETA semanal: PDF oficial + comprobantes de pago del cliente
   const TIPOS_PAGO=['Transferencia','Cheque','Efectivo','Depósito en ventanilla','Tarjeta'];
@@ -695,6 +700,8 @@
   function bajarTramite(i){const d=(tramites||[])[i];if(!d)return;descargarArchivo('documentos',d[4],d[0]);}
   function verInfoCli(i){const d=(infoCli||[])[i];if(!d)return;verArchivo('documentos',d[4],d[0],d[5]||'pdf');}
   function bajarInfoCli(i){const d=(infoCli||[])[i];if(!d)return;descargarArchivo('documentos',d[4],d[0]);}
+  function verPredio(i){const d=(predioDocs||[])[i];if(!d)return;verArchivo('documentos',d[4],d[0],d[5]||'pdf');}
+  function bajarPredio(i){const d=(predioDocs||[])[i];if(!d)return;descargarArchivo('documentos',d[4],d[0]);}
 
   function go(route){
     window.scrollTo(0,0);
@@ -730,7 +737,7 @@
     }
     else if(route==='admin'){
       crumb([['Inicio','home'],['Administración']]);
-      S.innerHTML=`<h2 class="view-title">Administración</h2><p class="view-sub">Relaciones de gastos, pagos, trámites y documentos de tu expediente.</p><div class="folders">${folderCard('gastos','receipt','Relación de gastos','PDF + comprobantes')}${folderCard('cuentas','bank','Cuentas de proveedores','CLABE para pago')}${folderCard('tramites','doc','Trámites y permisos','Licencias y documentos oficiales')}${folderCard('infocliente','user','Información de cliente','Contratos y expediente')}</div>`;
+      S.innerHTML=`<h2 class="view-title">Administración</h2><p class="view-sub">Relaciones de gastos, pagos, trámites y documentos de tu expediente.</p><div class="folders">${folderCard('gastos','receipt','Relación de gastos','PDF + comprobantes')}${folderCard('cuentas','bank','Cuentas de proveedores','CLABE para pago')}${folderCard('tramites','doc','Trámites y permisos','Licencias y documentos oficiales')}${folderCard('infocliente','user','Información de cliente','Contratos y expediente')}${folderCard('predio','land','Información del predio','Escrituras y documentos del terreno')}</div>`;
     }
     else if(route==='gastos'){
       crumb([['Inicio','home'],['Administración','admin'],['Relación de gastos']]);
@@ -788,6 +795,10 @@
     else if(route==='infocliente'){
       crumb([['Inicio','home'],['Administración','admin'],['Información de cliente']]);
       S.innerHTML=`<h2 class="view-title">Información de cliente</h2><p class="view-sub">Contratos y documentos de tu expediente con Herza Studio.</p>`+docRows(infoCli,'verInfoCli','bajarInfoCli');
+    }
+    else if(route==='predio'){
+      crumb([['Inicio','home'],['Administración','admin'],['Información del predio']]);
+      S.innerHTML=`<h2 class="view-title">Información del predio</h2><p class="view-sub">Escrituras, levantamientos y documentos del terreno.</p>`+docRows(predioDocs,'verPredio','bajarPredio');
     }
     else if(route==='fotografico'){
       crumb([['Inicio','home'],['Reporte fotográfico']]);
@@ -969,7 +980,7 @@
   function _gp(i){return grad[(i||0)%grad.length]}
   function _fc(iso){try{return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return ''}}
   function _rel(iso){const s=(Date.now()-new Date(iso).getTime())/1000;if(s<3600)return 'Hace '+Math.max(1,Math.round(s/60))+' min';if(s<86400)return 'Hace '+Math.round(s/3600)+' h';return 'Hace '+Math.round(s/86400)+' días'}
-  const _NIC={gasto:'receipt',foto:'camera',plano:'plan',render:'image',image:'image',cita:'calendar',duda:'help',tramite:'doc',infocliente:'user'};
+  const _NIC={gasto:'receipt',foto:'camera',plano:'plan',render:'image',image:'image',cita:'calendar',duda:'help',tramite:'doc',infocliente:'user',predio:'land'};
 
   async function cargarDatos(){
     const {data:{user}}=await sb.auth.getUser(); _uid=user.id;
@@ -984,12 +995,13 @@
     const {data:pv}=await sb.from('proveedores').select('*').eq('obra_id',_obraId);
     proveedores=(pv||[]).map(p=>[p.nombre,p.banco,p.clabe]);
     const {data:arch}=await sb.from('archivos').select('*').eq('obra_id',_obraId).order('created_at',{ascending:true});
-    const A=arch||[];
+    const A=(arch||[]).filter(a=>a.visible!==false);
     planos=A.filter(a=>a.tipo==='plano').map(a=>[a.nombre,'Documento','PDF','#9c6b4a',a.storage_path]);
     renders=A.filter(a=>a.tipo==='render').map(a=>[a.nombre,'Render',a.storage_path]);
     const _esImg=n=>/\.(png|jpe?g|webp|heic|gif)$/i.test(n||'');
     tramites=A.filter(a=>a.tipo==='tramite').map(a=>[a.nombre,_fc(a.created_at),_esImg(a.nombre)?'IMG':'PDF',_esImg(a.nombre)?'#9a9286':'#8a6d3b',a.storage_path,_esImg(a.nombre)?'img':'pdf']);
     infoCli=A.filter(a=>a.tipo==='infocliente').map(a=>[a.nombre,_fc(a.created_at),_esImg(a.nombre)?'IMG':'PDF',_esImg(a.nombre)?'#9a9286':'#6e7d39',a.storage_path,_esImg(a.nombre)?'img':'pdf']);
+    predioDocs=A.filter(a=>a.tipo==='predio').map(a=>[a.nombre,_fc(a.created_at),_esImg(a.nombre)?'IMG':'PDF',_esImg(a.nombre)?'#9a9286':'#9c6b4a',a.storage_path,_esImg(a.nombre)?'img':'pdf']);
     const {data:comps}=await sb.from('comprobantes').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
     const CO=comps||[];
     relGastos=A.filter(a=>a.tipo==='gasto').map(g=>({id:g.id,sem:g.semana||'Semana',fecha:_fc(g.created_at),pdf:[g.nombre,'PDF · '+(g.semana||'')],comps:CO.filter(c=>c.gasto_semana===g.semana).map((c,k)=>({img:_gp(k),tipo:c.tipo_pago,prov:c.proveedor,monto:c.monto,fecha:c.fecha_pago,ref:c.referencia}))}));
