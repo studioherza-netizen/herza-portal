@@ -597,7 +597,7 @@ const HerzaSeal = () => (
 
 const LUZ_OPTS = ["","CÁLIDA","NEUTRA","BLANCA","RGB"];
 
-function ElectricReqTab({reqs, setReqs, variant}) {
+function ElectricReqTab({reqs, setReqs, variant, onPrintReq}) {
   const isMat = variant==="material";
   const defTitle = isMat ? "ENTREGA DE MATERIAL" : "REQUISICIÓN ELÉCTRICO";
   const docLabel = isMat ? "Entrega" : "Requisición";
@@ -753,6 +753,7 @@ function ElectricReqTab({reqs, setReqs, variant}) {
               ? <span style={{fontSize:10,background:"#e6ebd4",color:"#5b6033",padding:"2px 8px",borderRadius:20,fontWeight:600}}>Guardada</span>
               : <span style={{fontSize:10,background:"#f4e3cf",color:"#8a5a1b",padding:"2px 8px",borderRadius:20,fontWeight:600}}>En curso</span>}
             <span style={{marginLeft:"auto",fontSize:11,color:C.dim}}>{(d.rows||[]).length} material(es)</span>
+            {onPrintReq && <button onClick={e=>{e.stopPropagation(); onPrintReq(d.id);}} title={"Exportar PDF de esta "+docLabel.toLowerCase()} style={{...sb,padding:"4px 12px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:11,fontWeight:700,borderRadius:6}}><IconPdf/> PDF</button>}
           </div>
           {!d.collapsed && (
             <div style={{padding:"8px 16px 16px"}}>
@@ -771,13 +772,15 @@ function ElectricReqTab({reqs, setReqs, variant}) {
   );
 }
 
-function ElectricReqPrintView({reqs, variant}) {
+function ElectricReqPrintView({reqs, variant, printReqId}) {
   const isMat = variant==="material";
   const defTitle = isMat ? "ENTREGA DE MATERIAL" : "REQUISICIÓN ELÉCTRICO";
   const pcols = isMat
     ? ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","UBICACIÓN","CÓDIGO INTERNO PLANO"]
     : ["CÓDIGO PRODUCTO","TIPO","CANTIDAD","DESCRIPCION","TIPO DE LUZ","FOTO","UBICACIÓN","CÓDIGO INTERNO PLANO"];
-  const list = (Array.isArray(reqs) && reqs.length) ? reqs : [{}];
+  const _all = Array.isArray(reqs) ? reqs : [];
+  const _sel = printReqId ? _all.filter(r=>r.id===printReqId) : _all;
+  const list = _sel.length ? _sel : [{}];
   const TP="#a8a08f", TPL="#efece5";
   const cell={padding:"5px 6px",border:"0.5px solid #cfcabf",fontSize:8.5,color:"#333",textAlign:"center"};
   const fmtDate=(s)=>{ try{ return s? new Date(s+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}):""; }catch(e){return s||"";} };
@@ -1668,6 +1671,7 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
   const [providers, setProviders] = useState(quote.providers||[]);
   const [printing, setPrinting] = useState(false);
   const [printWeekId, setPrintWeekId] = useState(null);
+  const [printReqId, setPrintReqId] = useState(null);
   const [savedLabel, setSavedLabel] = useState("");
 
   // Auto-save on any change
@@ -1744,8 +1748,16 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
   };
   const handlePrint = () => {
     setPrintWeekId(null);
+    setPrintReqId(null);
     setPrinting(true);
     var onAfter = () => { setPrinting(false); window.removeEventListener("afterprint", onAfter); };
+    window.addEventListener("afterprint", onAfter);
+    setTimeout(()=>window.print(),350);
+  };
+  const handlePrintReq = (rid) => {
+    setPrintReqId(rid);
+    setPrinting(true);
+    var onAfter = () => { setPrinting(false); setPrintReqId(null); window.removeEventListener("afterprint", onAfter); };
     window.addEventListener("afterprint", onAfter);
     setTimeout(()=>window.print(),350);
   };
@@ -1766,8 +1778,8 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
       {printing && (
         activeTab==="payments" ? <PaymentsPrintView project={project} payments={payments} grandTotal={grandTotal} />
         : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} printWeekId={printWeekId} />
-        : activeTab==="electrico" ? <ElectricReqPrintView reqs={electricReqs} />
-        : activeTab==="materials" ? <ElectricReqPrintView reqs={materials} variant="material" />
+        : activeTab==="electrico" ? <ElectricReqPrintView reqs={electricReqs} printReqId={printReqId} />
+        : activeTab==="materials" ? <ElectricReqPrintView reqs={materials} variant="material" printReqId={printReqId} />
         : activeTab==="personal" ? <PersonalPrintView project={project} personal={personal} />
         : activeTab==="providers" ? <ProveedoresPrintView project={project} providers={providers} />
         : activeTab==="resumen" ? <ResumenPrintView project={project} grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />
@@ -1805,8 +1817,8 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
         )}
         {activeTab==="payments" && <PaymentsTab payments={payments} setPayments={setPayments} grandTotal={grandTotal} />}
         {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} onPrintWeek={handlePrintWeek} />}
-        {activeTab==="materials" && <ElectricReqTab reqs={materials} setReqs={setMaterials} variant="material" />}
-        {activeTab==="electrico" && <ElectricReqTab reqs={electricReqs} setReqs={setElectricReqs} />}
+        {activeTab==="materials" && <ElectricReqTab reqs={materials} setReqs={setMaterials} variant="material" onPrintReq={handlePrintReq} />}
+        {activeTab==="electrico" && <ElectricReqTab reqs={electricReqs} setReqs={setElectricReqs} onPrintReq={handlePrintReq} />}
         {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} />}
         {activeTab==="providers" && <ProveedoresTab providers={providers} setProviders={setProviders} categories={categories} items={items} />}
         {activeTab==="resumen" && <ResumenTab grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />}
