@@ -1468,13 +1468,27 @@ function LoginScreen({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const APP_USERS = [ {u:"admin", p:"579312", role:"admin"}, {u:"spobra", p:"3312", role:"obra"} ];
-    const found = APP_USERS.find(x => x.u === user.trim().toLowerCase() && x.p === pass);
-    if (found) {
-      onLogin(found.role);
-    } else {
-      setError("Usuario o contraseña incorrectos");
-    }
+    const u = user.trim().toLowerCase();
+    // Acceso maestro (siempre disponible, aunque falle la nube)
+    if (u === "admin" && pass === "579312") { onLogin("admin"); return; }
+    // Usuarios centrales (panel /usuarios) — nodo herzaUsers en Firebase
+    fetch("https://herza-studio-apps-default-rtdb.firebaseio.com/herzaUsers/users.json?t=" + Date.now(), {cache:"no-store"})
+      .then(r => r.json())
+      .then(users => {
+        let role = null;
+        Object.keys(users || {}).forEach(k => {
+          const x = users[k];
+          if (x && String(x.usuario).toLowerCase() === u && String(x.password) === pass && x.activo && x.apps && x.apps.presupuestos) role = x.apps.presupuestos;
+        });
+        if (role === "admin" || role === "obra") onLogin(role);
+        else setError("Usuario o contraseña incorrectos");
+      })
+      .catch(() => {
+        // Respaldo sin conexión: credenciales base
+        const APP_USERS = [ {u:"admin", p:"579312", role:"admin"}, {u:"spobra", p:"3312", role:"obra"} ];
+        const found = APP_USERS.find(x => x.u === u && x.p === pass);
+        if (found) onLogin(found.role); else setError("Usuario o contraseña incorrectos");
+      });
   };
 
   return (

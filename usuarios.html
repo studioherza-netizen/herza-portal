@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Herza Studio — Usuarios</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#d6d3cd;font-family:'Lato',sans-serif;color:#4a4a4a;min-height:100vh}
+
+/* LOGIN estándar Herza */
+.login-screen{position:fixed;inset:0;background:#d6d3cd;display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;font-family:'Lato',sans-serif}
+.login-card{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.08);padding:50px 32px;width:90%;max-width:380px;text-align:center}
+.login-logo{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:36px;color:#4a4a4a;line-height:1;letter-spacing:1px}
+.login-tag{font-size:12px;font-weight:300;letter-spacing:3px;color:#7a7a7a;margin-top:6px}
+.login-div{width:40px;height:2px;background:#aa9170;margin:16px auto 0;border-radius:1px}
+.login-prompt{font-size:13px;font-weight:300;color:#a0a0a0;margin:16px 0 32px}
+.login-card form{display:flex;flex-direction:column;text-align:left}
+.login-label{font-size:12px;font-weight:400;color:#888;margin-bottom:6px;letter-spacing:1px}
+.login-card input{border:1px solid #ddd;border-radius:6px;padding:11px 14px;font-family:'Lato',sans-serif;font-size:13px;background:#fafafa;color:#4a4a4a;margin-bottom:16px}
+.login-card input:focus{outline:none;border-color:#aa9170;background:#fff}
+.login-card button{background:#6b7c3e;color:#fff;border:none;border-radius:6px;padding:12px;font-weight:400;font-size:14px;letter-spacing:1px;cursor:pointer;margin-top:4px}
+.login-card button:hover{opacity:.92}
+.login-err{color:#c0392b;font-size:12px;margin-top:12px;min-height:16px;text-align:center}
+
+/* APP */
+#app{display:none;max-width:1150px;margin:0 auto;padding:32px 20px 60px}
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px}
+.hdr h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:34px;letter-spacing:1px}
+.hdr .sub{font-size:12px;letter-spacing:3px;color:#7a7a7a;margin-top:4px}
+.btn{border:none;border-radius:6px;padding:9px 16px;font-family:'Lato',sans-serif;font-size:13px;cursor:pointer;background:#6b7c3e;color:#fff}
+.btn.sec{background:transparent;border:1px solid #b9b4a9;color:#6d685e}
+.btn.danger{background:transparent;border:none;color:#c0392b;font-size:12px}
+.btn:hover{opacity:.9}
+.tabs{display:flex;gap:4px;margin:26px 0 0;border-bottom:1px solid #c4c0b6;flex-wrap:wrap}
+.tab{padding:10px 18px;font-size:13px;color:#7a756a;cursor:pointer;border:none;background:transparent;border-bottom:3px solid transparent;font-family:'Lato',sans-serif}
+.tab.on{color:#4f5b2d;font-weight:700;border-bottom-color:#6b7c3e;background:#e4e1da;border-radius:6px 6px 0 0}
+.panel{background:#fff;border-radius:0 12px 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.06);padding:22px;margin-bottom:30px}
+.panel h2{font-size:15px;font-weight:700;margin-bottom:4px}
+.panel .desc{font-size:12px;color:#9a958a;margin-bottom:16px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:#a8a08f;color:#fff;font-weight:500;padding:8px 10px;text-align:left;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid #efece5;vertical-align:middle}
+tr:hover td{background:#faf9f4}
+td input[type=text],td input[type=password]{border:1px solid #e0dcd2;border-radius:5px;padding:6px 8px;font-family:'Lato',sans-serif;font-size:13px;background:#fafafa;width:100%;min-width:90px}
+td select{border:1px solid #e0dcd2;border-radius:5px;padding:6px;font-family:'Lato',sans-serif;font-size:12px;background:#fafafa}
+.pw{display:flex;align-items:center;gap:6px}
+.eye{cursor:pointer;border:none;background:transparent;font-size:14px;color:#9a958a}
+.chip{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px}
+.chip.on{background:#e6ebd4;color:#5b6033}
+.chip.off{background:#f0e3e1;color:#a04b3f}
+.appsCell{display:flex;gap:10px;flex-wrap:wrap;font-size:11px}
+.appsCell label{display:flex;align-items:center;gap:4px;color:#6d685e;white-space:nowrap;cursor:pointer}
+.addRow{margin-top:14px}
+.note{font-size:11px;color:#9a958a;margin-top:12px}
+.savebar{position:fixed;bottom:18px;right:18px;background:#4a4a4a;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none}
+.savebar.show{opacity:.95}
+.topright{display:flex;gap:8px;align-items:center}
+.warn{background:#f7f1e3;border:1px solid #e3d5b3;border-radius:8px;padding:10px 14px;font-size:12px;color:#7a6a3f;margin:14px 0 0}
+@media(max-width:700px){ .panel{padding:12px;overflow-x:auto} }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Herza Studio.</div>
+    <div class="login-tag">P a n e l&nbsp;&nbsp;d e&nbsp;&nbsp;U s u a r i o s</div>
+    <div class="login-div"></div>
+    <div class="login-prompt">Acceso solo administrador</div>
+    <form id="lgForm">
+      <label class="login-label" for="lgUser">Usuario</label>
+      <input id="lgUser" type="text" placeholder="Ingresa tu usuario" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <label class="login-label" for="lgPass">Contraseña</label>
+      <input id="lgPass" type="password" placeholder="Ingresa tu contraseña" autocomplete="current-password">
+      <button type="submit">Entrar</button>
+    </form>
+    <div id="lgErr" class="login-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="hdr">
+    <div>
+      <h1>Herza Studio.</h1>
+      <div class="sub">PANEL DE USUARIOS · TODAS LAS APPS</div>
+    </div>
+    <div class="topright">
+      <button class="btn sec" onclick="loadAll()">↻ Recargar</button>
+      <button class="btn sec" onclick="logout()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-t="central" onclick="showTab('central')">Usuarios Herza</button>
+    <button class="tab" data-t="cot" onclick="showTab('cot')">Cotizador</button>
+    <button class="tab" data-t="cdo" onclick="showTab('cdo')">Control de Obra</button>
+  </div>
+
+  <!-- CENTRAL -->
+  <div class="panel" id="p_central">
+    <h2>Usuarios Herza (central)</h2>
+    <div class="desc">Controlan el acceso a: Presupuestos (portal), Inventario, Balance y Herza RH. Los cambios se guardan en la nube y aplican de inmediato.</div>
+    <div style="overflow-x:auto"><table id="tbl_central">
+      <thead><tr><th>Usuario</th><th>Contraseña</th><th>Nombre</th><th>Apps con acceso</th><th>Panel</th><th>Estado</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <button class="btn addRow" onclick="addCentral()">+ Agregar usuario</button>
+    <div class="note">Protección: el usuario <b>admin</b> no se puede eliminar ni desactivar. "Panel" = puede entrar a esta página. En Presupuestos el rol <b>obra</b> solo ve Entrega Material, Req. Eléctrico y Personal de Obra, sin precios.</div>
+  </div>
+
+  <!-- COTIZADOR -->
+  <div class="panel" id="p_cot" style="display:none">
+    <h2>Usuarios de Cotizador</h2>
+    <div class="desc">Se guardan en el nodo propio del Cotizador (cotizador/users). La app los lee directamente.</div>
+    <div style="overflow-x:auto"><table id="tbl_cot">
+      <thead><tr><th>Usuario</th><th>Contraseña</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <button class="btn addRow" onclick="addCot()">+ Agregar usuario</button>
+    <div class="note">Además, el acceso maestro admin del Cotizador siempre funciona (está en el código de la app).</div>
+  </div>
+
+  <!-- CONTROL DE OBRA -->
+  <div class="panel" id="p_cdo" style="display:none">
+    <h2>Usuarios de Control de Obra</h2>
+    <div class="desc">Se guardan en el nodo propio de Control de Obra (controlDeObra/cdo_users). El login de esa app es por email.</div>
+    <div style="overflow-x:auto"><table id="tbl_cdo">
+      <thead><tr><th>Nombre</th><th>Email</th><th>Contraseña</th><th>Rol</th><th>Obras asignadas</th><th>Estado</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <button class="btn addRow" onclick="addCdo()">+ Agregar usuario</button>
+    <div class="note">"Obras asignadas" separadas por coma. El rol Administrador ve todas las obras.</div>
+  </div>
+
+  <div class="warn">Este panel muestra contraseñas en texto claro: compártelo solo con administradores. URL directa, no aparece enlazado en el portal.</div>
+</div>
+
+<div class="savebar" id="savebar">Guardado ✓</div>
+
+<script>
+var DB = 'https://herza-studio-apps-default-rtdb.firebaseio.com';
+var MASTER_U = 'admin', MASTER_P = '579312';
+var SKEY = 'herza_usuarios_session';
+
+/* ---------- helpers ---------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function toast(msg){ var b=document.getElementById('savebar'); b.textContent=msg||'Guardado ✓'; b.classList.add('show'); setTimeout(function(){b.classList.remove('show');},1600); }
+function jget(path){ return fetch(DB+path+'.json?t='+Date.now(), {cache:'no-store'}).then(function(r){return r.json();}); }
+function jput(path, data){ return fetch(DB+path+'.json', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }); }
+function uid(){ return 'u_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+var debounces = {};
+function deb(key, fn){ clearTimeout(debounces[key]); debounces[key]=setTimeout(fn, 700); }
+
+/* ---------- estado ---------- */
+var central = {};   // herzaUsers/users  (objeto id->user)
+var cotUsers = [];  // cotizador/users   (array {user,pass})
+var cdoUsers = [];  // controlDeObra/cdo_users (JSON string de array)
+var APPS = [ ['presupuestos','Presupuestos'], ['inventario','Inventario'], ['balance','Balance'], ['rh','Herza RH'] ];
+
+/* ---------- login ---------- */
+function session(){ try{ return sessionStorage.getItem(SKEY); }catch(e){ return null; } }
+document.getElementById('lgForm').onsubmit = function(e){
+  e.preventDefault();
+  var u = document.getElementById('lgUser').value.trim().toLowerCase();
+  var p = document.getElementById('lgPass').value;
+  var err = document.getElementById('lgErr');
+  err.textContent = '';
+  function ok(){ try{ sessionStorage.setItem(SKEY, u); }catch(e){} enter(); }
+  if (u === MASTER_U && p === MASTER_P) return ok();
+  jget('/herzaUsers/users').then(function(users){
+    var found = null;
+    Object.keys(users||{}).forEach(function(k){ var x=users[k]; if(x && String(x.usuario).toLowerCase()===u && String(x.password)===p && x.activo && x.panel) found=x; });
+    if (found) ok(); else err.textContent = 'Usuario o contraseña incorrectos, o sin acceso al panel.';
+  }).catch(function(){ err.textContent = 'Sin conexión a la nube. Usa el acceso maestro.'; });
+};
+function logout(){ try{ sessionStorage.removeItem(SKEY); }catch(e){} location.reload(); }
+function enter(){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; loadAll(); }
+
+/* ---------- carga ---------- */
+function loadAll(){
+  jget('/herzaUsers/users').then(function(d){ central = d||{}; renderCentral(); });
+  jget('/cotizador/users').then(function(d){
+    if (typeof d === 'string') { try{ d = JSON.parse(d); }catch(e){ d=[]; } }
+    cotUsers = Array.isArray(d) ? d : (d ? Object.values(d) : []);
+    renderCot();
+  });
+  jget('/controlDeObra/cdo_users').then(function(d){
+    if (typeof d === 'string') { try{ d = JSON.parse(d); }catch(e){ d=[]; } }
+    cdoUsers = Array.isArray(d) ? d : [];
+    renderCdo();
+  });
+}
+
+/* ---------- CENTRAL ---------- */
+function renderCentral(){
+  var tb = document.querySelector('#tbl_central tbody'); tb.innerHTML='';
+  Object.keys(central).sort(function(a,b){ return String(central[a].usuario).localeCompare(String(central[b].usuario)); }).forEach(function(k){
+    var x = central[k]; if(!x) return;
+    var isAdmin = String(x.usuario).toLowerCase()==='admin';
+    var tr = document.createElement('tr');
+    var appsHtml = APPS.map(function(ap){
+      var key=ap[0], lbl=ap[1];
+      if (key==='presupuestos') {
+        var v = x.apps && x.apps.presupuestos;
+        return '<label>'+lbl+' <select onchange="cSetApp(\''+k+'\',\'presupuestos\',this.value)">'
+          +'<option value="" '+(!v?'selected':'')+'>Sin acceso</option>'
+          +'<option value="admin" '+(v==='admin'?'selected':'')+'>Admin</option>'
+          +'<option value="obra" '+(v==='obra'?'selected':'')+'>Obra</option></select></label>';
+      }
+      var on = x.apps && x.apps[key];
+      return '<label><input type="checkbox" '+(on?'checked':'')+' onchange="cSetApp(\''+k+'\',\''+key+'\',this.checked)"> '+lbl+'</label>';
+    }).join('');
+    tr.innerHTML =
+      '<td><input type="text" value="'+esc(x.usuario)+'" '+(isAdmin?'disabled':'')+' onchange="cSet(\''+k+'\',\'usuario\',this.value)"></td>'
+      +'<td><div class="pw"><input type="password" value="'+esc(x.password)+'" onchange="cSet(\''+k+'\',\'password\',this.value)"><button class="eye" onclick="eye(this)" title="Mostrar/ocultar">👁</button></div></td>'
+      +'<td><input type="text" value="'+esc(x.nombre||'')+'" onchange="cSet(\''+k+'\',\'nombre\',this.value)"></td>'
+      +'<td><div class="appsCell">'+appsHtml+'</div></td>'
+      +'<td style="text-align:center"><input type="checkbox" '+(x.panel?'checked':'')+' '+(isAdmin?'disabled':'')+' onchange="cSet(\''+k+'\',\'panel\',this.checked)" title="Puede entrar a este panel"></td>'
+      +'<td>'+(isAdmin
+          ? '<span class="chip on">Activo</span>'
+          : '<span class="chip '+(x.activo?'on':'off')+'" style="cursor:pointer" onclick="cSet(\''+k+'\',\'activo\','+(x.activo?'false':'true')+')">'+(x.activo?'Activo':'Inactivo')+'</span>')+'</td>'
+      +'<td>'+(isAdmin?'':'<button class="btn danger" onclick="cDel(\''+k+'\')">Eliminar</button>')+'</td>';
+    tb.appendChild(tr);
+  });
+}
+function saveCentral(msg){ jput('/herzaUsers/users', central).then(function(){ toast(msg); }).catch(function(){ toast('⚠ Error al guardar'); }); }
+function cSet(k, f, v){ if(!central[k]) return; if(v==='false')v=false; if(v==='true')v=true; central[k][f]=v; deb('central', function(){ saveCentral(); if(f==='activo')renderCentral(); }); }
+function cSetApp(k, app, v){ if(!central[k]) return; central[k].apps = central[k].apps||{}; central[k].apps[app] = (v===''?false:v); deb('central', function(){ saveCentral(); }); }
+function cDel(k){ var x=central[k]; if(!x) return; if(!confirm('¿Eliminar al usuario "'+x.usuario+'"?')) return; delete central[k]; saveCentral('Usuario eliminado'); renderCentral(); }
+function addCentral(){ var k=uid(); central[k]={usuario:'nuevo'+Object.keys(central).length, password:'1234', nombre:'', activo:true, panel:false, apps:{presupuestos:false, inventario:false, balance:false, rh:false}}; saveCentral('Usuario creado'); renderCentral(); }
+
+/* ---------- COTIZADOR ---------- */
+function renderCot(){
+  var tb = document.querySelector('#tbl_cot tbody'); tb.innerHTML='';
+  cotUsers.forEach(function(x,i){
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" value="'+esc(x.user)+'" onchange="cotSet('+i+',\'user\',this.value)"></td>'
+      +'<td><div class="pw"><input type="password" value="'+esc(x.pass)+'" onchange="cotSet('+i+',\'pass\',this.value)"><button class="eye" onclick="eye(this)">👁</button></div></td>'
+      +'<td><button class="btn danger" onclick="cotDel('+i+')">Eliminar</button></td>';
+    tb.appendChild(tr);
+  });
+}
+function saveCot(msg){ jput('/cotizador/users', cotUsers).then(function(){ toast(msg); }).catch(function(){ toast('⚠ Error al guardar'); }); }
+function cotSet(i,f,v){ if(!cotUsers[i])return; cotUsers[i][f]=v; deb('cot', function(){ saveCot(); }); }
+function cotDel(i){ if(!confirm('¿Eliminar al usuario "'+cotUsers[i].user+'" del Cotizador?')) return; cotUsers.splice(i,1); saveCot('Usuario eliminado'); renderCot(); }
+function addCot(){ cotUsers.push({user:'nuevo', pass:'1234'}); saveCot('Usuario creado'); renderCot(); }
+
+/* ---------- CONTROL DE OBRA ---------- */
+function renderCdo(){
+  var tb = document.querySelector('#tbl_cdo tbody'); tb.innerHTML='';
+  cdoUsers.forEach(function(x,i){
+    var obras = Array.isArray(x.obrasAsignadas) ? x.obrasAsignadas.join(', ') : (x.obrasAsignadas||'');
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" value="'+esc(x.nombre)+'" onchange="cdoSet('+i+',\'nombre\',this.value)"></td>'
+      +'<td><input type="text" value="'+esc(x.email)+'" onchange="cdoSet('+i+',\'email\',this.value)"></td>'
+      +'<td><div class="pw"><input type="password" value="'+esc(x.password)+'" onchange="cdoSet('+i+',\'password\',this.value)"><button class="eye" onclick="eye(this)">👁</button></div></td>'
+      +'<td><select onchange="cdoSet('+i+',\'rol\',this.value)">'
+        +['Administrador','Project Manager','Supervisor de Obra'].map(function(r){ return '<option '+(x.rol===r?'selected':'')+'>'+r+'</option>'; }).join('')+'</select></td>'
+      +'<td><input type="text" value="'+esc(obras)+'" placeholder="obra1, obra2" onchange="cdoSetObras('+i+',this.value)"></td>'
+      +'<td><span class="chip '+(x.activo!==false?'on':'off')+'" style="cursor:pointer" onclick="cdoSet('+i+',\'activo\','+(x.activo!==false?'false':'true')+')">'+(x.activo!==false?'Activo':'Inactivo')+'</span></td>'
+      +'<td><button class="btn danger" onclick="cdoDel('+i+')">Eliminar</button></td>';
+    tb.appendChild(tr);
+  });
+}
+function saveCdo(msg){ jput('/controlDeObra/cdo_users', JSON.stringify(cdoUsers)).then(function(){ toast(msg); }).catch(function(){ toast('⚠ Error al guardar'); }); }
+function cdoSet(i,f,v){ if(!cdoUsers[i])return; if(v==='false')v=false; if(v==='true')v=true; cdoUsers[i][f]=v; deb('cdo', function(){ saveCdo(); if(f==='activo')renderCdo(); }); }
+function cdoSetObras(i,v){ if(!cdoUsers[i])return; cdoUsers[i].obrasAsignadas = v.split(',').map(function(s){return s.trim();}).filter(Boolean); deb('cdo', function(){ saveCdo(); }); }
+function cdoDel(i){ if(!confirm('¿Eliminar a "'+cdoUsers[i].nombre+'" de Control de Obra?')) return; cdoUsers.splice(i,1); saveCdo('Usuario eliminado'); renderCdo(); }
+function addCdo(){ var maxId = cdoUsers.reduce(function(m,x){ return Math.max(m, x.id||0); },0); cdoUsers.push({id:maxId+1, nombre:'Nuevo Usuario', email:'nuevo@herzastudio.com', password:'1234', rol:'Supervisor de Obra', obrasAsignadas:[], activo:true}); saveCdo('Usuario creado'); renderCdo(); }
+
+/* ---------- UI ---------- */
+function eye(btn){ var inp = btn.parentNode.querySelector('input'); inp.type = inp.type==='password' ? 'text' : 'password'; }
+function showTab(t){
+  ['central','cot','cdo'].forEach(function(x){
+    document.getElementById('p_'+x).style.display = (x===t?'block':'none');
+    document.querySelector('.tab[data-t='+x+']').classList.toggle('on', x===t);
+  });
+}
+if (session()) enter();
+</script>
+</body>
+</html>
