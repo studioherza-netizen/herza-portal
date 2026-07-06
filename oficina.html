@@ -704,7 +704,7 @@
       sb.from('perfiles').select('id,nombre,usuario,rol,activo,whatsapp,puesto'),
       sb.from('contactos').select('*'),
       sb.from('proveedores').select('*'),
-      sb.from('archivos').select('id,obra_id,tipo,nombre,semana,subido_por_nombre,created_at,visible'),
+      sb.from('archivos').select('id,obra_id,tipo,nombre,semana,subido_por_nombre,created_at,visible,storage_path'),
       sb.from('citas').select('*'),
       sb.from('dudas').select('*'),
       sb.from('comprobantes').select('*'),
@@ -798,18 +798,79 @@
       .subscribe();
   }
 
-  // lista de archivos por recuadro con control mostrar/ocultar (solo oficina)
+  // lista de archivos por recuadro con acciones (solo oficina)
+  if(!I.download)I.download='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+  window._bucketDe=t=>({plano:'planos',render:'renders',gasto:'gastos',foto:'fotos',tramite:'documentos',infocliente:'documentos',predio:'documentos'})[t];
   window._archList=function(obraId,tipo){
     const fs=(window._arch||[]).filter(a=>a.obra_id===obraId&&a.tipo===tipo).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     if(!fs.length)return '';
     return '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:4px">'+fs.map(a=>{
       const vis=a.visible!==false;
       const fecha=new Date(a.created_at).toLocaleDateString('es-MX',{day:'numeric',month:'short'});
-      return `<div style="display:flex;align-items:center;gap:9px;padding:7px 2px;border-bottom:1px solid #f0ede6">
-        <div style="flex:1;min-width:0${vis?'':';opacity:.45'}"><b style="font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(a.nombre||'Archivo').replace(/</g,'&lt;')}</b><span style="font-size:11px;color:var(--muted)">${a.semana?a.semana+' · ':''}${fecha}${a.subido_por_nombre?' · '+a.subido_por_nombre:''}</span></div>
-        <button class="btn-sm ${vis?'btn':'btn-ghost'}" style="flex:none;font-size:11px;padding:5px 10px" onclick="event.preventDefault();toggleArchivoVisible('${a.id}','${obraId}')">${vis?'Visible':'Oculto'}</button>
+      return `<div style="display:flex;align-items:center;gap:7px;padding:7px 2px;border-bottom:1px solid #f0ede6;flex-wrap:wrap">
+        <div style="flex:1;min-width:140px${vis?'':';opacity:.45'}"><b style="font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(a.nombre||'Archivo').replace(/</g,'&lt;')}</b><span style="font-size:11px;color:var(--muted)">${a.semana?a.semana+' · ':''}${fecha}${a.subido_por_nombre?' · '+a.subido_por_nombre:''}</span></div>
+        <div style="display:flex;gap:5px;flex:none;align-items:center">
+          <button class="pwbtn" title="Previsualizar" onclick="event.preventDefault();verArchivoOf('${a.id}')">${I.eye}</button>
+          <button class="pwbtn" title="Descargar" onclick="event.preventDefault();bajarArchivoOf('${a.id}')">${I.download}</button>
+          <button class="pwbtn" title="Reemplazar archivo" onclick="event.preventDefault();reemplazarArchivo('${a.id}','${obraId}')">${I.refresh}</button>
+          <button class="pwbtn" title="Eliminar" style="color:#a23b2d" onclick="event.preventDefault();borrarArchivo('${a.id}','${obraId}')">${I.trash}</button>
+          <button class="btn-sm ${vis?'btn':'btn-ghost'}" style="flex:none;font-size:11px;padding:5px 10px" onclick="event.preventDefault();toggleArchivoVisible('${a.id}','${obraId}')">${vis?'Visible':'Oculto'}</button>
+        </div>
       </div>`;
     }).join('')+'<p style="font-size:10.5px;color:var(--muted);margin:6px 0 0">Visible = el cliente lo ve en su app · Oculto = solo oficina</p></div>';
+  };
+  async function _ofUrl(a,dl){try{const {data,error}=await sb.storage.from(_bucketDe(a.tipo)).createSignedUrl(a.storage_path,3600,dl?{download:a.nombre||true}:undefined);if(error||!data)return null;return data.signedUrl;}catch(e){return null}}
+  verArchivoOf=async function(id){
+    const a=(window._arch||[]).find(x=>x.id===id);
+    if(!a||!a.storage_path){toast('Este archivo no tiene documento adjunto');return}
+    const url=await _ofUrl(a); if(!url){toast('No se pudo abrir el archivo');return}
+    const esImg=/\.(png|jpe?g|webp|gif|heic)$/i.test(a.nombre||'');
+    let ov=document.getElementById('_prevArch'); if(ov)ov.remove();
+    ov=document.createElement('div'); ov.id='_prevArch';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(42,42,37,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:14px';
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:880px;width:100%;height:min(88vh,940px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e5e1d8;gap:8px">
+        <b style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(a.nombre||'Archivo').replace(/</g,'&lt;')}</b>
+        <div style="display:flex;gap:8px;flex:none">
+          <button class="btn-beige btn-sm" onclick="bajarArchivoOf('${a.id}')">Descargar</button>
+          <button class="btn-ghost btn-sm" onclick="document.getElementById('_prevArch').remove()">Cerrar</button>
+        </div></div>
+      ${esImg?`<div style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:#efece6"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain"></div>`:`<iframe src="${url}" style="flex:1;border:0;width:100%;background:#efece6"></iframe>`}</div>`;
+    ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});
+    document.body.appendChild(ov);
+  };
+  bajarArchivoOf=async function(id){
+    const a=(window._arch||[]).find(x=>x.id===id);
+    if(!a||!a.storage_path){toast('Este archivo no tiene documento adjunto');return}
+    const url=await _ofUrl(a,true); if(!url){toast('No se pudo descargar');return}
+    const l=document.createElement('a'); l.href=url; l.download=a.nombre||'archivo';
+    document.body.appendChild(l); l.click(); l.remove();
+  };
+  borrarArchivo=async function(id,obraId){
+    const a=(window._arch||[]).find(x=>x.id===id); if(!a)return;
+    if(!confirm('¿Eliminar "'+(a.nombre||'este archivo')+'" definitivamente? El cliente dejará de verlo.'))return;
+    try{if(a.storage_path)await sb.storage.from(_bucketDe(a.tipo)).remove([a.storage_path]);}catch(e){}
+    const {error}=await sb.from('archivos').delete().eq('id',id);
+    if(error){toast('No se pudo eliminar el archivo');return}
+    await cargarOficina(); toast('Archivo eliminado'); fichaObra(obraId,'contenido');
+  };
+  reemplazarArchivo=function(id,obraId){
+    const a=(window._arch||[]).find(x=>x.id===id); if(!a)return;
+    const inp=document.createElement('input'); inp.type='file';
+    inp.onchange=async()=>{
+      const f=inp.files&&inp.files[0]; if(!f)return;
+      toast('Reemplazando archivo…');
+      const bucket=_bucketDe(a.tipo);
+      const safe=(f.name||'archivo').replace(/[^\w.\-]+/g,'_');
+      const path=obraId+'/'+Date.now()+'_r_'+safe;
+      const up=await sb.storage.from(bucket).upload(path,f,{contentType:f.type||undefined});
+      if(up.error){toast('No se pudo subir el archivo nuevo');return}
+      const {error}=await sb.from('archivos').update({nombre:f.name,storage_path:path}).eq('id',id);
+      if(error){toast('No se pudo actualizar el registro');return}
+      try{if(a.storage_path)await sb.storage.from(bucket).remove([a.storage_path]);}catch(e){}
+      await cargarOficina(); toast('Archivo reemplazado (mantiene su visibilidad)'); fichaObra(obraId,'contenido');
+    };
+    inp.click();
   };
   toggleArchivoVisible=async function(id,obraId){
     const a=(window._arch||[]).find(x=>x.id===id); if(!a)return;
