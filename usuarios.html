@@ -26,7 +26,7 @@ body{background:#d6d3cd;font-family:'Lato',sans-serif;color:#4a4a4a;min-height:1
 .login-err{color:#c0392b;font-size:12px;margin-top:12px;min-height:16px;text-align:center}
 
 /* APP */
-#app{display:none;max-width:1150px;margin:0 auto;padding:32px 20px 60px}
+#app{display:none;max-width:1250px;margin:0 auto;padding:32px 20px 60px}
 .hdr{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px}
 .hdr h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:34px;letter-spacing:1px}
 .hdr .sub{font-size:12px;letter-spacing:3px;color:#7a7a7a;margin-top:4px}
@@ -34,10 +34,7 @@ body{background:#d6d3cd;font-family:'Lato',sans-serif;color:#4a4a4a;min-height:1
 .btn.sec{background:transparent;border:1px solid #b9b4a9;color:#6d685e}
 .btn.danger{background:transparent;border:none;color:#c0392b;font-size:12px}
 .btn:hover{opacity:.9}
-.tabs{display:flex;gap:4px;margin:26px 0 0;border-bottom:1px solid #c4c0b6;flex-wrap:wrap}
-.tab{padding:10px 18px;font-size:13px;color:#7a756a;cursor:pointer;border:none;background:transparent;border-bottom:3px solid transparent;font-family:'Lato',sans-serif}
-.tab.on{color:#4f5b2d;font-weight:700;border-bottom-color:#6b7c3e;background:#e4e1da;border-radius:6px 6px 0 0}
-.panel{background:#fff;border-radius:0 12px 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.06);padding:22px;margin-bottom:30px}
+.panel{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.06);padding:22px;margin:26px 0 30px}
 .panel h2{font-size:15px;font-weight:700;margin-bottom:4px}
 .panel .desc{font-size:12px;color:#9a958a;margin-bottom:16px}
 table{border-collapse:collapse;width:100%;font-size:13px}
@@ -93,46 +90,16 @@ td select{border:1px solid #e0dcd2;border-radius:5px;padding:6px;font-family:'La
     </div>
   </div>
 
-  <div class="tabs">
-    <button class="tab on" data-t="central" onclick="showTab('central')">Usuarios Herza</button>
-    <button class="tab" data-t="cot" onclick="showTab('cot')">Cotizador</button>
-    <button class="tab" data-t="cdo" onclick="showTab('cdo')">Control de Obra</button>
-  </div>
-
-  <!-- CENTRAL -->
+  <!-- LISTA ÚNICA -->
   <div class="panel" id="p_central">
-    <h2>Usuarios Herza (central)</h2>
-    <div class="desc">Controlan el acceso a: Presupuestos (portal), Inventario, Balance y Herza RH. Los cambios se guardan en la nube y aplican de inmediato.</div>
+    <h2>Usuarios Herza (todas las apps)</h2>
+    <div class="desc">Una sola lista para las 6 apps: Presupuestos (portal), Track Obra, Cotizador, Inventario, Balance y Herza RH. Los cambios se guardan en la nube y aplican de inmediato.</div>
     <div style="overflow-x:auto"><table id="tbl_central">
       <thead><tr><th>Usuario</th><th>Contraseña</th><th>Nombre</th><th>Apps con acceso</th><th>Panel</th><th>Estado</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
     <button class="btn addRow" onclick="addCentral()">+ Agregar usuario</button>
-    <div class="note">Protección: el usuario <b>admin</b> no se puede eliminar ni desactivar. "Panel" = puede entrar a esta página. En Presupuestos el rol <b>obra</b> solo ve Entrega Material, Req. Eléctrico y Personal de Obra, sin precios.</div>
-  </div>
-
-  <!-- COTIZADOR -->
-  <div class="panel" id="p_cot" style="display:none">
-    <h2>Usuarios de Cotizador</h2>
-    <div class="desc">Se guardan en el nodo propio del Cotizador (cotizador/users). La app los lee directamente.</div>
-    <div style="overflow-x:auto"><table id="tbl_cot">
-      <thead><tr><th>Usuario</th><th>Contraseña</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-    <button class="btn addRow" onclick="addCot()">+ Agregar usuario</button>
-    <div class="note">Además, el acceso maestro admin del Cotizador siempre funciona (está en el código de la app).</div>
-  </div>
-
-  <!-- CONTROL DE OBRA -->
-  <div class="panel" id="p_cdo" style="display:none">
-    <h2>Usuarios de Control de Obra</h2>
-    <div class="desc">Se guardan en el nodo propio de Control de Obra (controlDeObra/cdo_users). El login de esa app es por email.</div>
-    <div style="overflow-x:auto"><table id="tbl_cdo">
-      <thead><tr><th>Nombre</th><th>Email</th><th>Contraseña</th><th>Rol</th><th>Obras asignadas</th><th>Estado</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-    <button class="btn addRow" onclick="addCdo()">+ Agregar usuario</button>
-    <div class="note">"Obras asignadas" separadas por coma. El rol Administrador ve todas las obras.</div>
+    <div class="note">Protección: el usuario <b>admin</b> no se puede eliminar ni desactivar. "Panel" = puede entrar a esta página. En Presupuestos el rol <b>obra</b> solo ve Entrega Material, Req. Eléctrico y Personal de Obra, sin precios. En Track Obra se asigna el rol con el que entra a esa app. Al guardar, los accesos de Cotizador y Track Obra se replican solos a esas apps.</div>
   </div>
 
   <div class="warn">Este panel muestra contraseñas en texto claro: compártelo solo con administradores. URL directa, no aparece enlazado en el portal.</div>
@@ -155,10 +122,10 @@ var debounces = {};
 function deb(key, fn){ clearTimeout(debounces[key]); debounces[key]=setTimeout(fn, 700); }
 
 /* ---------- estado ---------- */
-var central = {};   // herzaUsers/users  (objeto id->user)
-var cotUsers = [];  // cotizador/users   (array {user,pass})
-var cdoUsers = [];  // controlDeObra/cdo_users (JSON string de array)
-var APPS = [ ['presupuestos','Presupuestos'], ['inventario','Inventario'], ['balance','Balance'], ['rh','Herza RH'] ];
+var central = {};    // herzaUsers/users  (objeto id->user)
+var _cdoPrev = {};   // cdo_users previo, por usuario (para conservar id/obrasAsignadas)
+var CDO_ROLES = ['Administrador','Project Manager','Supervisor de Obra'];
+var APPS = [ ['presupuestos','Presupuestos'], ['trackobra','Track Obra'], ['cotizador','Cotizador'], ['inventario','Inventario'], ['balance','Balance'], ['rh','Herza RH'] ];
 
 /* ---------- login ---------- */
 function session(){ try{ return sessionStorage.getItem(SKEY); }catch(e){ return null; } }
@@ -182,19 +149,14 @@ function enter(){ document.getElementById('login').style.display='none'; documen
 /* ---------- carga ---------- */
 function loadAll(){
   jget('/herzaUsers/users').then(function(d){ central = d||{}; renderCentral(); });
-  jget('/cotizador/users').then(function(d){
-    if (typeof d === 'string') { try{ d = JSON.parse(d); }catch(e){ d=[]; } }
-    cotUsers = Array.isArray(d) ? d : (d ? Object.values(d) : []);
-    renderCot();
-  });
   jget('/controlDeObra/cdo_users').then(function(d){
     if (typeof d === 'string') { try{ d = JSON.parse(d); }catch(e){ d=[]; } }
-    cdoUsers = Array.isArray(d) ? d : [];
-    renderCdo();
+    _cdoPrev = {};
+    (Array.isArray(d)?d:[]).forEach(function(x){ if(x && x.email) _cdoPrev[String(x.email).toLowerCase()] = x; });
   });
 }
 
-/* ---------- CENTRAL ---------- */
+/* ---------- render ---------- */
 function renderCentral(){
   var tb = document.querySelector('#tbl_central tbody'); tb.innerHTML='';
   Object.keys(central).sort(function(a,b){ return String(central[a].usuario).localeCompare(String(central[b].usuario)); }).forEach(function(k){
@@ -209,6 +171,13 @@ function renderCentral(){
           +'<option value="" '+(!v?'selected':'')+'>Sin acceso</option>'
           +'<option value="admin" '+(v==='admin'?'selected':'')+'>Admin</option>'
           +'<option value="obra" '+(v==='obra'?'selected':'')+'>Obra</option></select></label>';
+      }
+      if (key==='trackobra') {
+        var t = x.apps && x.apps.trackobra;
+        return '<label>'+lbl+' <select onchange="cSetApp(\''+k+'\',\'trackobra\',this.value)">'
+          +'<option value="" '+(!t?'selected':'')+'>Sin acceso</option>'
+          +CDO_ROLES.map(function(r){ return '<option value="'+r+'" '+(t===r?'selected':'')+'>'+r+'</option>'; }).join('')
+          +'</select></label>';
       }
       var on = x.apps && x.apps[key];
       return '<label><input type="checkbox" '+(on?'checked':'')+' onchange="cSetApp(\''+k+'\',\''+key+'\',this.checked)"> '+lbl+'</label>';
@@ -226,61 +195,42 @@ function renderCentral(){
     tb.appendChild(tr);
   });
 }
-function saveCentral(msg){ jput('/herzaUsers/users', central).then(function(){ toast(msg); }).catch(function(){ toast('⚠ Error al guardar'); }); }
+
+/* ---------- guardar + réplica a Cotizador y Track Obra ---------- */
+function mirrorApps(){
+  // Cotizador: usuarios activos con la casilla Cotizador (el maestro admin además vive en el código de la app)
+  var cot = [];
+  Object.keys(central).forEach(function(k){ var x=central[k];
+    if (x && x.activo && x.apps && x.apps.cotizador) cot.push({ user:String(x.usuario), pass:String(x.password) });
+  });
+  // Track Obra: usuarios con rol asignado; conserva id/obras asignadas previas
+  var cdo = [], usedIds = {}, next = 1;
+  Object.keys(central).forEach(function(k){ var x=central[k];
+    if (!(x && x.apps && x.apps.trackobra)) return;
+    var prev = _cdoPrev[String(x.usuario).toLowerCase()] || {};
+    var id = prev.id; if(!id){ while(usedIds[next]) next++; id = next; }
+    usedIds[id] = true;
+    cdo.push({ id:id, nombre:x.nombre||String(x.usuario), email:String(x.usuario), password:String(x.password), rol:x.apps.trackobra, obrasAsignadas:prev.obrasAsignadas||[], activo:x.activo!==false });
+  });
+  return Promise.all([ jput('/cotizador/users', cot), jput('/controlDeObra/cdo_users', JSON.stringify(cdo)) ]);
+}
+function saveCentral(msg){
+  jput('/herzaUsers/users', central)
+    .then(function(){ return mirrorApps(); })
+    .then(function(){
+      // refresca el respaldo local de cdo para futuros guardados
+      return jget('/controlDeObra/cdo_users').then(function(d){ if (typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ d=[]; } } _cdoPrev={}; (Array.isArray(d)?d:[]).forEach(function(x){ if(x&&x.email)_cdoPrev[String(x.email).toLowerCase()]=x; }); });
+    })
+    .then(function(){ toast(msg); })
+    .catch(function(){ toast('⚠ Error al guardar'); });
+}
 function cSet(k, f, v){ if(!central[k]) return; if(v==='false')v=false; if(v==='true')v=true; central[k][f]=v; deb('central', function(){ saveCentral(); if(f==='activo')renderCentral(); }); }
 function cSetApp(k, app, v){ if(!central[k]) return; central[k].apps = central[k].apps||{}; central[k].apps[app] = (v===''?false:v); deb('central', function(){ saveCentral(); }); }
 function cDel(k){ var x=central[k]; if(!x) return; if(!confirm('¿Eliminar al usuario "'+x.usuario+'"?')) return; delete central[k]; saveCentral('Usuario eliminado'); renderCentral(); }
-function addCentral(){ var k=uid(); central[k]={usuario:'nuevo'+Object.keys(central).length, password:'1234', nombre:'', activo:true, panel:false, apps:{presupuestos:false, inventario:false, balance:false, rh:false}}; saveCentral('Usuario creado'); renderCentral(); }
-
-/* ---------- COTIZADOR ---------- */
-function renderCot(){
-  var tb = document.querySelector('#tbl_cot tbody'); tb.innerHTML='';
-  cotUsers.forEach(function(x,i){
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td><input type="text" value="'+esc(x.user)+'" onchange="cotSet('+i+',\'user\',this.value)"></td>'
-      +'<td><div class="pw"><input type="password" value="'+esc(x.pass)+'" onchange="cotSet('+i+',\'pass\',this.value)"><button class="eye" onclick="eye(this)">👁</button></div></td>'
-      +'<td><button class="btn danger" onclick="cotDel('+i+')">Eliminar</button></td>';
-    tb.appendChild(tr);
-  });
-}
-function saveCot(msg){ jput('/cotizador/users', cotUsers).then(function(){ toast(msg); }).catch(function(){ toast('⚠ Error al guardar'); }); }
-function cotSet(i,f,v){ if(!cotUsers[i])return; cotUsers[i][f]=v; deb('cot', function(){ saveCot(); }); }
-function cotDel(i){ if(!confirm('¿Eliminar al usuario "'+cotUsers[i].user+'" del Cotizador?')) return; cotUsers.splice(i,1); saveCot('Usuario eliminado'); renderCot(); }
-function addCot(){ cotUsers.push({user:'nuevo', pass:'1234'}); saveCot('Usuario creado'); renderCot(); }
-
-/* ---------- CONTROL DE OBRA ---------- */
-function renderCdo(){
-  var tb = document.querySelector('#tbl_cdo tbody'); tb.innerHTML='';
-  cdoUsers.forEach(function(x,i){
-    var obras = Array.isArray(x.obrasAsignadas) ? x.obrasAsignadas.join(', ') : (x.obrasAsignadas||'');
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td><input type="text" value="'+esc(x.nombre)+'" onchange="cdoSet('+i+',\'nombre\',this.value)"></td>'
-      +'<td><input type="text" value="'+esc(x.email)+'" onchange="cdoSet('+i+',\'email\',this.value)"></td>'
-      +'<td><div class="pw"><input type="password" value="'+esc(x.password)+'" onchange="cdoSet('+i+',\'password\',this.value)"><button class="eye" onclick="eye(this)">👁</button></div></td>'
-      +'<td><select onchange="cdoSet('+i+',\'rol\',this.value)">'
-        +['Administrador','Project Manager','Supervisor de Obra'].map(function(r){ return '<option '+(x.rol===r?'selected':'')+'>'+r+'</option>'; }).join('')+'</select></td>'
-      +'<td><input type="text" value="'+esc(obras)+'" placeholder="obra1, obra2" onchange="cdoSetObras('+i+',this.value)"></td>'
-      +'<td><span class="chip '+(x.activo!==false?'on':'off')+'" style="cursor:pointer" onclick="cdoSet('+i+',\'activo\','+(x.activo!==false?'false':'true')+')">'+(x.activo!==false?'Activo':'Inactivo')+'</span></td>'
-      +'<td><button class="btn danger" onclick="cdoDel('+i+')">Eliminar</button></td>';
-    tb.appendChild(tr);
-  });
-}
-function saveCdo(msg){ jput('/controlDeObra/cdo_users', JSON.stringify(cdoUsers)).then(function(){ toast(msg); }).catch(function(){ toast('⚠ Error al guardar'); }); }
-function cdoSet(i,f,v){ if(!cdoUsers[i])return; if(v==='false')v=false; if(v==='true')v=true; cdoUsers[i][f]=v; deb('cdo', function(){ saveCdo(); if(f==='activo')renderCdo(); }); }
-function cdoSetObras(i,v){ if(!cdoUsers[i])return; cdoUsers[i].obrasAsignadas = v.split(',').map(function(s){return s.trim();}).filter(Boolean); deb('cdo', function(){ saveCdo(); }); }
-function cdoDel(i){ if(!confirm('¿Eliminar a "'+cdoUsers[i].nombre+'" de Control de Obra?')) return; cdoUsers.splice(i,1); saveCdo('Usuario eliminado'); renderCdo(); }
-function addCdo(){ var maxId = cdoUsers.reduce(function(m,x){ return Math.max(m, x.id||0); },0); cdoUsers.push({id:maxId+1, nombre:'Nuevo Usuario', email:'nuevo@herzastudio.com', password:'1234', rol:'Supervisor de Obra', obrasAsignadas:[], activo:true}); saveCdo('Usuario creado'); renderCdo(); }
+function addCentral(){ var k=uid(); central[k]={usuario:'nuevo'+Object.keys(central).length, password:'1234', nombre:'', activo:true, panel:false, apps:{presupuestos:false, trackobra:false, cotizador:false, inventario:false, balance:false, rh:false}}; saveCentral('Usuario creado'); renderCentral(); }
 
 /* ---------- UI ---------- */
 function eye(btn){ var inp = btn.parentNode.querySelector('input'); inp.type = inp.type==='password' ? 'text' : 'password'; }
-function showTab(t){
-  ['central','cot','cdo'].forEach(function(x){
-    document.getElementById('p_'+x).style.display = (x===t?'block':'none');
-    document.querySelector('.tab[data-t='+x+']').classList.toggle('on', x===t);
-  });
-}
 if (session()) enter();
 </script>
 </body>
