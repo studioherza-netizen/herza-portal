@@ -694,6 +694,8 @@
   function gallery(arr,ic){return `<div class="grid">`+arr.map((f,i)=>`<div class="card" onclick="verRender(${i})"><div class="thumb" style="background:${grad[i%grad.length]}">${ICON[ic]||ic}</div><div class="body"><b>${f[0]}</b><span>${f[1]}</span></div></div>`).join('')+`</div>`}
   function verPlano(i){const d=(planos||[])[i];if(!d)return;verArchivo('planos',d[4],d[0],'pdf');}
   function bajarPlano(i){const d=(planos||[])[i];if(!d)return;descargarArchivo('planos',d[4],d[0]);}
+  function verGasto(gid){const g=(relGastos||[]).find(x=>String(x.id)===String(gid));if(!g)return;if(g.path){verArchivo('gastos',g.path,g.pdf[0],'pdf');}else{preview(g.pdf[0],g.pdf[1],'PDF');}}
+  function bajarGasto(gid){const g=(relGastos||[]).find(x=>String(x.id)===String(gid));if(!g||!g.path)return;descargarArchivo('gastos',g.path,g.pdf[0]);}
   function verRender(i){const f=(renders||[])[i];if(!f)return;verArchivo('renders',f[2],f[0],'img');}
   function docRows(arr,vfn,dfn){return (arr&&arr.length)?arr.map((d,i)=>`<div class="file-row" onclick="${vfn}(${i})"><div class="ficon" style="background:${d[3]}">${d[2]}</div><div class="fmeta"><b>${d[0]}</b><span>${d[1]}</span></div><div class="file-actions"><button class="fa-btn prim" onclick="event.stopPropagation();${vfn}(${i})">${ICON.eye} Previsualizar</button><button class="fa-btn" onclick="event.stopPropagation();${dfn}(${i})">${ICON.download} Descargar</button></div></div>`).join(''):'<p class="view-sub" style="margin-top:4px">Aún no hay documentos cargados. Te avisaremos cuando tu equipo suba algo aquí.</p>'}
   function verTramite(i){const d=(tramites||[])[i];if(!d)return;verArchivo('documentos',d[4],d[0],d[5]||'pdf');}
@@ -748,7 +750,7 @@
       const g=relGastos.find(x=>'gasto_'+x.id===route);
       crumb([['Inicio','home'],['Administración','admin'],['Relación de gastos','gastos'],[g.sem]]);
       S.innerHTML=`<h2 class="view-title">Relación de gastos · ${g.sem}</h2><p class="view-sub">Relación oficial de la semana y tus comprobantes de pago adjuntos.</p>`+
-        fileRows([[g.pdf[0],g.pdf[1],'PDF','#9c6b4a']])+
+        `<div class="file-row" onclick="verGasto('${g.id}')"><div class="ficon" style="background:#9c6b4a">PDF</div><div class="fmeta"><b>${g.pdf[0]}</b><span>${g.pdf[1]}</span></div><div class="file-actions"><button class="fa-btn prim" onclick="event.stopPropagation();verGasto('${g.id}')">${ICON.eye} Previsualizar</button><button class="fa-btn" onclick="event.stopPropagation();bajarGasto('${g.id}')">${ICON.download} Descargar</button></div></div>`+
         `<div class="section-h"><span class="st-title">Comprobantes de pago</span><button class="btn-olive" onclick="go('comp_${g.id}')">${ICON.upload} Adjuntar comprobante</button></div>`+
         (g.comps.length? g.comps.map(c=>`<div class="comp"><div class="cth" style="background:${c.img.startsWith('data:')?`url(${c.img})`:c.img};background-size:cover;background-position:center"></div><div class="ci"><span class="tp">${c.tipo}</span><b>${c.prov}</b><span>${c.fecha}${c.ref?' · '+c.ref:''}</span></div><div class="mt">${c.monto}</div></div>`).join('') : emptyState('upload','Sin comprobantes aún','Adjunta la captura de tus pagos de esta semana para llevarlos registrados.'));
     }
@@ -1005,7 +1007,7 @@
     predioDocs=A.filter(a=>a.tipo==='predio').map(a=>[a.nombre,_fc(a.created_at),_esImg(a.nombre)?'IMG':'PDF',_esImg(a.nombre)?'#9a9286':'#9c6b4a',a.storage_path,_esImg(a.nombre)?'img':'pdf']);
     const {data:comps}=await sb.from('comprobantes').select('*').eq('obra_id',_obraId).order('created_at',{ascending:false});
     const CO=comps||[];
-    relGastos=A.filter(a=>a.tipo==='gasto').map(g=>({id:g.id,sem:g.semana||'Semana',fecha:_fc(g.created_at),pdf:[g.nombre,'PDF · '+(g.semana||'')],comps:CO.filter(c=>c.gasto_semana===g.semana).map((c,k)=>({img:_gp(k),tipo:c.tipo_pago,prov:c.proveedor,monto:c.monto,fecha:c.fecha_pago,ref:c.referencia}))}));
+    relGastos=A.filter(a=>a.tipo==='gasto').map(g=>({id:g.id,sem:g.semana||'Semana',fecha:_fc(g.created_at),path:g.storage_path,pdf:[g.nombre,'PDF · '+(g.semana||'')],comps:CO.filter(c=>c.gasto_semana===g.semana).map((c,k)=>({img:_gp(k),tipo:c.tipo_pago,prov:c.proveedor,monto:c.monto,fecha:c.fecha_pago,ref:c.referencia}))}));
     const fa=A.filter(a=>a.tipo==='foto');
     const sems=[...new Set(fa.map(f=>f.semana))];
     semanasFoto=sems.map((sem,i)=>['sf'+i,sem||'Semana',_fc(fa.find(f=>f.semana===sem).created_at),fa.filter(f=>f.semana===sem).map(f=>[f.nombre,''])]);
