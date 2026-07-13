@@ -344,7 +344,7 @@
       </div>
       <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:start;margin-bottom:18px">
         <div class="panel-card" style="padding:18px">
-          <div class="pc-head" style="padding:0 0 12px"><h3>${meses[M]} ${Y}</h3><a href="#" onclick="go('solicitudes');return false">Ver citas</a></div>
+          <div class="pc-head" style="padding:0 0 12px"><h3>${meses[M]} ${Y}</h3><div style="display:flex;gap:10px;align-items:center"><a href="#" onclick="go('solicitudes');return false">Ver citas</a><button class="btn-sm btn-ghost" onclick="nuevaCita()">+ Nueva cita</button></div></div>
           <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;font-size:11px;color:var(--muted);margin-bottom:6px"><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
           <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
         </div>
@@ -567,7 +567,7 @@
 
   // ---------- BANDEJA ----------
   function bandeja(){
-    head('Solicitudes','');
+    head('Solicitudes','',`<button class="btn" onclick="nuevaCita()">${I.calendar} Nueva cita</button>`);
     let all=[];obras.forEach(o=>o.solicitudes.forEach(s=>all.push({o,s})));
     S.innerHTML=all.length?`<p style="font-size:13px;color:var(--muted);margin-bottom:14px">${all.length} solicitudes pendientes de todas las obras.</p>`+all.map(r=>solRow(r.o,r.s,true)).join('')
       :`<div class="ok-card"><div class="oi">${I.check}</div><h3>Todo al día</h3><p>No hay solicitudes pendientes en este momento.</p></div>`;
@@ -1188,6 +1188,65 @@
       if(c&&c.obra_id)await sb.from('notificaciones').insert({obra_id:c.obra_id,tipo:'cita',titulo:'Herza Studio propuso otra fecha',detalle:f+(h?' · '+h:'')+' — revísala y confirma en la app',ruta:'cita'});
       await cargarOficina();toast('Propuesta enviada al cliente');go(window._route||'solicitudes');
     });
+  };
+  window.nuevaCita=function(){
+    const obs=(obras||[]).filter(o=>!o.archivada);
+    if(!obs.length){toast('No hay obras activas');return}
+    const motivos=['Revisión de detalle en obra','Cambio en obra','Revisión de presupuesto','Revisión de relación de gastos','Definición de acabados'];
+    const d=new Date();d.setDate(d.getDate()+1);const defF=d.toISOString().slice(0,10);
+    const optCli=o=>((o.clientes&&o.clientes.length?o.clientes:[o.cliente])||[]).filter(c=>c&&c.id).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.45);display:flex;align-items:flex-start;justify-content:center;z-index:99999;color-scheme:light;padding:40px 18px;overflow:auto';
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;width:min(94vw,470px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
+      <h3 style="margin:0 0 4px;font-size:19px">Nueva cita</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">Agenda directamente con el cliente, sin esperar a que él la solicite.</p>
+      <div class="fg"><label>Obra</label><select class="fld" id="_nO" style="width:100%">${obs.map(o=>`<option value="${o.id}">${o.nombre}</option>`).join('')}</select></div>
+      <div class="fg"><label>Cliente</label><select class="fld" id="_nC" style="width:100%">${optCli(obs[0])}</select></div>
+      <div class="fg"><label>Ubicación</label><select class="fld" id="_nU" style="width:100%"><option>Herza Studio Headquarters</option><option>Obra</option></select></div>
+      <div class="fg"><label>Motivo</label><select class="fld" id="_nM" style="width:100%">${motivos.map(m=>`<option>${m}</option>`).join('')}</select></div>
+      <div style="display:flex;gap:10px">
+        <div class="fg" style="flex:1.2"><label>Fecha</label><input type="date" class="fld" id="_nF" style="width:100%" value="${defF}"></div>
+        <div class="fg" style="flex:1"><label>Hora</label><input type="time" class="fld" id="_nH" style="width:100%" value="10:00"></div>
+        <div class="fg" style="flex:1"><label>Duración</label><select class="fld" id="_nD" style="width:100%"><option value="30">30 min</option><option value="60" selected>1 hora</option><option value="90">1½ hora</option><option value="120">2 horas</option></select></div>
+      </div>
+      <div class="fg"><label>Estado</label><select class="fld" id="_nE" style="width:100%">
+        <option value="Confirmada">Confirmada — queda agendada y pasa al Google Calendar</option>
+        <option value="Propuesta oficina">Propuesta — el cliente debe confirmarla</option>
+      </select></div>
+      <div class="fg"><label>Notas <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><textarea class="fld" id="_nN" style="width:100%" rows="2" placeholder="Puntos a tratar en la cita…"></textarea></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button class="btn-ghost" id="_nX">Cancelar</button>
+        <button class="btn" id="_nOk">${I.check} Crear cita</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.querySelector('#_nX').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+    ov.querySelector('#_nO').onchange=e=>{const o=obs.find(x=>x.id===e.target.value);ov.querySelector('#_nC').innerHTML=o?optCli(o):''};
+    ov.querySelector('#_nOk').onclick=async()=>{
+      const obra_id=ov.querySelector('#_nO').value, cliente_id=ov.querySelector('#_nC').value;
+      const fecha=ov.querySelector('#_nF').value, hora=ov.querySelector('#_nH').value, estado=ov.querySelector('#_nE').value;
+      if(!obra_id||!cliente_id){toast('Elige obra y cliente');return}
+      if(!fecha){toast('Elige una fecha');return}
+      const motivo=ov.querySelector('#_nM').value;
+      const {error}=await sb.from('citas').insert({
+        obra_id, cliente_id,
+        ubicacion:ov.querySelector('#_nU').value, motivo,
+        fecha_propuesta:fecha, hora:hora||null,
+        duracion_min:parseInt(ov.querySelector('#_nD').value,10),
+        premura:'No urgente',
+        notas:(ov.querySelector('#_nN').value||'').trim()||null,
+        estado, propuesta_por:'oficina', en_calendar:false
+      });
+      if(error){toast('No se pudo crear la cita');return}
+      close();
+      await sb.from('notificaciones').insert({obra_id,tipo:'cita',
+        titulo:estado==='Confirmada'?'Cita agendada por Herza Studio':'Herza Studio propone una cita',
+        detalle:motivo+' · '+fecha+(hora?' · '+hora:''),ruta:'cita'});
+      await cargarOficina();
+      toast(estado==='Confirmada'?'Cita creada · se notificó al cliente':'Propuesta enviada al cliente');
+      go(window._route||'panel');
+    };
   };
   function _modalObra(o,onOk){
     const estados=['En construcción','Cimentación','Estructura','Acabados','Entregada'];
