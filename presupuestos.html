@@ -418,12 +418,15 @@ function TotalsSection({categories, items, mgmtPct, setMgmtPct, ivaPct, setIvaPc
   );
 }
 
-function PaymentsTab({payments, setPayments, grandTotal}) {
+function PaymentsTab({payments, setPayments, grandTotal, onPrint}) {
   const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const balance = grandTotal - totalPaid;
   return (
     <div>
-      <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:C.text}}>Balance de Pagos</h2>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:12,flexWrap:"wrap"}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text}}>Balance de Pagos</h2>
+        <button onClick={()=>onPrint&&onPrint()} title="Exportar a PDF solo el Balance de Pagos" style={{...sb,background:C.accent,color:"#fff",fontSize:12,fontWeight:600,padding:"7px 12px"}}><IconPdf/> PDF de esta sección</button>
+      </div>
       <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr>
@@ -1040,7 +1043,7 @@ function resumenCalc(grandTotal, payments, providers) {
 }
 const money = (n)=>"$"+(n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
 
-function ResumenTab({grandTotal, payments, providers, mgmt, mgmtPct}) {
+function ResumenTab({grandTotal, payments, providers, mgmt, mgmtPct, onPrint}) {
   const r = resumenCalc(grandTotal, payments, providers);
   const tile = (label,val,color)=>(
     <div style={{background:"#f1f0ea",borderRadius:8,padding:"12px 14px"}}>
@@ -1056,7 +1059,10 @@ function ResumenTab({grandTotal, payments, providers, mgmt, mgmtPct}) {
   );
   return (
     <div>
-      <h2 style={{fontSize:18,fontWeight:600,marginBottom:16,color:C.text}}>Resumen Financiero de Obra</h2>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:12,flexWrap:"wrap"}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:C.text}}>Resumen Financiero de Obra</h2>
+        <button onClick={()=>onPrint&&onPrint()} title="Exportar a PDF solo el Resumen" style={{...sb,background:C.accent,color:"#fff",fontSize:12,fontWeight:600,padding:"7px 12px"}}><IconPdf/> PDF de esta sección</button>
+      </div>
       <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"18px 20px",maxWidth:720}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:18}}>
           {tile("PRESUPUESTO (CLIENTE)", r.gt)}
@@ -1136,7 +1142,7 @@ function ResumenPrintView({project, grandTotal, payments, providers, mgmt, mgmtP
   );
 }
 
-function ProveedoresTab({providers, setProviders, categories, items}) {
+function ProveedoresTab({providers, setProviders, categories, items, onPrintProv}) {
   const list = providers || [];
   const catSubtotal = (catId) => ((items&&items[catId])||[]).reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
   const catList = [...(categories||[])].sort((a,b)=>(parseFloat(a.num)||0)-(parseFloat(b.num)||0)).filter(c=>c.name && c.name.trim());
@@ -1172,6 +1178,7 @@ function ProveedoresTab({providers, setProviders, categories, items}) {
             <span style={{color:"#fff",fontSize:11,fontWeight:600,opacity:0.9}}>Asignado</span>
             <input type="number" min="0" step="1000" value={p.asignado} onChange={e=>updProv(p.id,"asignado",parseFloat(e.target.value)||0)} style={{width:120,background:"rgba(255,255,255,0.92)",border:"none",borderRadius:6,color:C.text,fontSize:13,fontWeight:600,textAlign:"right",padding:"5px 8px",outline:"none"}}/>
             <button onClick={()=>addPago(p.id)} style={{...sb,padding:"5px 12px",background:"rgba(255,255,255,0.2)",color:"#fff",fontSize:12}}>+ Pago</button>
+            <button onClick={()=>onPrintProv&&onPrintProv(p.id)} title={"Exportar a PDF solo "+(p.nombre||"este proveedor")} style={{...sb,padding:"5px 12px",background:C.accent,color:"#fff",fontSize:12,fontWeight:600}}><IconPdf/> PDF</button>
             <button onClick={()=>delProv(p.id)} style={{...sb,padding:"5px 9px",background:"transparent",color:"#fff",fontSize:14}} title="Eliminar proveedor">✕</button>
           </div>
           <div style={{padding:"8px 14px 14px"}}>
@@ -1211,9 +1218,12 @@ function ProveedoresTab({providers, setProviders, categories, items}) {
   );
 }
 
-function ProveedoresPrintView({project, providers}) {
+function ProveedoresPrintView({project, providers, printProvId}) {
   const fmtP = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
-  const list = (providers||[]).filter(p=>p.nombre || (parseFloat(p.asignado)||0) || (p.pagos||[]).length);
+  const _base = (providers||[]).filter(p=>p.nombre || (parseFloat(p.asignado)||0) || (p.pagos||[]).length);
+  const _one = printProvId ? (providers||[]).filter(p=>p.id===printProvId) : null;
+  const list = (_one && _one.length) ? _one : _base;
+  const single = !!(_one && _one.length);
   const paidOf = (p)=>(p.pagos||[]).reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
   const totAsig = list.reduce((s,p)=>s+(parseFloat(p.asignado)||0),0);
   const totPaid = list.reduce((s,p)=>s+paidOf(p),0);
@@ -1237,7 +1247,7 @@ function ProveedoresPrintView({project, providers}) {
       </div>
       <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
       <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>CONTROL DE PAGOS A PROVEEDORES</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>{single ? ("PAGOS A PROVEEDOR · "+((list[0].nombre||"").toUpperCase())) : "CONTROL DE PAGOS A PROVEEDORES"}</span>
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
         <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
@@ -1282,7 +1292,7 @@ function ProveedoresPrintView({project, providers}) {
   );
 }
 
-function PersonalTab({personal, setPersonal, project}) {
+function PersonalTab({personal, setPersonal, project, onPrintGroup}) {
   const p = personal || defaultPersonal(project);
   const setP = (patch) => setPersonal(prev=>({...(prev||defaultPersonal(project)), ...patch}));
   const setGroups = (fn) => setPersonal(prev=>{const base=prev||defaultPersonal(project);return {...base, groups: fn(base.groups||[])};});
@@ -1325,6 +1335,7 @@ function PersonalTab({personal, setPersonal, project}) {
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#a39e90",padding:"10px 12px"}}>
             <input value={g.oficio} onChange={e=>updField(g.id,"oficio",e.target.value)} style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:14,fontWeight:700,letterSpacing:1,outline:"none"}}/>
             <button onClick={()=>addRow(g.id)} style={{...sb,padding:"5px 12px",background:"rgba(255,255,255,0.2)",color:"#fff",fontSize:12}}>+ Trabajador</button>
+            <button onClick={()=>onPrintGroup&&onPrintGroup(g.id)} title={"Exportar a PDF solo "+(g.oficio||"este oficio")} style={{...sb,padding:"5px 12px",background:C.accent,color:"#fff",fontSize:12,fontWeight:600}}><IconPdf/> PDF</button>
             <button onClick={()=>delGroup(g.id)} style={{...sb,padding:"5px 9px",background:"transparent",color:"#fff",fontSize:14}} title="Eliminar oficio">✕</button>
           </div>
           <div style={{padding:"8px 14px 14px"}}>
@@ -1347,9 +1358,12 @@ function PersonalTab({personal, setPersonal, project}) {
   );
 }
 
-function PersonalPrintView({project, personal}) {
+function PersonalPrintView({project, personal, printGroupId}) {
   const p = personal || {};
-  const groups = (p.groups||[]).filter(g=>g.oficio || (g.rows||[]).some(r=>r.n||r.ap||r.am));
+  const _base = (p.groups||[]).filter(g=>g.oficio || (g.rows||[]).some(r=>r.n||r.ap||r.am));
+  const _one = printGroupId ? (p.groups||[]).filter(g=>g.id===printGroupId) : null;
+  const groups = (_one && _one.length) ? _one : _base;
+  const singleG = !!(_one && _one.length);
   const totalTrab = groups.reduce((s,g)=>s+(g.rows||[]).filter(r=>r.n||r.ap||r.am).length,0);
   let dateStr = "";
   try { dateStr = new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } catch(e){}
@@ -1369,7 +1383,7 @@ function PersonalPrintView({project, personal}) {
       </div>
       <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
       <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>PERSONAL DE OBRA</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>{singleG ? ("PERSONAL DE OBRA · "+((groups[0].oficio||"").toUpperCase())) : "PERSONAL DE OBRA"}</span>
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
         <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
@@ -1696,6 +1710,8 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
   const [printing, setPrinting] = useState(false);
   const [printWeekId, setPrintWeekId] = useState(null);
   const [printReqId, setPrintReqId] = useState(null);
+  const [printProvId, setPrintProvId] = useState(null);
+  const [printGroupId, setPrintGroupId] = useState(null);
   const [savedLabel, setSavedLabel] = useState("");
 
   // Auto-save on any change
@@ -1770,15 +1786,16 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
   const updateCategory = (catId,field,val) => {
     setCategories(prev=>prev.map(c=>c.id===catId?{...c,[field]:val}:c));
   };
+  const clearPrintIds = () => { setPrintWeekId(null); setPrintReqId(null); setPrintProvId(null); setPrintGroupId(null); };
   const handlePrint = () => {
-    setPrintWeekId(null);
-    setPrintReqId(null);
+    clearPrintIds();
     setPrinting(true);
     var onAfter = () => { setPrinting(false); window.removeEventListener("afterprint", onAfter); };
     window.addEventListener("afterprint", onAfter);
     setTimeout(()=>window.print(),350);
   };
   const handlePrintReq = (rid) => {
+    clearPrintIds();
     setPrintReqId(rid);
     setPrinting(true);
     var onAfter = () => { setPrinting(false); setPrintReqId(null); window.removeEventListener("afterprint", onAfter); };
@@ -1786,9 +1803,26 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
     setTimeout(()=>window.print(),350);
   };
   const handlePrintWeek = (wid) => {
+    clearPrintIds();
     setPrintWeekId(wid);
     setPrinting(true);
     var onAfter = () => { setPrinting(false); setPrintWeekId(null); window.removeEventListener("afterprint", onAfter); };
+    window.addEventListener("afterprint", onAfter);
+    setTimeout(()=>window.print(),350);
+  };
+  const handlePrintProv = (pid) => {
+    clearPrintIds();
+    setPrintProvId(pid);
+    setPrinting(true);
+    var onAfter = () => { setPrinting(false); setPrintProvId(null); window.removeEventListener("afterprint", onAfter); };
+    window.addEventListener("afterprint", onAfter);
+    setTimeout(()=>window.print(),350);
+  };
+  const handlePrintGroup = (gid) => {
+    clearPrintIds();
+    setPrintGroupId(gid);
+    setPrinting(true);
+    var onAfter = () => { setPrinting(false); setPrintGroupId(null); window.removeEventListener("afterprint", onAfter); };
     window.addEventListener("afterprint", onAfter);
     setTimeout(()=>window.print(),350);
   };
@@ -1804,8 +1838,8 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
         : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} printWeekId={printWeekId} />
         : activeTab==="electrico" ? <ElectricReqPrintView reqs={electricReqs} printReqId={printReqId} />
         : activeTab==="materials" ? <ElectricReqPrintView reqs={materials} variant="material" printReqId={printReqId} />
-        : activeTab==="personal" ? <PersonalPrintView project={project} personal={personal} />
-        : activeTab==="providers" ? <ProveedoresPrintView project={project} providers={providers} />
+        : activeTab==="personal" ? <PersonalPrintView project={project} personal={personal} printGroupId={printGroupId} />
+        : activeTab==="providers" ? <ProveedoresPrintView project={project} providers={providers} printProvId={printProvId} />
         : activeTab==="resumen" ? <ResumenPrintView project={project} grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />
         : <PrintView project={project} categories={categories} items={items} mgmtPct={mgmtPct} ivaPct={ivaPct} />
       )}
@@ -1839,13 +1873,13 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
             </div>
           </div>
         )}
-        {activeTab==="payments" && <PaymentsTab payments={payments} setPayments={setPayments} grandTotal={grandTotal} />}
+        {activeTab==="payments" && <PaymentsTab payments={payments} setPayments={setPayments} grandTotal={grandTotal} onPrint={handlePrint} />}
         {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} onPrintWeek={handlePrintWeek} />}
         {activeTab==="materials" && <ElectricReqTab reqs={materials} setReqs={setMaterials} variant="material" onPrintReq={handlePrintReq} />}
         {activeTab==="electrico" && <ElectricReqTab reqs={electricReqs} setReqs={setElectricReqs} onPrintReq={handlePrintReq} />}
-        {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} />}
-        {activeTab==="providers" && <ProveedoresTab providers={providers} setProviders={setProviders} categories={categories} items={items} />}
-        {activeTab==="resumen" && <ResumenTab grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} />}
+        {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} onPrintGroup={handlePrintGroup} />}
+        {activeTab==="providers" && <ProveedoresTab providers={providers} setProviders={setProviders} categories={categories} items={items} onPrintProv={handlePrintProv} />}
+        {activeTab==="resumen" && <ResumenTab grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} onPrint={handlePrint} />}
         <div style={{marginTop:40,textAlign:"center",padding:20,borderTop:"1px solid "+C.border,fontSize:11,color:C.dim}}>
           <p style={{margin:0}}>Herza Studio · Arquitectura comercial & de interiores</p>
           <p style={{margin:"4px 0"}}>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</p>
