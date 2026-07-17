@@ -95,6 +95,42 @@ const PriceInputCell = ({item, onChange, si}) => {
   });
 };
 
+// Costo unitario (lo que nos cuesta a nosotros) — columna interna, no se muestra al cliente
+const CostInputCell = ({item, onChange, si}) => {
+  const [draft, setDraft] = useState(null);
+  const isEditing = draft !== null;
+  const c = item.cost || 0;
+  const display = isEditing
+    ? draft
+    : (c ? new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(c) : '');
+  return React.createElement('input', {
+    type: 'text',
+    value: display,
+    placeholder: '0.00',
+    onFocus: (e) => {
+      const initial = item.costFormula || (c ? String(c) : '');
+      setDraft(initial);
+      setTimeout(() => { try { e.target.select(); } catch(_){} }, 0);
+    },
+    onChange: (e) => setDraft(e.target.value),
+    onBlur: () => {
+      const v = (draft || '').trim();
+      if (v.startsWith('=')) {
+        const r = _evalFormula(v);
+        onChange('costFormula', v);
+        onChange('cost', (typeof r === 'number' && isFinite(r)) ? r : 0);
+      } else {
+        onChange('costFormula', null);
+        onChange('cost', parseFloat(v) || 0);
+      }
+      setDraft(null);
+    },
+    onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); },
+    title: item.costFormula ? 'Formula: ' + item.costFormula : 'Costo directo por unidad',
+    style: {...si, width: 100, textAlign: 'right', fontSize: 12, ...(item.costFormula ? {background: '#fdf6e3'} : {})}
+  });
+};
+
 
 const fmt = (n) => {
   if (n === 0) return "-";
@@ -120,7 +156,7 @@ const defaultCategories = [
 
 const unitOptions = ["LOTE", "PIEZA", "M2", "ML", "SALIDA", "KG", "GLOBAL"];
 
-const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0 });
+const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0, cost: 0 });
 const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
 const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA" });
 const emptyElectricRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", luz: "", foto: "", ubic: "", plano: "" });
@@ -284,6 +320,9 @@ function Header({project, setProject, onHome, savedLabel, onSaveNow, onDownload}
 
 function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, printMode}) {
   const total = item.qty * item.price;
+  const costTotal = item.qty * (item.cost || 0);
+  const util = total - costTotal;
+  const margin = total > 0 ? (util / total * 100) : 0;
   if (printMode) {
     return (
       <tr>
@@ -309,6 +348,8 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
       <td style={{padding:"4px 6px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:65,textAlign:"center",fontSize:12}} /></td>
       <td style={{padding:"4px 6px"}}><PriceInputCell item={item} onChange={onChange} si={si} /></td>
       <td style={{padding:"4px 6px",textAlign:"right",fontWeight:600,fontSize:13,color:total>0?C.accent:C.dim,minWidth:100}}>{fmt(total)}</td>
+      <td style={{padding:"4px 6px",background:"#f7f9f0"}}><CostInputCell item={item} onChange={onChange} si={si} /></td>
+      <td style={{padding:"4px 6px",textAlign:"right",fontWeight:700,fontSize:13,color:util>0?"#5a7d2a":(util<0?C.danger:C.dim),minWidth:92,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(util)}{total>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{margin.toFixed(1)}%</span>}</td>
       <td style={{padding:"4px 2px"}}><button onClick={onRemove} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar"><IconTrash/></button></td>
     </tr>
   );
@@ -362,12 +403,21 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
         <div style={{padding:"0 18px 14px"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr>
-              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE",""].map((h,i)=>(
-                <th key={i} style={{padding:"6px",fontSize:10,color:C.dim,textAlign:i>=4?(i===7?"center":"right"):"left",fontWeight:600,letterSpacing:1,background:"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
+              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE","COSTO U.","UTILIDAD",""].map((h,i)=>(
+                <th key={i} style={{padding:"6px",fontSize:10,color:i===7||i===8?"#5c6b2e":C.dim,textAlign:i>=4?(i===9?"center":"right"):"left",fontWeight:600,letterSpacing:1,background:i===7||i===8?"#e7edd4":"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {items.map((item,idx)=><QuoteItem key={item.id} item={item} onChange={(f,v)=>onItemChange(item.id,f,v)} onRemove={()=>onRemoveItem(item.id)} onMoveUp={()=>onMoveItem&&onMoveItem(item.id,-1)} onMoveDown={()=>onMoveItem&&onMoveItem(item.id,1)} canMoveUp={idx>0} canMoveDown={idx<items.length-1} />)}
+              {items.length>0 && (()=>{const costTot=items.reduce((s,i)=>s+i.qty*(i.cost||0),0);const utilTot=subtotal-costTot;const marginCat=subtotal>0?utilTot/subtotal*100:0;return (
+                <tr>
+                  <td colSpan={6} style={{padding:"6px",textAlign:"right",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:0.5,borderTop:"1px solid "+C.border}}>SUBTOTAL {cat.num}</td>
+                  <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:C.accent,borderTop:"1px solid "+C.border,whiteSpace:"nowrap"}}>{fmt(subtotal)}</td>
+                  <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:C.danger,borderTop:"1px solid "+C.border,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(costTot)}</td>
+                  <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:utilTot>0?"#5a7d2a":C.dim,borderTop:"1px solid "+C.border,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(utilTot)}{subtotal>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{marginCat.toFixed(1)}%</span>}</td>
+                  <td style={{borderTop:"1px solid "+C.border}}></td>
+                </tr>
+              );})()}
             </tbody>
           </table>
           <button onClick={onAddItem} style={{...sb,background:C.bg,color:C.muted,marginTop:8,fontSize:12}}><IconPlus/> Agregar partida</button>
@@ -379,6 +429,9 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
 
 function TotalsSection({categories, items, mgmtPct, setMgmtPct, ivaPct, setIvaPct}) {
   const subtotal = Object.values(items).flat().reduce((s,i)=>s+i.qty*i.price,0);
+  const costoDirecto = Object.values(items).flat().reduce((s,i)=>s+i.qty*(i.cost||0),0);
+  const utilBruta = subtotal - costoDirecto;
+  const margenPct = subtotal>0 ? utilBruta/subtotal*100 : 0;
   const mgmt = subtotal*(mgmtPct/100);
   const iva = (subtotal+mgmt)*(ivaPct/100);
   const total = subtotal+mgmt+iva;
@@ -392,6 +445,11 @@ function TotalsSection({categories, items, mgmtPct, setMgmtPct, ivaPct, setIvaPc
         })}
         <div style={{borderTop:"1px solid "+C.border,marginTop:10,paddingTop:10}}>
           <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,fontWeight:600}}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+          <div style={{margin:"8px 0",padding:"10px 12px",background:"#f7f9f0",border:"1px solid #e7edd4",borderRadius:8}} title="Datos internos — no aparecen en el PDF del cliente">
+            <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:13,color:C.muted}}><span>Costo directo</span><span style={{color:C.danger}}>− {fmt(costoDirecto)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:14,fontWeight:700}}><span>Utilidad bruta</span><span style={{color:utilBruta>0?"#5a7d2a":C.dim}}>{fmt(utilBruta)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:11,color:C.dim}}><span>Margen sobre venta</span><span style={{fontWeight:700,color:"#5a7d2a"}}>{margenPct.toFixed(1)}%</span></div>
+          </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",fontSize:13}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span>Gerenciamiento</span>
