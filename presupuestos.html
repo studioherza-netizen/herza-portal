@@ -49,7 +49,7 @@ window._fbRest=fetch("https://herza-studio-apps-default-rtdb.firebaseio.com/pres
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useCallback, useEffect, useMemo } = React;
+const { useState, useCallback, useEffect, useMemo, useRef } = React;
 
 const _evalFormula = (s) => {
   let x = String(s||'').trim();
@@ -318,7 +318,165 @@ function Header({project, setProject, onHome, savedLabel, onSaveNow, onDownload}
   );
 }
 
-function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, printMode}) {
+// ===== Catálogo de Conceptos =====
+const lbl = {display:"block",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:5,fontWeight:700};
+
+function ConceptAutocomplete({item, onChange, catalog}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState(null);
+  const taRef = useRef(null);
+  const q = (item.concept||"").trim().toLowerCase();
+  const matches = (catalog||[]).filter(c => !q || (c.concepto||"").toLowerCase().includes(q) || (c.rubro||"").toLowerCase().includes(q)).slice(0,8);
+  const place = () => { if(taRef.current) setRect(taRef.current.getBoundingClientRect()); };
+  useEffect(()=>{ if(!open) return; const h=()=>setOpen(false); window.addEventListener("scroll",h,true); window.addEventListener("resize",h); return ()=>{window.removeEventListener("scroll",h,true);window.removeEventListener("resize",h);}; },[open]);
+  const pick = (c) => {
+    onChange("concept", c.concepto||"");
+    if (c.unidad) onChange("unit", c.unidad);
+    if (c.pu!=null && c.pu!=="") { onChange("priceFormula", null); onChange("price", parseFloat(c.pu)||0); }
+    setOpen(false);
+  };
+  return (
+    <div style={{position:"relative"}}>
+      <textarea ref={taRef} value={item.concept} onChange={e=>{onChange("concept",e.target.value); place(); setOpen(true);}} onFocus={()=>{place(); setOpen(true);}} onBlur={()=>setTimeout(()=>setOpen(false),170)} placeholder="Descripción del concepto..." rows={2} style={{...si,fontSize:13,resize:"vertical",minHeight:44,fontFamily:"inherit",lineHeight:1.35,padding:"4px 6px"}} />
+      {open && rect && matches.length>0 && (
+        <div style={{position:"fixed",zIndex:9999,top:rect.bottom+2,left:rect.left,width:Math.max(rect.width,300),maxHeight:266,overflow:"auto",background:C.card,border:"1px solid "+C.accent,borderRadius:10,boxShadow:"0 12px 32px rgba(0,0,0,.18)"}}>
+          <div style={{padding:"7px 11px",fontSize:9,color:C.dim,letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,background:"#f5f7ee",borderBottom:"1px solid "+C.border,position:"sticky",top:0}}>Catálogo · clic para insertar</div>
+          {matches.map(c=>(
+            <div key={c.id} onMouseDown={e=>{e.preventDefault(); pick(c);}} style={{padding:"8px 11px",cursor:"pointer",borderBottom:"1px solid "+C.border}} onMouseEnter={e=>e.currentTarget.style.background="#f5f7ee"} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:3}}>
+                <span style={{fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#5c6b2e",textTransform:"uppercase"}}>{c.rubro||"—"}</span>
+                <span style={{fontSize:11,fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>{c.pu?fmt(c.pu):""}{c.unidad?<span style={{fontSize:9,color:C.dim,fontWeight:600}}> /{c.unidad}</span>:null}</span>
+              </div>
+              <div style={{fontSize:12,color:C.muted,lineHeight:1.35,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{c.concepto}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CatalogPickerModal({catalog, catName, onClose, onInsert}) {
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState({});
+  const ql = q.trim().toLowerCase();
+  const list = (catalog||[]).filter(c=>!ql || (c.concepto||"").toLowerCase().includes(ql) || (c.rubro||"").toLowerCase().includes(ql));
+  const groups = {}; list.forEach(c=>{ (groups[c.rubro||"General"]=groups[c.rubro||"General"]||[]).push(c); });
+  const selCount = Object.keys(sel).filter(k=>sel[k]).length;
+  const toggle = id => setSel(s=>({...s,[id]:!s[id]}));
+  const toggleRubro = (ids) => { const all = ids.every(i=>sel[i]); setSel(s=>{const n={...s}; ids.forEach(i=>n[i]=!all); return n;}); };
+  return (
+    <div onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}} style={{position:"fixed",inset:0,background:"rgba(40,38,30,.5)",zIndex:9998,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"44px 16px"}}>
+      <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:660,maxHeight:"80vh",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 24px 60px rgba(0,0,0,.3)"}}>
+        <div style={{padding:"16px 20px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><div style={{fontSize:16,fontWeight:600}}>Insertar del catálogo</div><div style={{fontSize:11.5,color:C.dim,marginTop:2}}>{catName?("En: "+catName):"Marca los conceptos a agregar como partidas"}</div></div>
+          <button onClick={onClose} style={{...sb,padding:"6px 11px",background:C.bg,color:C.muted}}>✕</button>
+        </div>
+        <div style={{padding:"12px 20px",borderBottom:"1px solid "+C.border}}>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar concepto o rubro..." style={si} autoFocus />
+        </div>
+        <div style={{overflow:"auto",flex:1}}>
+          {Object.keys(groups).length===0 && <div style={{padding:26,textAlign:"center",color:C.dim,fontSize:12}}>Sin coincidencias en el catálogo</div>}
+          {Object.keys(groups).map(r=>{
+            const ids=groups[r].map(c=>c.id);
+            return (
+              <div key={r}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 20px",fontSize:10,fontWeight:700,letterSpacing:1,color:"#5c6b2e",textTransform:"uppercase",background:"#f5f7ee",borderTop:"1px solid "+C.border,borderBottom:"1px solid "+C.border,position:"sticky",top:0}}>
+                  <span>{r}</span>
+                  <span onClick={()=>toggleRubro(ids)} style={{cursor:"pointer",fontSize:10,color:C.muted,textTransform:"none",fontWeight:600}}>Seleccionar todo</span>
+                </div>
+                {groups[r].map(c=>(
+                  <label key={c.id} style={{display:"flex",gap:12,padding:"11px 20px",borderBottom:"1px solid "+C.border,cursor:"pointer",alignItems:"flex-start",background:sel[c.id]?"#f5f7ee":C.card}}>
+                    <input type="checkbox" checked={!!sel[c.id]} onChange={()=>toggle(c.id)} style={{marginTop:3,width:16,height:16,accentColor:C.accent}} />
+                    <div style={{flex:1}}><div style={{fontSize:12.5,lineHeight:1.4,color:C.text}}>{c.concepto}</div><div style={{fontSize:10.5,color:C.dim,marginTop:2}}>{c.unidad}</div></div>
+                    <div style={{fontSize:12.5,fontWeight:700,whiteSpace:"nowrap"}}>{c.pu?fmt(c.pu):"—"}</div>
+                  </label>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{padding:"14px 20px",borderTop:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12.5,color:C.muted}}><b style={{color:"#5c6b2e"}}>{selCount}</b> seleccionados</span>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={onClose} style={{...sb,background:"transparent",color:C.muted}}>Cancelar</button>
+            <button onClick={()=>onInsert((catalog||[]).filter(c=>sel[c.id]))} disabled={selCount===0} style={{...sb,background:C.accent,color:"#fff",fontWeight:700,opacity:selCount===0?0.45:1,cursor:selCount===0?"default":"pointer"}}>Insertar seleccionados</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CatalogoTab({catalog, onAdd, onUpdate, onDelete, onSeed}) {
+  const [q,setQ]=useState("");
+  const [editId,setEditId]=useState(null);
+  const [rubro,setRubro]=useState("");
+  const [concepto,setConcepto]=useState("");
+  const [unidad,setUnidad]=useState("LOTE");
+  const [pu,setPu]=useState("");
+  const [showForm,setShowForm]=useState(false);
+  const rubros = Array.from(new Set((catalog||[]).map(c=>c.rubro||"General")));
+  const reset=()=>{setEditId(null);setRubro("");setConcepto("");setUnidad("LOTE");setPu("");setShowForm(false);};
+  const submit=()=>{ if(!concepto.trim())return; const entry={rubro:(rubro.trim()||"General").toUpperCase(),concepto:concepto.trim(),unidad,pu:Number(pu)||0}; if(editId)onUpdate(editId,entry); else onAdd(entry); reset(); };
+  const startEdit=(c)=>{setEditId(c.id);setRubro(c.rubro||"");setConcepto(c.concepto||"");setUnidad(c.unidad||"LOTE");setPu(c.pu||"");setShowForm(true);window.scrollTo({top:0,behavior:"smooth"});};
+  const openNew=()=>{setEditId(null);setRubro("");setConcepto("");setUnidad("LOTE");setPu("");setShowForm(true);};
+  const ql=q.trim().toLowerCase();
+  const filtered=(catalog||[]).filter(c=>!ql||(c.concepto||"").toLowerCase().includes(ql)||(c.rubro||"").toLowerCase().includes(ql));
+  const groups={}; filtered.forEach(c=>{(groups[c.rubro||"General"]=groups[c.rubro||"General"]||[]).push(c);});
+  const unitOptions=["LOTE","PZA","M²","ML","M³","SALIDA","SERV","JGO"];
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:12,flexWrap:"wrap"}}>
+        <div><h2 style={{fontSize:18,fontWeight:600,color:C.text,margin:0}}>Catálogo de Conceptos</h2><p style={{margin:"3px 0 0",fontSize:11.5,color:C.dim}}>{(catalog||[]).length} conceptos · guardado en Firebase (compartido) · edición solo admin</p></div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={onSeed} title="Agrega al catálogo todos los conceptos que ya escribiste en tus presupuestos" style={{...sb,background:C.bg,color:C.muted,border:"1px solid "+C.border,fontSize:12}}>⬇ Importar de mis presupuestos</button>
+          <button onClick={openNew} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}><IconPlus/> Nuevo concepto</button>
+        </div>
+      </div>
+      {showForm && (
+        <div style={{background:"#f5f7ee",border:"1px solid #e7edd4",borderRadius:12,padding:16,marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 150px 130px",gap:12,marginBottom:12}}>
+            <div><label style={lbl}>Rubro</label><input list="hz-rubros" value={rubro} onChange={e=>setRubro(e.target.value)} placeholder="Ej. ALBAÑILERÍA" style={si} /><datalist id="hz-rubros">{rubros.map(r=><option key={r} value={r} />)}</datalist></div>
+            <div><label style={lbl}>Unidad</label><select value={unidad} onChange={e=>setUnidad(e.target.value)} style={si}>{unitOptions.map(u=><option key={u}>{u}</option>)}</select></div>
+            <div><label style={lbl}>P.U. sugerido</label><input type="number" value={pu} onChange={e=>setPu(e.target.value)} placeholder="0.00" style={{...si,textAlign:"right"}} /></div>
+          </div>
+          <label style={lbl}>Concepto (texto listo)</label>
+          <textarea value={concepto} onChange={e=>setConcepto(e.target.value)} rows={2} placeholder="Descripción que se insertará en la partida..." style={{...si,resize:"vertical",minHeight:48,fontFamily:"inherit",lineHeight:1.4}} />
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <button onClick={submit} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}>{editId?"Actualizar":"Guardar"}</button>
+            <button onClick={reset} style={{...sb,background:"transparent",color:C.muted}}>Cancelar</button>
+          </div>
+        </div>
+      )}
+      <div style={{marginBottom:14}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar concepto o rubro..." style={{...si,maxWidth:360}} /></div>
+      {(catalog||[]).length===0 && !showForm && (
+        <div style={{background:C.card,border:"1px dashed "+C.border,borderRadius:12,padding:40,textAlign:"center",color:C.dim}}>
+          <p style={{margin:"0 0 12px",fontSize:13}}>Tu catálogo está vacío. Impórtalo desde tus presupuestos o agrega conceptos manualmente.</p>
+          <button onClick={onSeed} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}>⬇ Importar de mis presupuestos</button>
+        </div>
+      )}
+      {Object.keys(groups).map(r=>(
+        <div key={r} style={{background:C.card,border:"1px solid "+C.border,borderRadius:12,overflow:"hidden",marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 16px",background:"#f5f7ee",borderBottom:"1px solid "+C.border,fontSize:11,fontWeight:700,letterSpacing:1,color:"#5c6b2e",textTransform:"uppercase"}}><span>{r}</span><span style={{color:C.dim,fontWeight:600}}>{groups[r].length}</span></div>
+          {groups[r].map(c=>(
+            <div key={c.id} style={{display:"grid",gridTemplateColumns:"1fr 84px 116px 66px",gap:14,padding:"11px 16px",borderBottom:"1px solid "+C.border,alignItems:"center"}}>
+              <div style={{fontSize:12.5,lineHeight:1.4}}>{c.concepto}</div>
+              <div style={{fontSize:12,color:C.muted}}>{c.unidad}</div>
+              <div style={{fontSize:12.5,fontWeight:600,textAlign:"right"}}>{c.pu?fmt(c.pu):"—"}</div>
+              <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+                <button onClick={()=>startEdit(c)} title="Editar" style={{...sb,padding:6,background:"transparent",color:C.muted,fontSize:14}}>✎</button>
+                <button onClick={()=>{ if(window.confirm("¿Borrar este concepto del catálogo?")) onDelete(c.id); }} title="Borrar" style={{...sb,padding:6,background:"transparent",color:C.danger}}><IconTrash/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, printMode, catalog}) {
   const total = item.qty * item.price;
   const costTotal = item.qty * (item.cost || 0);
   const util = total - costTotal;
@@ -343,7 +501,7 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
         <button onClick={onMoveDown} disabled={!canMoveDown} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveDown?C.muted:C.dim,opacity:canMoveDown?1:0.3,cursor:canMoveDown?"pointer":"not-allowed",fontSize:10}} title="Bajar partida">▼</button>
       </td>
       <td style={{padding:"4px 6px"}}><input value={item.code} onChange={e=>onChange("code",e.target.value)} style={{...si,width:90,textAlign:"center",fontSize:12}} /></td>
-      <td style={{padding:"4px 6px",minWidth:220,width:"30%"}}><textarea value={item.concept} onChange={e=>onChange("concept",e.target.value)} placeholder="Descripción del concepto..." rows={2} style={{...si,fontSize:13,resize:"vertical",minHeight:44,fontFamily:"inherit",lineHeight:1.35,padding:"4px 6px"}} /></td>
+      <td style={{padding:"4px 6px",minWidth:220,width:"30%"}}><ConceptAutocomplete item={item} onChange={onChange} catalog={catalog} /></td>
       <td style={{padding:"4px 6px"}}><select value={item.unit} onChange={e=>onChange("unit",e.target.value)} style={{...si,width:85,fontSize:11,padding:"8px 4px"}}>{unitOptions.map(u=><option key={u} value={u}>{u}</option>)}</select></td>
       <td style={{padding:"4px 6px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:65,textAlign:"center",fontSize:12}} /></td>
       <td style={{padding:"4px 6px"}}><PriceInputCell item={item} onChange={onChange} si={si} /></td>
@@ -355,7 +513,7 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
   );
 }
 
-function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode}) {
+function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode, catalog, onOpenCatalog}) {
   const [open, setOpen] = useState(true);
   const [dragOver, setDragOver] = useState(false);
   const subtotal = items.reduce((s,i)=>s+i.qty*i.price,0);
@@ -409,7 +567,7 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
               ))}
             </tr></thead>
             <tbody>
-              {items.map((item,idx)=><QuoteItem key={item.id} item={item} onChange={(f,v)=>onItemChange(item.id,f,v)} onRemove={()=>onRemoveItem(item.id)} onMoveUp={()=>onMoveItem&&onMoveItem(item.id,-1)} onMoveDown={()=>onMoveItem&&onMoveItem(item.id,1)} canMoveUp={idx>0} canMoveDown={idx<items.length-1} />)}
+              {items.map((item,idx)=><QuoteItem key={item.id} item={item} catalog={catalog} onChange={(f,v)=>onItemChange(item.id,f,v)} onRemove={()=>onRemoveItem(item.id)} onMoveUp={()=>onMoveItem&&onMoveItem(item.id,-1)} onMoveDown={()=>onMoveItem&&onMoveItem(item.id,1)} canMoveUp={idx>0} canMoveDown={idx<items.length-1} />)}
               {items.length>0 && (()=>{const costTot=items.reduce((s,i)=>s+i.qty*(i.cost||0),0);const utilTot=subtotal-costTot;const marginCat=subtotal>0?utilTot/subtotal*100:0;return (
                 <tr>
                   <td colSpan={6} style={{padding:"6px",textAlign:"right",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:0.5,borderTop:"1px solid "+C.border}}>SUBTOTAL {cat.num}</td>
@@ -423,6 +581,7 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
           </table>
           </div>
           <button onClick={onAddItem} style={{...sb,background:C.bg,color:C.muted,marginTop:8,fontSize:12}}><IconPlus/> Agregar partida</button>
+          {onOpenCatalog && <button onClick={onOpenCatalog} title="Insertar partidas desde el catálogo de conceptos" style={{...sb,background:"#eef1e2",color:"#5c6b2e",border:"1px solid #e7edd4",marginTop:8,marginLeft:8,fontSize:12,fontWeight:700}}>📚 Del catálogo</button>}
         </div>
       )}
     </div>
@@ -1752,7 +1911,7 @@ function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpda
   );
 }
 
-function QuoteEditor({ quote, onSave, onHome, role }) {
+function QuoteEditor({ quote, onSave, onHome, role, allQuotes }) {
   const restricted = role === "obra";
   const [project, setProject] = useState(quote.project||{name:"",client:"",date:today(),location:"",docTitle:"Cotización de Servicios"});
   const [categories, setCategories] = useState(quote.categories||defaultCategories);
@@ -1773,6 +1932,49 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
   const [printProvId, setPrintProvId] = useState(null);
   const [printGroupId, setPrintGroupId] = useState(null);
   const [savedLabel, setSavedLabel] = useState("");
+
+  // ===== Catálogo de Conceptos (Firebase: catalogoConceptos) =====
+  const [catalog, setCatalog] = useState([]);
+  const [pickerCat, setPickerCat] = useState(null);
+  useEffect(()=>{
+    const ref = fbDb.ref("catalogoConceptos");
+    const cb = ref.on("value",(snap)=>{
+      const v = snap.val(); let arr=[];
+      if (Array.isArray(v)) arr = v.map((x,i)=> x&&Object.assign({id:x.id||("i"+i)},x)).filter(x=>x&&x.concepto);
+      else if (v && typeof v==="object") arr = Object.keys(v).map(k=>Object.assign({id:k},v[k])).filter(x=>x&&x.concepto);
+      arr.sort((a,b)=> String(a.rubro||"").localeCompare(String(b.rubro||"")) || String(a.concepto||"").localeCompare(String(b.concepto||"")));
+      setCatalog(arr);
+    });
+    return ()=>ref.off("value",cb);
+  },[]);
+  const catAdd = (e)=>{ const id="cat_"+uid(); fbDb.ref("catalogoConceptos/"+id).set({rubro:e.rubro||"General",concepto:e.concepto||"",unidad:e.unidad||"LOTE",pu:Number(e.pu)||0,updatedAt:Date.now()}); };
+  const catUpdate = (id,e)=>{ fbDb.ref("catalogoConceptos/"+id).update({rubro:e.rubro,concepto:e.concepto,unidad:e.unidad,pu:Number(e.pu)||0,updatedAt:Date.now()}); };
+  const catDelete = (id)=>{ fbDb.ref("catalogoConceptos/"+id).remove(); };
+  const catSeed = ()=>{
+    const existing = new Set(catalog.map(c=>(c.concepto||"").trim().toLowerCase()));
+    const found = new Map();
+    (allQuotes||[]).forEach(q=>{
+      const nm={}; (q.categories||[]).forEach(c=>{ nm[c.id]=c.name||"General"; });
+      Object.keys(q.items||{}).forEach(cid=>{ (q.items[cid]||[]).forEach(it=>{ const t=(it.concept||"").trim(); if(!t) return; const k=t.toLowerCase(); if(existing.has(k)||found.has(k)) return; found.set(k,{rubro:String(nm[cid]||"General").toUpperCase(),concepto:t,unidad:it.unit||"LOTE",pu:Number(it.price)||0}); }); });
+    });
+    const list=Array.from(found.values());
+    if(!list.length){ window.alert("No se encontraron conceptos nuevos para importar. Tu catálogo ya está al día."); return; }
+    if(!window.confirm("Se importarán "+list.length+" conceptos nuevos desde tus presupuestos al catálogo. ¿Continuar?")) return;
+    const updates={}; list.forEach(e=>{ updates["cat_"+uid()]={rubro:e.rubro,concepto:e.concepto,unidad:e.unidad,pu:e.pu,updatedAt:Date.now()}; });
+    fbDb.ref("catalogoConceptos").update(updates);
+  };
+  const addItemsFromCatalog = (catId, entries)=>{
+    if(!entries||!entries.length){ setPickerCat(null); return; }
+    setItems(prev=>{
+      const existing = prev[catId]||[];
+      const cat = categories.find(c=>c.id===catId);
+      const prefix = (cat&&cat.prefix)||"IT";
+      let n = existing.length;
+      const add = entries.map(e=>{ n++; return Object.assign(emptyItem(prefix,n),{concept:e.concepto||"",unit:e.unidad||"LOTE",price:Number(e.pu)||0,cost:0}); });
+      return Object.assign({},prev,{[catId]:existing.concat(add)});
+    });
+    setPickerCat(null);
+  };
 
   // Auto-save on any change
   useEffect(()=>{
@@ -1887,7 +2089,7 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
     setTimeout(()=>window.print(),350);
   };
 
-  const allTabs=[{id:"quote",label:"Cotización"},{id:"payments",label:"Balance de Pagos"},{id:"expenses",label:"Gastos Semanales"},{id:"materials",label:"Entrega Material"},{id:"electrico",label:"Requisición Eléctrico"},{id:"personal",label:"Personal de Obra"},{id:"providers",label:"Pagos a Proveedores"},{id:"resumen",label:"Resumen"}];
+  const allTabs=[{id:"quote",label:"Cotización"},{id:"payments",label:"Balance de Pagos"},{id:"expenses",label:"Gastos Semanales"},{id:"materials",label:"Entrega Material"},{id:"electrico",label:"Requisición Eléctrico"},{id:"personal",label:"Personal de Obra"},{id:"providers",label:"Pagos a Proveedores"},{id:"resumen",label:"Resumen"},{id:"catalogo",label:"📚 Catálogo"}];
   const OBRA_TABS=["materials","electrico","personal"];
   const tabs = restricted ? allTabs.filter(t=>OBRA_TABS.includes(t.id)) : allTabs;
 
@@ -1922,7 +2124,7 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
               <button onClick={addCategory} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}><IconPlus/> Nueva categoría</button>
             </div>
             {[...categories].sort((a,b)=>{const na=parseFloat(a.num)||0;const nb=parseFloat(b.num)||0;return na-nb;}).map(cat=>(
-              <CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} onItemChange={(itemId,f,v)=>handleItemChange(cat.id,itemId,f,v)} onAddItem={()=>addItem(cat.id,cat.prefix)} onRemoveItem={itemId=>removeItem(cat.id,itemId)} onMoveItem={(itemId,dir)=>moveItem(cat.id,itemId,dir)} onUpdateCat={(f,v)=>updateCategory(cat.id,f,v)} onRemoveCat={()=>removeCategory(cat.id)} onMoveUp={()=>moveCategory(cat.id,-1)} onMoveDown={()=>moveCategory(cat.id,1)} canMoveUp={categories[0]?.id!==cat.id} canMoveDown={categories[categories.length-1]?.id!==cat.id} onSwapWith={(srcId)=>swapCategoriesByDrop(srcId,cat.id)} />
+              <CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} catalog={catalog} onOpenCatalog={()=>setPickerCat(cat.id)} onItemChange={(itemId,f,v)=>handleItemChange(cat.id,itemId,f,v)} onAddItem={()=>addItem(cat.id,cat.prefix)} onRemoveItem={itemId=>removeItem(cat.id,itemId)} onMoveItem={(itemId,dir)=>moveItem(cat.id,itemId,dir)} onUpdateCat={(f,v)=>updateCategory(cat.id,f,v)} onRemoveCat={()=>removeCategory(cat.id)} onMoveUp={()=>moveCategory(cat.id,-1)} onMoveDown={()=>moveCategory(cat.id,1)} canMoveUp={categories[0]?.id!==cat.id} canMoveDown={categories[categories.length-1]?.id!==cat.id} onSwapWith={(srcId)=>swapCategoriesByDrop(srcId,cat.id)} />
             ))}
             <TotalsSection categories={categories} items={items} mgmtPct={mgmtPct} setMgmtPct={setMgmtPct} ivaPct={ivaPct} setIvaPct={setIvaPct} />
             <div style={{marginTop:24,padding:16,background:C.card,borderRadius:10,border:"1px solid "+C.border,fontSize:11,color:C.dim,lineHeight:1.8}}>
@@ -1940,6 +2142,8 @@ function QuoteEditor({ quote, onSave, onHome, role }) {
         {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} onPrintGroup={handlePrintGroup} />}
         {activeTab==="providers" && <ProveedoresTab providers={providers} setProviders={setProviders} categories={categories} items={items} onPrintProv={handlePrintProv} />}
         {activeTab==="resumen" && <ResumenTab grandTotal={grandTotal} payments={payments} providers={providers} mgmt={mgmt} mgmtPct={mgmtPct} onPrint={handlePrint} />}
+        {activeTab==="catalogo" && <CatalogoTab catalog={catalog} onAdd={catAdd} onUpdate={catUpdate} onDelete={catDelete} onSeed={catSeed} />}
+        {pickerCat && <CatalogPickerModal catalog={catalog} catName={(categories.find(c=>c.id===pickerCat)||{}).name} onClose={()=>setPickerCat(null)} onInsert={(entries)=>addItemsFromCatalog(pickerCat,entries)} />}
         <div style={{marginTop:40,textAlign:"center",padding:20,borderTop:"1px solid "+C.border,fontSize:11,color:C.dim}}>
           <p style={{margin:0}}>Herza Studio · Arquitectura comercial & de interiores</p>
           <p style={{margin:"4px 0"}}>Calle Circunvalación Pte. #911 Col. Jardines del Moral, León BJX.</p>
@@ -2032,7 +2236,7 @@ function App() {
 
   if (!loggedIn) return <LoginScreen onLogin={(r) => { setRole(r||"admin"); setLoggedIn(true); }} />;
   if (!current) return <Dashboard role={role} quotes={quotes} onOpen={openQuote} onNew={newQuote} onDelete={deleteQuote} onLogout={() => setLoggedIn(false)} onImport={importQuotes} onUpdate={updateQuote} onRestore={restoreQuote} onDuplicate={duplicateQuote} />;
-  return <QuoteEditor key={current.id} role={role} quote={current} onSave={saveCurrent} onHome={goHome} />;
+  return <QuoteEditor key={current.id} role={role} quote={current} allQuotes={quotes} onSave={saveCurrent} onHome={goHome} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
