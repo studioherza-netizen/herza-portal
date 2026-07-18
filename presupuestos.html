@@ -320,6 +320,8 @@ function Header({project, setProject, onHome, savedLabel, onSaveNow, onDownload}
 
 // ===== Catálogo de Conceptos =====
 const lbl = {display:"block",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:5,fontWeight:700};
+const STD_INCLUYE = "Incluye: Materiales, mano de obra, herramienta, equipo, elevaciones a cualquier nivel, acarreos horizontales, equipo de seguridad y todo lo necesario para su correcta ejecución. P.U.O.T.";
+const withStdIncluye = (txt)=>{ let t=(txt||"").trim(); const i=t.indexOf("Incluye:"); let desc = i>=0 ? t.slice(0,i).trim() : t; if(desc && !/[.!?]$/.test(desc)) desc+="."; return {desc, full:(desc?desc+" ":"")+STD_INCLUYE}; };
 
 function ConceptAutocomplete({item, onChange, catalog}) {
   const [open, setOpen] = useState(false);
@@ -416,11 +418,12 @@ function CatalogoTab({catalog, onAdd, onUpdate, onDelete, onSeed}) {
   const [unidad,setUnidad]=useState("LOTE");
   const [pu,setPu]=useState("");
   const [showForm,setShowForm]=useState(false);
+  const taRef=useRef(null);
   const rubros = Array.from(new Set((catalog||[]).map(c=>c.rubro||"General")));
   const reset=()=>{setEditId(null);setRubro("");setConcepto("");setUnidad("LOTE");setPu("");setShowForm(false);};
-  const submit=()=>{ if(!concepto.trim())return; const entry={rubro:(rubro.trim()||"General").toUpperCase(),concepto:concepto.trim(),unidad,pu:Number(pu)||0}; if(editId)onUpdate(editId,entry); else onAdd(entry); reset(); };
+  const submit=()=>{ const {desc,full}=withStdIncluye(concepto); if(!desc){ if(taRef.current)taRef.current.focus(); return; } const entry={rubro:(rubro.trim()||"General").toUpperCase(),concepto:full,unidad,pu:Number(pu)||0}; if(editId)onUpdate(editId,entry); else onAdd(entry); reset(); };
   const startEdit=(c)=>{setEditId(c.id);setRubro(c.rubro||"");setConcepto(c.concepto||"");setUnidad(c.unidad||"LOTE");setPu(c.pu||"");setShowForm(true);window.scrollTo({top:0,behavior:"smooth"});};
-  const openNew=()=>{setEditId(null);setRubro("");setConcepto("");setUnidad("LOTE");setPu("");setShowForm(true);};
+  const openNew=()=>{setEditId(null);setRubro("");setConcepto(STD_INCLUYE);setUnidad("LOTE");setPu("");setShowForm(true); setTimeout(()=>{ if(taRef.current){ taRef.current.focus(); try{taRef.current.setSelectionRange(0,0);}catch(_){} } },40);};
   const ql=q.trim().toLowerCase();
   const filtered=(catalog||[]).filter(c=>!ql||(c.concepto||"").toLowerCase().includes(ql)||(c.rubro||"").toLowerCase().includes(ql));
   const groups={}; filtered.forEach(c=>{(groups[c.rubro||"General"]=groups[c.rubro||"General"]||[]).push(c);});
@@ -441,8 +444,9 @@ function CatalogoTab({catalog, onAdd, onUpdate, onDelete, onSeed}) {
             <div><label style={lbl}>Unidad</label><select value={unidad} onChange={e=>setUnidad(e.target.value)} style={si}>{unitOptions.map(u=><option key={u}>{u}</option>)}</select></div>
             <div><label style={lbl}>P.U. sugerido</label><input type="number" value={pu} onChange={e=>setPu(e.target.value)} placeholder="0.00" style={{...si,textAlign:"right"}} /></div>
           </div>
-          <label style={lbl}>Concepto (texto listo)</label>
-          <textarea value={concepto} onChange={e=>setConcepto(e.target.value)} rows={2} placeholder="Descripción que se insertará en la partida..." style={{...si,resize:"vertical",minHeight:48,fontFamily:"inherit",lineHeight:1.4}} />
+          <label style={lbl}>Concepto (escribe la descripción antes del cierre)</label>
+          <textarea ref={taRef} value={concepto} onChange={e=>setConcepto(e.target.value)} rows={3} placeholder="Descripción de la partida..." style={{...si,resize:"vertical",minHeight:64,fontFamily:"inherit",lineHeight:1.4}} />
+          <div style={{fontSize:10.5,color:C.dim,marginTop:6,lineHeight:1.4}}>El cierre estándar «Incluye: Materiales, mano de obra… P.U.O.T.» se agrega automáticamente al guardar. Escribe solo la descripción.</div>
           <div style={{display:"flex",gap:8,marginTop:12}}>
             <button onClick={submit} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}>{editId?"Actualizar":"Guardar"}</button>
             <button onClick={reset} style={{...sb,background:"transparent",color:C.muted}}>Cancelar</button>
