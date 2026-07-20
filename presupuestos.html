@@ -327,7 +327,7 @@ function ConceptAutocomplete({item, onChange, catalog}) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState(null);
   const taRef = useRef(null);
-  const q = (item.concept||"").trim().toLowerCase();
+  const q = (item.concept||"").split("Incluye:")[0].trim().toLowerCase();
   const matches = (catalog||[]).filter(c => !q || (c.concepto||"").toLowerCase().includes(q) || (c.rubro||"").toLowerCase().includes(q)).slice(0,8);
   const place = () => { if(taRef.current) setRect(taRef.current.getBoundingClientRect()); };
   useEffect(()=>{ if(!open) return; const h=()=>setOpen(false); window.addEventListener("scroll",h,true); window.addEventListener("resize",h); return ()=>{window.removeEventListener("scroll",h,true);window.removeEventListener("resize",h);}; },[open]);
@@ -339,7 +339,7 @@ function ConceptAutocomplete({item, onChange, catalog}) {
   };
   return (
     <div style={{position:"relative"}}>
-      <textarea ref={taRef} value={item.concept} onChange={e=>{onChange("concept",e.target.value); place(); setOpen(true);}} onFocus={()=>{place(); setOpen(true);}} onBlur={()=>setTimeout(()=>setOpen(false),170)} placeholder="Descripción del concepto..." rows={2} style={{...si,fontSize:13,resize:"vertical",minHeight:44,fontFamily:"inherit",lineHeight:1.35,padding:"4px 6px"}} />
+      <textarea ref={taRef} value={item.concept} onChange={e=>{onChange("concept",e.target.value); place(); setOpen(true);}} onFocus={e=>{place(); setOpen(true); if(item.concept===STD_INCLUYE){ try{e.target.setSelectionRange(0,0);}catch(_){} }}} onBlur={()=>setTimeout(()=>setOpen(false),170)} placeholder="Descripción del concepto..." rows={2} style={{...si,fontSize:13,resize:"vertical",minHeight:44,fontFamily:"inherit",lineHeight:1.35,padding:"4px 6px"}} />
       {open && rect && matches.length>0 && (
         <div style={{position:"fixed",zIndex:9999,top:rect.bottom+2,left:rect.left,width:Math.max(rect.width,300),maxHeight:266,overflow:"auto",background:C.card,border:"1px solid "+C.accent,borderRadius:10,boxShadow:"0 12px 32px rgba(0,0,0,.18)"}}>
           <div style={{padding:"7px 11px",fontSize:9,color:C.dim,letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,background:"#f5f7ee",borderBottom:"1px solid "+C.border,position:"sticky",top:0}}>Catálogo · clic para insertar</div>
@@ -2000,7 +2000,7 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes }) {
     setItems(prev=>({...prev,[catId]:prev[catId].map(i=>i.id===itemId?{...i,[field]:val}:i)}));
   },[]);
   const addItem = useCallback((catId,prefix)=>{
-    setItems(prev=>{const existing=prev[catId]||[];return{...prev,[catId]:[...existing,emptyItem(prefix,existing.length+1)]}});
+    setItems(prev=>{const existing=prev[catId]||[];return{...prev,[catId]:[...existing,Object.assign(emptyItem(prefix,existing.length+1),{concept:STD_INCLUYE})]}});
   },[]);
   const removeItem = useCallback((catId,itemId)=>{
     setItems(prev=>({...prev,[catId]:prev[catId].filter(i=>i.id!==itemId)}));
