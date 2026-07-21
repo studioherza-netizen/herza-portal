@@ -194,8 +194,39 @@ const migrateExpenseWeeks = (quote) => {
 
 const QKEY = "herza_quotes_v1";
 const BKEY = "herza_backups_v1";
+const HZ_SESSION = (Math.random().toString(36).slice(2)) + "_" + Date.now();
+function hzTs(q){ return (q && (q.updatedAt || q.at || q.createdAt)) || 0; }
+function hzToArr(v){ return Array.isArray(v) ? v.slice() : (v ? Object.keys(v).map(function(k){return v[k];}) : []); }
+function hzMerge(server, local){
+  var m = new Map(), ord = [];
+  var a = hzToArr(server);
+  for (var i=0;i<a.length;i++){ var s=a[i]; if(s&&s.id){ if(!m.has(s.id))ord.push(s.id); m.set(s.id,s); } }
+  for (var j=0;j<(local||[]).length;j++){ var l=local[j]; if(!l||!l.id) continue; var ex=m.get(l.id);
+    if(!ex){ ord.push(l.id); m.set(l.id,l); } else if(hzTs(l) >= hzTs(ex)){ m.set(l.id,l); } }
+  return ord.map(function(id){return m.get(id);}).filter(Boolean);
+}
+function hzCloudWrite(qs, purgeIds){
+  try{
+    var snapshot = (qs||[]).slice();
+    if(window._fbSaveTimer) clearTimeout(window._fbSaveTimer);
+    window._fbSaveTimer = setTimeout(function(){
+      try{
+        window._fbSyncing = true;
+        try{ document.dispatchEvent(new Event("herza-sync-start")); }catch(_){}
+        fbDb.ref("presupuestos").transaction(function(cur){
+          var merged = hzMerge(cur, snapshot);
+          if(purgeIds && purgeIds.length){ var rm={}; for(var k=0;k<purgeIds.length;k++){ rm[purgeIds[k]]=1; } merged = merged.filter(function(q){ return !rm[q.id]; }); }
+          return merged;
+        }, function(err){
+          window._fbSyncing = false; window._lastSyncAt = Date.now();
+          try{ document.dispatchEvent(new Event("herza-sync-end")); }catch(_){}
+        }, false);
+      }catch(e){ window._fbSyncing=false; try{ document.dispatchEvent(new Event("herza-sync-end")); }catch(_){} }
+    }, 350);
+  }catch(e){}
+}
 const loadQuotes = () => { try { const s = localStorage.getItem(QKEY); return s ? JSON.parse(s) : []; } catch(e) { return []; } };
-const saveAllQuotes = (qs) => {
+const saveAllQuotesLocal = (qs) => {
   let ok = true;
   const __payload = JSON.stringify(qs);
   const __trySet = () => { try { localStorage.setItem(QKEY, __payload); return true; } catch(e) { return e; } };
@@ -211,9 +242,10 @@ const saveAllQuotes = (qs) => {
     const next = [{ at: Date.now(), data: qs }, ...prev].slice(0, 2);
     localStorage.setItem(BKEY, JSON.stringify(next));
   } catch(e) { try { localStorage.removeItem(BKEY); } catch(_){} }
-    try{if(window._fbSaveTimer)clearTimeout(window._fbSaveTimer);window._fbSaveTimer=setTimeout(function(){try{window._fbSyncing=true;try{document.dispatchEvent(new Event("herza-sync-start"));}catch(_){}fbDb.ref("presupuestos").set(qs).then(function(){window._fbSyncing=false;window._lastSyncAt=Date.now();try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}}).catch(function(){window._fbSyncing=false;try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}});}catch(e){}},350);}catch(e){}
+
   return ok;
 };
+const saveAllQuotes = (qs) => { var ok = saveAllQuotesLocal(qs); hzCloudWrite(qs, null); return ok; };
 const exportSingleQuote = (q) => {
   const payload = { app:"herza-presupuesto", version:1, exportedAt:new Date().toISOString(), quotes:[q] };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
@@ -1915,7 +1947,7 @@ function Dashboard({ quotes, onOpen, onNew, onDelete, onLogout, onImport, onUpda
   );
 }
 
-function QuoteEditor({ quote, onSave, onHome, role, allQuotes }) {
+function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor }) {
   const restricted = role === "obra";
   const [project, setProject] = useState(quote.project||{name:"",client:"",date:today(),location:"",docTitle:"Cotización de Servicios"});
   const [categories, setCategories] = useState(quote.categories||defaultCategories);
@@ -1936,6 +1968,62 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes }) {
   const [printProvId, setPrintProvId] = useState(null);
   const [printGroupId, setPrintGroupId] = useState(null);
   const [savedLabel, setSavedLabel] = useState("");
+  const [othersEditing, setOthersEditing] = useState([]);
+  const [extConflict, setExtConflict] = useState(null);
+  const hzBaseAt = useRef((quote && quote.updatedAt) || 0);
+  const hzDirty = useRef(false);
+  const hzMounted = useRef(false);
+  useEffect(function(){
+    if (typeof fbDb === "undefined" || !quote || !quote.id) return;
+    var id = quote.id;
+    var who = (role === "obra" ? "Obra" : "Oficina");
+    var meRef = fbDb.ref("presPresence/" + id + "/" + HZ_SESSION);
+    try { meRef.set({ by: HZ_SESSION, name: who, at: Date.now() }); meRef.onDisconnect().remove(); } catch(e){}
+    var beat = setInterval(function(){ try { meRef.update({ at: Date.now() }); } catch(e){} }, 20000);
+    var allRef = fbDb.ref("presPresence/" + id);
+    var cb = allRef.on("value", function(snap){
+      var v = snap.val() || {}, now = Date.now(), names = [];
+      Object.keys(v).forEach(function(k){ if (k !== HZ_SESSION && v[k] && (now - (v[k].at || 0) < 70000)) names.push(v[k].name || "otra"); });
+      setOthersEditing(names);
+    });
+    return function(){ clearInterval(beat); try { allRef.off("value", cb); } catch(e){} try { meRef.remove(); } catch(e){} };
+  }, [quote && quote.id]);
+  useEffect(function(){
+    var inc = (allQuotes || []).find(function(x){ return x && quote && x.id === quote.id; });
+    if (!inc) return;
+    var incAt = inc.updatedAt || 0;
+    if (inc._by === HZ_SESSION) { if (incAt > hzBaseAt.current) hzBaseAt.current = incAt; return; }
+    if (incAt > hzBaseAt.current + 1) {
+      if (!hzDirty.current && !extConflict) { hzBaseAt.current = incAt; if (onReloadEditor) onReloadEditor(); }
+      else if (!extConflict) { setExtConflict(inc); }
+    }
+  }, [allQuotes]);
+  useEffect(function(){
+    var elId = "hz-sync-banner";
+    var el = document.getElementById(elId);
+    var showConflict = !!extConflict, showPresence = othersEditing.length > 0;
+    if (!showConflict && !showPresence) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement("div"); el.id = elId; el.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:100050;display:flex;justify-content:center;pointer-events:none;font-family:Inter,system-ui,sans-serif"; document.body.appendChild(el); }
+    var inner;
+    if (showConflict) {
+      inner = '<div style="pointer-events:auto;margin:10px;max-width:680px;background:#8a1c1c;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:13px;line-height:1.4">'
+        + '&#9888; Esta cotización fue modificada en <b>otra computadora</b> mientras la editabas.'
+        + '<div style="margin-top:9px;display:flex;gap:10px;flex-wrap:wrap">'
+        + '<button id="hz-conf-reload" style="background:#fff;color:#8a1c1c;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer">Traer versión reciente</button>'
+        + '<button id="hz-conf-keep" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.7);padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer">Conservar la mía</button>'
+        + '</div>'
+        + '<div style="margin-top:6px;opacity:.85;font-size:11.5px">Traer version reciente descarta tus cambios sin guardar. Conservar la mia sobrescribira lo de la otra al guardar.</div>'
+        + '</div>';
+    } else {
+      inner = '<div style="pointer-events:auto;margin:10px;max-width:680px;background:#b8860b;color:#fff;padding:10px 16px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.2);font-size:13px;line-height:1.4">'
+        + '&#128101; Otra computadora esta editando esta misma cotizacion ahora (' + othersEditing.join(", ") + '). Para no perder cambios, eviten guardar al mismo tiempo o coordinense.'
+        + '</div>';
+    }
+    el.innerHTML = inner;
+    var rb = document.getElementById("hz-conf-reload"); if (rb) rb.onclick = function(){ setExtConflict(null); hzDirty.current = false; if (onReloadEditor) onReloadEditor(); };
+    var kb = document.getElementById("hz-conf-keep"); if (kb) kb.onclick = function(){ hzBaseAt.current = Date.now(); setExtConflict(null); };
+  }, [extConflict, othersEditing]);
+  useEffect(function(){ return function(){ var el = document.getElementById("hz-sync-banner"); if (el) el.remove(); }; }, []);
 
   // ===== Catálogo de Conceptos (Firebase: catalogoConceptos) =====
   const [catalog, setCatalog] = useState([]);
@@ -1980,16 +2068,20 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes }) {
     setPickerCat(null);
   };
 
-  // Auto-save on any change
+  // Auto-save on any change (pausa por conflicto + marca de sesion)
   useEffect(()=>{
+    if(!hzMounted.current){ hzMounted.current = true; return; }
+    hzDirty.current = true;
+    if(extConflict) return;
     const t = setTimeout(()=>{
       onSave({ project, categories, items, mgmtPct, ivaPct, payments, expenses, expenseWeeks, materials, electricReqs, personal, providers });
+      hzDirty.current = false; hzBaseAt.current = Date.now();
       setSavedLabel("✓ Guardado");
       const t2 = setTimeout(()=>setSavedLabel(""), 1500);
       return ()=>clearTimeout(t2);
     }, 400);
     return ()=>clearTimeout(t);
-  }, [project, categories, items, mgmtPct, ivaPct, payments, expenseWeeks, materials, electricReqs, personal, providers]);
+  }, [project, categories, items, mgmtPct, ivaPct, payments, expenseWeeks, materials, electricReqs, personal, providers, extConflict]);
 
   const subtotal = Object.values(items).flat().reduce((s,i)=>s+i.qty*i.price,0);
   const mgmt = subtotal*(mgmtPct/100);
@@ -2165,12 +2257,13 @@ function App() {
   useEffect(()=>{ const ref=fbDb.ref("presupuestos"); const unsub=ref.on("value",(snap)=>{ const cloud=snap.val(); if(cloud&&Array.isArray(cloud)){ setQuotes(function(prev){var m=new Map();var ts=function(q){return (q&&(q.updatedAt||q.at))||0;};var ord=[];var i;for(i=0;i<(cloud||[]).length;i++){var qc=cloud[i];if(qc&&qc.id){ord.push(qc.id);m.set(qc.id,qc);}}var lastSync=window._lastSyncAt||0;for(i=0;i<(prev||[]).length;i++){var qp=prev[i];if(!qp||!qp.id)continue;if(m.has(qp.id)){if(ts(qp)>ts(m.get(qp.id)))m.set(qp.id,qp);}else if(ts(qp)>lastSync){ord.push(qp.id);m.set(qp.id,qp);}}var merged=ord.map(function(id){return m.get(id);}).filter(Boolean);try{localStorage.setItem(QKEY,JSON.stringify(merged));}catch(e){}window._lastSyncAt=Date.now();try{document.dispatchEvent(new Event("herza-sync-end"));}catch(_){}return merged;}); } }); return ()=>ref.off("value",unsub); },[]);
 
   const [currentId, setCurrentId] = useState(null);
+  const [editorEpoch, setEditorEpoch] = useState(0);
 
   const current = currentId ? quotes.find(q => q.id === currentId) : null;
 
   const openQuote = (id) => setCurrentId(id);
   const newQuote = (tipo) => {
-    const q = makeNewQuote();
+    const q = makeNewQuote(); q._by = HZ_SESSION; if(!q.updatedAt) q.updatedAt = Date.now();
     if (tipo) q.type = tipo;
     setQuotes(prev => { const nx = [q, ...prev]; saveAllQuotes(nx); return nx; });
     setCurrentId(q.id);
@@ -2183,15 +2276,15 @@ function App() {
       if (q?.deleted || isQuoteEmpty(q)) {
         if (!window.confirm("¿Eliminar esta cotización permanentemente?")) return prev;
         const nx = prev.filter(x => x.id !== id);
-        saveAllQuotes(nx);
+        saveAllQuotesLocal(nx); hzCloudWrite(nx, [id]);
         return nx;
       }
-      const nx = prev.map(x => x.id === id ? {...x, deleted: true, updatedAt: Date.now()} : x);
+      const nx = prev.map(x => x.id === id ? {...x, deleted: true, updatedAt: Date.now(), _by: HZ_SESSION} : x);
       saveAllQuotes(nx);
       return nx;
     });
   };
-  const restoreQuote = (id) => { setQuotes(prev => { const nx = prev.map(x => x.id === id ? {...x, deleted: false, updatedAt: Date.now()} : x); saveAllQuotes(nx); return nx; }); };
+  const restoreQuote = (id) => { setQuotes(prev => { const nx = prev.map(x => x.id === id ? {...x, deleted: false, updatedAt: Date.now(), _by: HZ_SESSION} : x); saveAllQuotes(nx); return nx; }); };
   const duplicateQuote = (id) => {
     setQuotes(prev => {
       const orig = prev.find(x => x.id === id);
@@ -2200,7 +2293,7 @@ function App() {
       copy.id = "Q_"+uid();
       copy.deleted = false;
       copy.createdAt = Date.now();
-      copy.updatedAt = Date.now();
+      copy.updatedAt = Date.now(); copy._by = HZ_SESSION;
       copy.project = { ...(copy.project || {}), name: ((orig.project && orig.project.name) || "Cotización") + " (copia)" };
       const idx = prev.findIndex(x => x.id === id);
       const nx = [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
@@ -2211,13 +2304,13 @@ function App() {
   const saveCurrent = (data) => {
     let ok = true;
     setQuotes(prev => {
-      const nx = prev.map(q => q.id === currentId ? { ...q, ...data, updatedAt: Date.now() } : q);
+      const nx = prev.map(q => q.id === currentId ? { ...q, ...data, updatedAt: Date.now(), _by: HZ_SESSION } : q);
       ok = saveAllQuotes(nx);
       return nx;
     });
     return ok;
   };
-  const updateQuote = (id, data) => { setQuotes(prev => { const nx = prev.map(q => q.id === id ? { ...q, ...data, updatedAt: Date.now() } : q); saveAllQuotes(nx); return nx; }); };
+  const updateQuote = (id, data) => { setQuotes(prev => { const nx = prev.map(q => q.id === id ? { ...q, ...data, updatedAt: Date.now(), _by: HZ_SESSION } : q); saveAllQuotes(nx); return nx; }); };
   const importQuotes = (arr, mode) => {
     setQuotes(prev => {
       let nx;
@@ -2240,7 +2333,7 @@ function App() {
 
   if (!loggedIn) return <LoginScreen onLogin={(r) => { setRole(r||"admin"); setLoggedIn(true); }} />;
   if (!current) return <Dashboard role={role} quotes={quotes} onOpen={openQuote} onNew={newQuote} onDelete={deleteQuote} onLogout={() => setLoggedIn(false)} onImport={importQuotes} onUpdate={updateQuote} onRestore={restoreQuote} onDuplicate={duplicateQuote} />;
-  return <QuoteEditor key={current.id} role={role} quote={current} allQuotes={quotes} onSave={saveCurrent} onHome={goHome} />;
+  return <QuoteEditor key={current.id + ":" + editorEpoch} role={role} quote={current} allQuotes={quotes} onSave={saveCurrent} onHome={goHome} onReloadEditor={()=>setEditorEpoch(function(e){return e+1;})} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
