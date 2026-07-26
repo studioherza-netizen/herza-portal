@@ -900,28 +900,10 @@
   }
   function selOpt(el){const p=el.parentNode;p.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));el.classList.add('sel')}
   function toggleChk(el){el.classList.toggle('sel')}
-  function agendarCita(){
-    const f=document.getElementById('citaForm');
-    const ub=f.querySelector('.ubic .opt.sel'), motivo=document.getElementById('citaMotivo').value, fecha=document.getElementById('citaFecha').value, prem=f.querySelector('.prem .opt.sel');
-    const conts=[...f.querySelectorAll('.chk.sel')].map(c=>c.getAttribute('data-name'));
-    const notas=document.getElementById('citaNotas').value.trim();
-    if(!ub||!motivo||!fecha||!prem||conts.length===0){toast('Completa todos los campos para enviar la solicitud');return}
-    const ffmt=new Date(fecha+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
-    notificaciones.unshift({tipo:'calendar',titulo:'Solicitud de cita enviada',detalle:motivo+' · '+ub.getAttribute('data-v'),tiempo:'Ahora',ruta:'cita',nuevo:true});
-    updateBell();
-    S.innerHTML=`<div class="ok-card"><div class="okic">${ICON.check}</div><h3>Solicitud enviada</h3><p>Tu solicitud de cita fue enviada y quedó <b>sujeta a aprobación de Herza Studio</b>. Te confirmaremos la fecha por la app.</p>
-      <div class="ok-sum">
-        <div class="r"><span class="k">Solicitado por</span><span class="v">${CLIENTE.nombre}</span></div>
-        <div class="r"><span class="k">Ubicación</span><span class="v">${ub.getAttribute('data-v')}</span></div>
-        <div class="r"><span class="k">Motivo</span><span class="v">${motivo}</span></div>
-        <div class="r"><span class="k">Fecha propuesta</span><span class="v">${ffmt}</span></div>
-        <div class="r"><span class="k">Horario deseado</span><span class="v">${hora||''} · ${durTxt||''}</span></div>
-        <div class="r"><span class="k">Con</span><span class="v">${conts.join(', ')}</span></div>
-        <div class="r"><span class="k">Premura</span><span class="v">${prem.getAttribute('data-v')}</span></div>
-        ${notas?`<div class="r"><span class="k">Notas</span><span class="v">${notas}</span></div>`:''}
-      </div>
-      <button class="btn-olive" onclick="go('home')">Volver al inicio</button></div>`;
-  }
+  // La agendarCita REAL (con insert a Supabase) se define en el bloque de backend, más abajo.
+  // Este stub sólo se ejecuta si ese bloque no cargó: antes vivía aquí la versión del
+  // prototipo, que reventaba con ReferenceError (usaba `hora` y `durTxt` sin definir).
+  function agendarCita(){ toast('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'); }
   function handleDudaFoto(input){const file=input.files&&input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{dudaImg=e.target.result;const z=document.getElementById('upZone');if(z)z.innerHTML=`<img src="${dudaImg}" alt="foto">`};r.readAsDataURL(file)}
   function enviarDuda(){
     const ubic=document.getElementById('dudaUbic').value, nota=document.getElementById('dudaNota').value.trim();
@@ -977,6 +959,9 @@
   const SB_URL='https://eabzxwjkilotnynviqfs.supabase.co';
   const SB_KEY='sb_publishable_QBRw8sjPLHW9Vov8TmASGg_wBm66ygt';
   const sb=window.supabase.createClient(SB_URL,SB_KEY);
+  // ---- enrutamiento por rol (cliente vs oficina) ----
+  function _esStaff(r){return r==='admin'||r==='pm'||r==='supervisor';}
+  async function _rolActual(){try{const {data:{user}}=await sb.auth.getUser();if(!user)return null;const {data:p}=await sb.from('perfiles').select('rol').eq('id',user.id).single();return p?p.rol:null;}catch(e){return null}}
   let _uid=null,_obraId=null;
   const _cols=['#6e7d39','#b08a3c','#7a8b5a','#9c7a5c','#8a9b94','#9c6b4a'];
   function _ini(n){return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
@@ -1046,6 +1031,8 @@
     const btn=document.querySelector('.btn-enter');const txt=btn?btn.textContent:'';if(btn){btn.textContent='Entrando…';btn.disabled=true}
     const {error}=await sb.auth.signInWithPassword({email:u+'@herzahome.app',password:p});
     if(error){toast('Usuario o contraseña incorrectos');if(btn){btn.textContent=txt;btn.disabled=false}return}
+    const _rr=await _rolActual();
+    if(_esStaff(_rr)){if(btn){btn.textContent=txt;btn.disabled=false}location.href='oficina.html';return}
     try{await cargarDatos()}catch(err){toast('No se pudo cargar tu obra');await sb.auth.signOut();if(btn){btn.textContent=txt;btn.disabled=false}return}
     if(btn){btn.textContent=txt;btn.disabled=false}
     try{await _bioGuardar(u,p);}catch(e){}
@@ -1194,6 +1181,7 @@
         if(cred&&cred.username){const {error}=await sb.auth.signInWithPassword({email:cred.username+'@herzahome.app',password:cred.password});if(error){if(st)st.textContent='Tu acceso cambió. Entra con contraseña.';return;}}
         else{_usarPassword();return;}
       }
+      const _rr=await _rolActual(); if(_esStaff(_rr)){ location.replace('oficina.html'); return; }
       await cargarDatos();_lockUI(false);_ocultarSplash();_mostrarApp();
     }catch(e){if(st)st.textContent='No se pudo cargar tu obra.';}
   };
@@ -1205,7 +1193,7 @@
       const {data:{session}}=await sb.auth.getSession();
       const bioOn = native && (localStorage.getItem('hz_bio')==='1') && await _bioDisponible();
       if(bioOn){ _ocultarSplash(); _lockUI(true); _desbloquearFaceID(); return; }
-      if(session){ await cargarDatos(); _ocultarSplash(); _mostrarApp(); return; }
+      if(session){ const _rr=await _rolActual(); if(_esStaff(_rr)){ location.replace('oficina.html'); return; } await cargarDatos(); _ocultarSplash(); _mostrarApp(); return; }
       _ocultarSplash();
     }catch(e){ _ocultarSplash(); }
   })();

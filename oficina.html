@@ -170,7 +170,50 @@
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(18px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;z-index:80;box-shadow:var(--sh)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  @media(max-width:980px){.metrics{grid-template-columns:repeat(2,1fr)}.grid2,.up-grid,.info-grid{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.sidebar{display:none}}
+  /* ---------- móvil / app ---------- */
+  .mnav{display:none}
+  .acct-btn{display:none}
+  #ofsheet{display:none}
+  @media(max-width:980px){
+    .metrics{grid-template-columns:repeat(2,1fr)}
+    .grid2,.up-grid,.info-grid{grid-template-columns:1fr}
+    .layout{grid-template-columns:1fr}
+    .sidebar{display:none}
+    .topbar{padding:13px 16px}
+    .topbar h1{font-size:19px}
+    .topbar .crumbs{font-size:11px}
+    .content{padding:18px 16px calc(96px + env(safe-area-inset-bottom))}
+    .metric{padding:15px}.metric .n{font-size:23px}
+    .form-wrap{border-radius:14px}
+    .form-sec{padding:18px 16px}
+    .form-foot{padding:16px;flex-direction:column;align-items:stretch;gap:10px}
+    .form-foot .btn{justify-content:center;width:100%}
+    .rep-row,.rep-row.prov{grid-template-columns:1fr 1fr;gap:8px}
+    .rep-row .rep-del{grid-column:1 / -1;width:100%}
+    .obra-head h2{font-size:20px}
+    .obra-head{gap:10px}
+    .sol{flex-wrap:wrap}.sol .acts{width:100%;margin-top:2px}
+    .panel-card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    thead th,tbody td{padding:11px 13px;font-size:12.5px;white-space:nowrap}
+    .panel-card table{min-width:520px}
+    /* barra inferior de navegación */
+    .mnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(180%) blur(16px);backdrop-filter:saturate(180%) blur(16px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));justify-content:space-around;align-items:stretch}
+    .mnav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 2px;color:#8a8478;font-size:10px;font-weight:600;position:relative;min-width:0}
+    .mnav button svg{width:22px;height:22px}
+    .mnav button .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mnav button.active{color:var(--olive-dark)}
+    .mnav button .ct{position:absolute;top:-1px;left:50%;margin-left:5px;font-size:9.5px;font-weight:700;background:#c0432f;color:#fff;min-width:15px;height:15px;border-radius:999px;display:grid;place-items:center;padding:0 4px}
+    .acct-btn{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--olive);color:#fff;font-weight:700;font-size:12.5px;flex-shrink:0;border:none}
+  }
+  /* hoja de cuenta (móvil) */
+  #ofsheet.open{display:flex}
+  #ofsheet{position:fixed;inset:0;z-index:120;background:rgba(42,42,37,.5);align-items:flex-end;justify-content:center}
+  #ofsheet .sheet{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+  #ofsheet .sh-top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  #ofsheet .sh-av{width:44px;height:44px;border-radius:50%;background:var(--olive);color:#fff;display:grid;place-items:center;font-weight:700}
+  #ofsheet .sh-b b{font-size:15px;color:var(--ink);display:block}#ofsheet .sh-b span{font-size:12.5px;color:var(--muted)}
+  #ofsheet .sh-out{width:100%;padding:13px;border-radius:11px;background:#f1ddd9;color:#a3382e;font-weight:700;font-size:14px;border:none;margin-bottom:8px}
+  #ofsheet .sh-cancel{width:100%;padding:12px;border-radius:11px;background:var(--field);color:#6b665b;font-weight:600;font-size:14px;border:none}
 </style>
 </head>
 <body>
@@ -196,9 +239,17 @@
   </aside>
 
   <main class="main">
-    <header class="topbar"><div><div class="crumbs" id="crumbs"></div><h1 id="ptitle">Panel</h1></div><div id="topact"></div></header>
+    <header class="topbar"><div><div class="crumbs" id="crumbs"></div><h1 id="ptitle">Panel</h1></div><div style="display:flex;align-items:center;gap:10px"><div id="topact"></div><button class="acct-btn" id="ofAcct" onclick="_ofSheet(true)" aria-label="Cuenta"></button></div></header>
     <div class="content" id="screen"></div>
   </main>
+  <nav class="mnav" id="mnav"></nav>
+</div>
+<div id="ofsheet" onclick="if(event.target===this)_ofSheet(false)">
+  <div class="sheet">
+    <div class="sh-top"><div class="sh-av" id="ofsheetAv"></div><div class="sh-b"><b id="ofsheetName"></b><span id="ofsheetSub"></span></div></div>
+    <button class="sh-out" onclick="salirOficina()">Cerrar sesión</button>
+    <button class="sh-cancel" onclick="_ofSheet(false)">Cerrar</button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -274,16 +325,22 @@
   const S=document.getElementById('screen'),PT=document.getElementById('ptitle'),CB=document.getElementById('crumbs'),TA=document.getElementById('topact');
   function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),2000)}
   function pendientes(){return obras.reduce((a,o)=>a+o.solicitudes.filter(s=>s.estado!=='Atendida').length,0)}
-  function renderNav(){
-    const nav=document.getElementById('nav');
-    const items = rol==='admin'
+  function _navItems(){
+    return rol==='admin'
       ? [['panel','Panel',I.dash],['obras','Obras',I.building],['solicitudes','Solicitudes',I.inbox,pendientes()],['clientes','Clientes',I.users],['equipo','Equipo',I.user]]
       : [['panel','Panel',I.dash],['obras','Mis obras',I.building]];
-    nav.innerHTML=items.map(it=>`<button data-go="${it[0]}">${it[2]} ${it[1]}${it[3]?`<span class="ct">${it[3]}</span>`:''}</button>`).join('');
   }
+  function renderNav(){
+    document.getElementById('nav').innerHTML=_navItems().map(it=>`<button data-go="${it[0]}">${it[2]} ${it[1]}${it[3]?`<span class="ct">${it[3]}</span>`:''}</button>`).join('');
+  }
+  function renderMnav(){
+    const m=document.getElementById('mnav'); if(!m)return;
+    m.innerHTML=_navItems().map(it=>`<button data-go="${it[0]}">${it[2]}<span class="lbl">${it[1]}</span>${it[3]?`<span class="ct">${it[3]}</span>`:''}</button>`).join('');
+  }
+  function _ofSheet(open){const s=document.getElementById('ofsheet');if(!s)return;if(open){try{const a=actor();document.getElementById('ofsheetAv').textContent=a.ini;document.getElementById('ofsheetName').textContent=a.nombre;document.getElementById('ofsheetSub').textContent=a.sub;}catch(e){}s.classList.add('open');}else{s.classList.remove('open');}}
   function renderFoot(){const a=actor();document.getElementById('sideFoot').innerHTML=`<div class="av">${a.ini}</div><div class="m"><b>${a.nombre}</b><span>${a.sub}</span></div><button class="out" onclick="toast('Cerrar sesión')">Salir</button>`}
   function setRol(r){rol=r;document.querySelectorAll('#rsw button').forEach(b=>b.classList.toggle('active',b.getAttribute('data-rol')===r));renderFoot();go('panel')}
-  function updateNav(route){renderNav();document.querySelectorAll('#nav button').forEach(b=>{const v=b.getAttribute('data-go');b.classList.toggle('active',v===route||(route.startsWith('obra_')&&v==='obras')||(route==='obra_nueva'&&v==='obras')||(route==='sup_nuevo'&&v==='equipo'))})}
+  function updateNav(route){renderNav();renderMnav();const _mk=(sel)=>document.querySelectorAll(sel).forEach(b=>{const v=b.getAttribute('data-go');b.classList.toggle('active',v===route||(route.startsWith('obra_')&&v==='obras')||(route==='obra_nueva'&&v==='obras')||(route==='sup_nuevo'&&v==='equipo'))});_mk('#nav button');_mk('#mnav button')}
   function head(title,crumbs,act){PT.textContent=title;CB.innerHTML=crumbs||'';TA.innerHTML=act||''}
   function fmtClabe(c){return c.replace(/(\d{4})(?=\d)/g,'$1 ')}
   function fmtFecha(f){if(!f)return '—';return new Date(f+'T00:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'})}
@@ -304,6 +361,7 @@
     if(route.startsWith('obra_')){const p=route.split('__');if(!puedeVer(p[1]))return go('obras');return fichaObra(p[1],p[2])}
   }
   document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(b.getAttribute('data-go'))});
+  (function(){const m=document.getElementById('mnav');if(m)m.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(b.getAttribute('data-go'))});})();
   document.getElementById('rsw').addEventListener('click',e=>{const b=e.target.closest('[data-rol]');if(b)setRol(b.getAttribute('data-rol'))});
 
   // ---------- PANEL ----------
@@ -753,7 +811,7 @@
   actor=function(){return {nombre:ofNombre||'Usuario',sub:rol==='admin'?'Herza Studio':'Supervisor de obra',ini:ini(ofNombre||'U')}};
   misObras=function(){return obras};
   puedeVer=function(){return true};
-  renderFoot=function(){const a=actor();document.getElementById('sideFoot').innerHTML=`<div class="av">${a.ini}</div><div class="m"><b>${a.nombre}</b><span>${a.sub}</span></div><button class="out" onclick="salirOficina()">Salir</button>`};
+  renderFoot=function(){const a=actor();document.getElementById('sideFoot').innerHTML=`<div class="av">${a.ini}</div><div class="m"><b>${a.nombre}</b><span>${a.sub}</span></div><button class="out" onclick="salirOficina()">Salir</button>`;const _ac=document.getElementById('ofAcct');if(_ac)_ac.textContent=a.ini;};
 
   ingresar=async function(e){
     if(e)e.preventDefault();
@@ -772,7 +830,7 @@
     document.getElementById('oflayout').style.display='grid';
     renderFoot();go('panel');_pedirNotif();_suscribirSolic();
   };
-  salirOficina=async function(){await sb.auth.signOut();location.reload()};
+  salirOficina=async function(){try{_ofSheet(false)}catch(e){}await sb.auth.signOut();location.replace('index.html')};
   function _pedirNotif(){try{if('Notification' in window && Notification.permission==='default')Notification.requestPermission();}catch(e){}}
   let _solicSubReady=false;
   function _suscribirSolic(){
@@ -1369,6 +1427,21 @@
     }
     return d.output('blob');
   };
+  // ---------- compartir/guardar nativo (iOS) ----------
+  function _capNativoOf(){try{const C=window.Capacitor;return (C&&C.isNativePlatform&&C.isNativePlatform())?C:null}catch(e){return null}}
+  function _blobB64Of(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob)})}
+  async function _compartirNativoOf(blob,nombre){
+    const C=_capNativoOf(); if(!C)return false;
+    const FS=C.Plugins&&C.Plugins.Filesystem, SH=C.Plugins&&C.Plugins.Share;
+    if(!FS||!SH)return false;
+    try{
+      const b64=await _blobB64Of(blob);
+      const fname=(nombre||'archivo.pdf').replace(/[\/\\:*?"<>|]/g,'-');
+      const w=await FS.writeFile({path:fname,data:b64,directory:'CACHE'});
+      await SH.share({title:fname,url:w.uri});
+      return true;
+    }catch(e){return false}
+  }
   previewReporte=async function(id){
     const sem=((document.getElementById('repSem')||{}).value||'').trim()||('Semana '+((reportes[id]||[]).length+1));
     const notas=((document.getElementById('repNotas')||{}).value||'').trim();
@@ -1378,6 +1451,7 @@
     try{
       const o=obras.find(x=>x.id===id);
       const blob=await window._repPdf(o,sem,notas,fotos);
+      if(_capNativoOf()){ if(await _compartirNativoOf(blob,'Reporte fotografico '+sem+'.pdf')){toast('Abre el PDF para verlo o guardarlo');}else{toast('No se pudo abrir el PDF');} return; }
       const url=URL.createObjectURL(blob);
       let ov=document.getElementById('_prevRep'); if(ov)ov.remove();
       ov=document.createElement('div'); ov.id='_prevRep';
@@ -1422,7 +1496,7 @@
   const _rw=document.querySelector('.rolesw'); if(_rw)_rw.style.display='none';
 
   // mantener sesión al recargar
-  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor','pm'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');_pedirNotif();_suscribirSolic();}}}catch(e){}})();
+  (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session){const {data:{user}}=await sb.auth.getUser();ofUid=user.id;const {data:_pf0}=await sb.from('perfiles').select('rol').eq('id',ofUid).single();if(_pf0&&_pf0.rol==='cliente'){location.replace('index.html');return;}const {data:perfil}=await sb.from('perfiles').select('nombre,rol,activo').eq('id',ofUid).single();if(perfil&&['admin','supervisor','pm'].includes(perfil.rol)&&perfil.activo){ofNombre=perfil.nombre;rol=perfil.rol;await cargarOficina();document.getElementById('oflogin').style.display='none';document.getElementById('oflayout').style.display='grid';renderFoot();go('panel');_pedirNotif();_suscribirSolic();}}}catch(e){}})();
 </script>
 </body>
 </html>
