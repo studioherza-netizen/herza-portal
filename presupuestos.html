@@ -158,7 +158,7 @@ const unitOptions = ["LOTE", "PIEZA", "M2", "ML", "SALIDA", "KG", "GLOBAL"];
 
 const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0, cost: 0 });
 const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
-const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA" });
+const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA", status: "PAGADO" });
 const emptyElectricRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", luz: "", foto: "", ubic: "", plano: "" });
 const emptyMaterialRow = () => ({ id: uid(), cod: "", tipo: "", cant: 1, desc: "", ubic: "", plano: "" });
 const emptyMaterialReq = (project) => ({ id:"MR_"+uid(), collapsed:false, saved:false, titulo:"ENTREGA DE MATERIAL", noOrden:"00", fecha: today(), obra:(project&&project.name)||"", dir:"NO APLICA", solicito:"", entregaNombre:"", entregaPuesto:"", recibeNombre:"", recibePuesto:"", rows:[ emptyMaterialRow() ] });
@@ -729,6 +729,8 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
   const weekTotal = (w) => (w.expenses||[]).reduce((s,e)=>s+e.qty*e.price,0);
   const fmtDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
   const gerPctOf = (w) => (w && w.gerPct!=null) ? w.gerPct : 10;
+  const stOf = (e) => (e && e.status) ? e.status : "PAGADO";
+  const stBadge = (e) => { const paid = stOf(e)!=="POR PAGAR"; return (<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:paid?"#e6ebd4":"#f4e3cf",color:paid?"#5b6033":"#8a5a1b",whiteSpace:"nowrap"}}>{paid?"Pagado":"Por pagar"}</span>); };
   const grandMonto = weeks.reduce((s,w)=>s+weekTotal(w),0);
   const grandGer = weeks.reduce((s,w)=>s+weekTotal(w)*(gerPctOf(w)/100),0);
 
@@ -737,8 +739,8 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
       <h3 style={{fontSize:13,fontWeight:600,marginBottom:8,color:C.muted}}>{title}</h3>
       <table style={{width:"100%",borderCollapse:"collapse"}}>
         <thead><tr>
-          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE",""].map((h,i)=>(
-            <th key={i} style={{padding:"6px",fontSize:9,color:C.dim,textAlign:i>=5?"right":"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>
+          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE","ESTATUS",""].map((h,i)=>(
+            <th key={i} style={{padding:"6px",fontSize:9,color:C.dim,textAlign:(i>=5&&i<8)?"right":(i===8?"center":"left"),fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>
           ))}
         </tr></thead>
         <tbody>
@@ -752,6 +754,7 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
               <td style={{padding:"3px 4px"}}><input type="number" min="0" value={exp.qty} onChange={e=>updateExp(w.id,exp.id,"qty",parseFloat(e.target.value)||0)} style={{...si,width:50,textAlign:"center",fontSize:11}} /></td>
               <td style={{padding:"3px 4px"}}><input type="number" min="0" value={exp.price} onChange={e=>updateExp(w.id,exp.id,"price",parseFloat(e.target.value)||0)} style={{...si,width:90,textAlign:"right",fontSize:11}} /></td>
               <td style={{padding:"3px 4px",textAlign:"right",fontWeight:600,fontSize:12,color:C.accent,minWidth:80}}>{fmt(exp.qty*exp.price)}</td>
+              <td style={{padding:"3px 4px"}}><select value={stOf(exp)} onChange={e=>updateExp(w.id,exp.id,"status",e.target.value)} style={{...si,width:98,fontSize:10,padding:"6px 2px"}}><option value="PAGADO">Pagado</option><option value="POR PAGAR">Por pagar</option></select></td>
               <td style={{padding:"3px 2px"}}><button onClick={()=>removeExp(w.id,exp.id)} style={{...sb,padding:4,background:"transparent",color:C.dim}}><IconTrash/></button></td>
             </tr>
           ) : (
@@ -764,10 +767,11 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
               <td style={{padding:"6px 4px",fontSize:11,textAlign:"right"}}>{exp.qty}</td>
               <td style={{padding:"6px 4px",fontSize:11,textAlign:"right"}}>{fmt(exp.price)}</td>
               <td style={{padding:"6px 4px",fontSize:12,textAlign:"right",fontWeight:600,color:C.accent,minWidth:80}}>{fmt(exp.qty*exp.price)}</td>
+              <td style={{padding:"6px 4px",textAlign:"center"}}>{stBadge(exp)}</td>
               <td></td>
             </tr>
           ))}
-          {list.length===0 && <tr><td colSpan={9} style={{padding:"8px 6px",textAlign:"center",color:C.dim,fontSize:11}}>Sin registros</td></tr>}
+          {list.length===0 && <tr><td colSpan={10} style={{padding:"8px 6px",textAlign:"center",color:C.dim,fontSize:11}}>Sin registros</td></tr>}
         </tbody>
       </table>
     </div>
@@ -1211,7 +1215,7 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:9.5}}>
         <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE"].map((h,i)=>(<th key={i} style={{padding:"6px 5px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i>=5?"right":"left",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE","ESTATUS"].map((h,i)=>(<th key={i} style={{padding:"6px 5px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:(i>=5&&i<8)?"right":(i===8?"center":"left"),fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
         </tr></thead>
         <tbody>
           {list.map((e,idx)=>(
@@ -1224,10 +1228,11 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
               <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{e.qty}</td>
               <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmt(e.price)}</td>
               <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right",fontWeight:600}}>{fmt(e.qty*e.price)}</td>
+              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"center",color:(e.status==="POR PAGAR")?"#8a5a1b":"#5b6033",fontWeight:600,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{(e.status==="POR PAGAR")?"Por pagar":"Pagado"}</td>
             </tr>
           ))}
           {list.length===0 && (
-            <tr><td colSpan={8} style={{padding:"8px 5px",textAlign:"center",color:"#999"}}>Sin registros</td></tr>
+            <tr><td colSpan={9} style={{padding:"8px 5px",textAlign:"center",color:"#999"}}>Sin registros</td></tr>
           )}
         </tbody>
       </table>
@@ -2394,8 +2399,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
       doc.setFontSize(15);doc.text('Relación de Gastos — Semana '+(idx+1),14,18);
       doc.setFontSize(10);doc.setTextColor(90);
       doc.text('Obra: '+obra.nombre,14,26);doc.text('Fecha: '+fmtD(week.date),14,32);
-      const rows=(week.expenses||[]).map(function(e){return [fmtD(e.date),e.agent||'',e.concept||'',e.unit||'',String(e.qty||0),fmtM(e.price),fmtM((e.qty||0)*(e.price||0)),e.method||'']});
-      doc.autoTable({startY:38,head:[['Fecha','Categoría','Concepto','Und','Cant','P.U.','Importe','Método']],body:rows,styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[122,138,63]}});
+      const rows=(week.expenses||[]).map(function(e){return [fmtD(e.date),e.agent||'',e.concept||'',e.unit||'',String(e.qty||0),fmtM(e.price),fmtM((e.qty||0)*(e.price||0)),e.method||'',(e.status==='POR PAGAR')?'Por pagar':'Pagado']});
+      doc.autoTable({startY:38,head:[['Fecha','Categoría','Concepto','Und','Cant','P.U.','Importe','Método','Estatus']],body:rows,styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[122,138,63]}});
       const fy=doc.lastAutoTable.finalY||40;
       var _gp=(week&&week.gerPct!=null)?week.gerPct:10;
       doc.setFontSize(12);doc.setTextColor(40);doc.text('Total pagado: '+fmtM(total),14,fy+12);
