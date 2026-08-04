@@ -12,6 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', -apple-system, sans-serif; background: #d5d4ca; color: #3a3a3a; }
@@ -1307,6 +1308,101 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
   );
 }
 
+// Genera el PDF de la Relación de Gastos de UNA semana con EXACTAMENTE el mismo
+// formato Herza que produce el botón "Exportar PDF" (componente ExpensesPrintView),
+// capturado con html2canvas y devuelto como Blob para subirlo a la app de obra/clientes.
+async function makeExpensePdfBlob(week, project){
+  if(!window.html2canvas) throw new Error("html2canvas no está disponible");
+  if(!window.jspdf||!window.jspdf.jsPDF) throw new Error("jsPDF no está disponible");
+  const { jsPDF } = window.jspdf;
+  // Anchos de contenido A4 @96dpi: vertical ~794px, horizontal ~1123px.
+  const PORT_W = 794, LAND_W = 1123, PAD_X = 64; // 32px de padding a cada lado de #print-area
+  // Contenedor fuera de pantalla, fondo blanco. Empieza en vertical.
+  const host = document.createElement("div");
+  host.setAttribute("data-hz-export","1");
+  host.style.cssText = "position:fixed;left:-10000px;top:0;width:"+PORT_W+"px;background:#ffffff;padding:0;margin:0;z-index:-1;";
+  document.body.appendChild(host);
+  const root = ReactDOM.createRoot(host);
+  try {
+    await new Promise(function(res){
+      root.render(React.createElement(ExpensesPrintView, { project: project||{}, expenseWeeks: [week], printWeekId: week.id }));
+      // Dos frames + margen para asegurar layout/pintado antes de capturar.
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ setTimeout(res, 150); }); });
+    });
+    const area = host.querySelector("#print-area") || host;
+    // ¿Cabe en vertical? Mide el ancho natural (sin envolver) de la tabla más ancha.
+    // Si excede el área útil vertical, se exporta en horizontal.
+    let landscape = false;
+    try {
+      const tables = area.querySelectorAll("table");
+      const saved = [];
+      tables.forEach(function(tb){
+        saved.push([tb, tb.style.width, tb.style.tableLayout]);
+        tb.style.width = "auto"; tb.style.tableLayout = "auto";
+        tb.querySelectorAll("td,th").forEach(function(c){ saved.push([c, c.style.whiteSpace]); c.style.whiteSpace = "nowrap"; });
+      });
+      let naturalW = 0;
+      tables.forEach(function(tb){ if(tb.offsetWidth > naturalW) naturalW = tb.offsetWidth; });
+      // revertir a la envoltura normal
+      saved.forEach(function(s){ if(s.length===3){ s[0].style.width = s[1]; s[0].style.tableLayout = s[2]; } else { s[0].style.whiteSpace = s[1]; } });
+      if(naturalW + PAD_X > PORT_W + 16) landscape = true;
+    } catch(measErr){ landscape = false; }
+    const contentW = landscape ? LAND_W : PORT_W;
+    // Ajusta el ancho del lienzo a la orientación elegida y espera el repintado.
+    host.style.width = contentW + "px";
+    await new Promise(function(res){ requestAnimationFrame(function(){ requestAnimationFrame(function(){ setTimeout(res, 120); }); }); });
+    const canvas = await window.html2canvas(area, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: contentW,
+      useCORS: true,
+      logging: false
+    });
+    if(!canvas || !canvas.width || !canvas.height) throw new Error("captura vacía");
+    // Guardia anti-PDF en blanco: muestrea píxeles y exige contenido no-blanco.
+    try {
+      const ctx = canvas.getContext("2d");
+      const sx = Math.max(1, Math.floor(canvas.width/60));
+      const sy = Math.max(1, Math.floor(canvas.height/120));
+      let nonWhite = 0, sampled = 0;
+      for(let y=0; y<canvas.height; y+=sy){
+        for(let x=0; x<canvas.width; x+=sx){
+          const d = ctx.getImageData(x, y, 1, 1).data;
+          sampled++;
+          if(d[3] > 10 && (d[0] < 245 || d[1] < 245 || d[2] < 245)) nonWhite++;
+        }
+      }
+      if(sampled > 0 && (nonWhite/sampled) < 0.003) throw new Error("el PDF salió en blanco");
+    } catch(guardErr){ if(guardErr && guardErr.message && guardErr.message.indexOf("blanco")>=0) throw guardErr; }
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+    const pdf = new jsPDF({ unit:"pt", format:"a4", orientation: landscape ? "landscape" : "portrait", compress:true });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const imgW = pw;
+    const imgH = canvas.height * (pw / canvas.width);
+    let heightLeft = imgH;
+    let pos = 0;
+    pdf.addImage(imgData, "JPEG", 0, pos, imgW, imgH);
+    heightLeft -= ph;
+    while(heightLeft > 0){
+      pos -= ph;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, pos, imgW, imgH);
+      heightLeft -= ph;
+    }
+    return pdf.output("blob");
+  } finally {
+    try { root.unmount(); } catch(e){}
+    try { host.remove(); } catch(e){}
+  }
+}
+// Puente para el script HZObra (fuera del scope de Babel): usa el proyecto activo.
+window.HZObra_makeExpensePdfBlob = function(week){
+  return makeExpensePdfBlob(week, window.__HZ_currentProject || {});
+};
+
 function resumenCalc(grandTotal, payments, providers) {
   const cobrado = (payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const asignado = (providers||[]).reduce((s,p)=>s+(parseFloat(p.asignado)||0),0);
@@ -1980,6 +2076,8 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
   const [electricReqs, setElectricReqs] = useState(()=> migrateElectricReqs(quote));
   const [personal, setPersonal] = useState(quote.personal||defaultPersonal(quote.project));
   const [providers, setProviders] = useState(quote.providers||[]);
+  // Expone el proyecto activo para el generador de PDF branded del envío a app de obra.
+  useEffect(()=>{ window.__HZ_currentProject = project; }, [project]);
   const [printing, setPrinting] = useState(false);
   const [printWeekId, setPrintWeekId] = useState(null);
   const [printReqId, setPrintReqId] = useState(null);
@@ -2397,19 +2495,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
     const {data:{session}}=await sb.auth.getSession();
     const obra=getObra();
     if(!session||!obra||!obra.id){toast('Primero conecta con la app de obra',false);conectar();return}
-    toast('Enviando relación de gastos…');
+    toast('Generando relación de gastos…');
     try{
-      const {jsPDF}=window.jspdf;const doc=new jsPDF();
-      doc.setFontSize(15);doc.text('Relación de Gastos — Semana '+(idx+1),14,18);
-      doc.setFontSize(10);doc.setTextColor(90);
-      doc.text('Obra: '+obra.nombre,14,26);doc.text('Fecha: '+fmtD(week.date),14,32);
-      const rows=(week.expenses||[]).map(function(e){return [fmtD(e.date),e.agent||'',e.concept||'',e.unit||'',String(e.qty||0),fmtM(e.price),fmtM((e.qty||0)*(e.price||0)),e.method||'',(e.status==='POR PAGAR')?'Por pagar':'Pagado']});
-      doc.autoTable({startY:38,head:[['Fecha','Categoría','Concepto','Und','Cant','P.U.','Importe','Método','Estatus']],body:rows,styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[122,138,63]}});
-      const fy=doc.lastAutoTable.finalY||40;
-      var _gp=(week&&week.gerPct!=null)?week.gerPct:10;
-      doc.setFontSize(12);doc.setTextColor(40);doc.text('Total pagado: '+fmtM(total),14,fy+12);
-      doc.text('Gerenciamiento '+_gp+'%: '+fmtM(total*(_gp/100)),14,fy+19);
-      const blob=doc.output('blob');
+      // Mismo PDF con formato Herza que produce "Exportar PDF" (ExpensesPrintView).
+      if(typeof window.HZObra_makeExpensePdfBlob!=='function') throw new Error('El generador de PDF no está listo, recarga la página');
+      const blob=await window.HZObra_makeExpensePdfBlob(week);
+      if(!blob||!blob.size) throw new Error('El PDF salió vacío');
+      toast('Enviando a '+obra.nombre+'…');
       const sem='Semana '+(idx+1);
       const path=obra.id+'/'+sem.replace(' ','')+'_'+Date.now()+'.pdf';
       const up=await sb.storage.from('gastos').upload(path,blob,{contentType:'application/pdf'});
