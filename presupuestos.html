@@ -185,6 +185,10 @@ const migrateElectricReqs = (quote) => {
 const loadResizedImage = (file, cb) => { const reader=new FileReader(); reader.onload=ev=>{ const img=new Image(); img.onload=()=>{ const max=160; let w=img.width,h=img.height; const s=Math.min(1,max/Math.max(w,h)); const cw=Math.max(1,Math.round(w*s)), ch=Math.max(1,Math.round(h*s)); const cv=document.createElement("canvas"); cv.width=cw; cv.height=ch; cv.getContext("2d").drawImage(img,0,0,cw,ch); try{ cb(cv.toDataURL("image/jpeg",0.6)); }catch(e){ cb(ev.target.result); } }; img.src=ev.target.result; }; reader.readAsDataURL(file); };
 const emptyExpenseWeek = () => ({ id: "EW_"+uid(), date: today(), collapsed: false, saved: false, gerPct: 10, estatusObra: "En Proceso", expenses: [] });
 const OBRA_ESTATUS_OPTS = ["En Proceso","Terminado","En espera de anticipo"];
+// Controla si los PDF de Relación de Gastos incluyen las columnas de estatus de
+// pago y estatus de obra. Se puede desactivar (checkbox en la pestaña) para
+// generar un PDF limpio para el cliente. Espejo del estado React showExpStatus.
+let HZ_SHOW_EXP_STATUS = true;
 const obraEstatusStyle = (est) => ({"En Proceso":{bg:"#e6ebd4",fg:"#5b6033"},"Terminado":{bg:"#d4e6e0",fg:"#2f6b57"},"En espera de anticipo":{bg:"#f4e3cf",fg:"#8a5a1b"}}[est]||{bg:"#e6ebd4",fg:"#5b6033"});
 const migrateExpenseWeeks = (quote) => {
   const ws = quote && quote.expenseWeeks;
@@ -717,7 +721,7 @@ function PaymentsTab({payments, setPayments, grandTotal, onPrint}) {
   );
 }
 
-function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
+function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, setShowStatus}) {
   const weeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
   const updWeek = (wid, fn) => setExpenseWeeks(prev => prev.map(w => w.id===wid ? fn(w) : w));
   const updateExp = (wid,id,f,v) => updWeek(wid, w => ({...w, expenses: w.expenses.map(x=>x.id===id?{...x,[f]:v}:x)}));
@@ -786,7 +790,11 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek}) {
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <h2 style={{fontSize:18,fontWeight:600,color:C.text,margin:0}}>Relación de Gastos Semanal</h2>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <label title="Si lo desactivas, el PDF se exporta sin las columnas de estatus de pago ni estatus de obra (versión limpia para el cliente)." style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer",userSelect:"none",padding:"0 4px"}}>
+            <input type="checkbox" checked={showStatus!==false} onChange={e=>{const v=e.target.checked; HZ_SHOW_EXP_STATUS=v; setShowStatus&&setShowStatus(v);}} style={{width:15,height:15,accentColor:C.accent,cursor:"pointer"}} />
+            Incluir estatus (pago y obra) en el PDF
+          </label>
           <button onClick={()=>window.HZObra&&window.HZObra.conectar()} style={{...sb,background:C.bg,color:C.muted,fontSize:13,border:"1px solid "+C.border}}>🔗 Conectar con app obra</button>
           <button onClick={addWeek} style={{...sb,background:C.accent,color:"#fff",fontSize:13}}><IconPlus/> Agregar semana nueva</button>
         </div>
@@ -1201,8 +1209,9 @@ function PaymentsPrintView({project, payments, grandTotal}) {
   );
 }
 
-function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
+function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus}) {
   const fmt = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const showSt = (showStatus!==undefined) ? showStatus : HZ_SHOW_EXP_STATUS;
   const allWeeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
   const singleWeek = printWeekId ? allWeeks.find(w=>w.id===printWeekId) : null;
   const weeks = singleWeek ? [singleWeek] : allWeeks;
@@ -1220,7 +1229,7 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:9.5}}>
         <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-          {["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE","ESTATUS"].map((h,i)=>(<th key={i} style={{padding:"6px 5px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:(i>=5&&i<8)?"right":(i===8?"center":"left"),fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+          {(["FECHA","CATEGORÍA","CLAVE EN PPTO","CONCEPTO","UND","CANT","P.U.","IMPORTE"].concat(showSt?["ESTATUS","ESTATUS OBRA"]:[])).map((h,i)=>(<th key={i} style={{padding:"6px 5px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:(i>=5&&i<8)?"right":(i>=8?"center":"left"),fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
         </tr></thead>
         <tbody>
           {list.map((e,idx)=>(
@@ -1233,11 +1242,12 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId}) {
               <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{e.qty}</td>
               <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmt(e.price)}</td>
               <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right",fontWeight:600}}>{fmt(e.qty*e.price)}</td>
-              <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"center",color:(e.status==="POR PAGAR")?"#8a5a1b":"#5b6033",fontWeight:600,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{(e.status==="POR PAGAR")?"Por pagar":"Pagado"}</td>
+              {showSt && <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"center",color:(e.status==="POR PAGAR")?"#8a5a1b":"#5b6033",fontWeight:600,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{(e.status==="POR PAGAR")?"Por pagar":"Pagado"}</td>}
+              {showSt && (()=>{const a=e.avance||"En Proceso";const ac=obraEstatusStyle(a);return <td style={{padding:"5px",borderLeft:"0.5px solid #e8e8e8",textAlign:"center",color:ac.fg,fontWeight:600,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{a}</td>;})()}
             </tr>
           ))}
           {list.length===0 && (
-            <tr><td colSpan={9} style={{padding:"8px 5px",textAlign:"center",color:"#999"}}>Sin registros</td></tr>
+            <tr><td colSpan={showSt?10:8} style={{padding:"8px 5px",textAlign:"center",color:"#999"}}>Sin registros</td></tr>
           )}
         </tbody>
       </table>
@@ -2080,6 +2090,7 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
   useEffect(()=>{ window.__HZ_currentProject = project; }, [project]);
   const [printing, setPrinting] = useState(false);
   const [printWeekId, setPrintWeekId] = useState(null);
+  const [showExpStatus, setShowExpStatus] = useState(HZ_SHOW_EXP_STATUS);
   const [printReqId, setPrintReqId] = useState(null);
   const [printProvId, setPrintProvId] = useState(null);
   const [printGroupId, setPrintGroupId] = useState(null);
@@ -2309,7 +2320,7 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,sans-serif"}}>
       {printing && (
         activeTab==="payments" ? <PaymentsPrintView project={project} payments={payments} grandTotal={grandTotal} />
-        : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} printWeekId={printWeekId} />
+        : activeTab==="expenses" ? <ExpensesPrintView project={project} expenseWeeks={expenseWeeks} printWeekId={printWeekId} showStatus={showExpStatus} />
         : activeTab==="electrico" ? <ElectricReqPrintView reqs={electricReqs} printReqId={printReqId} />
         : activeTab==="materials" ? <ElectricReqPrintView reqs={materials} variant="material" printReqId={printReqId} />
         : activeTab==="personal" ? <PersonalPrintView project={project} personal={personal} printGroupId={printGroupId} />
@@ -2348,7 +2359,7 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
           </div>
         )}
         {activeTab==="payments" && <PaymentsTab payments={payments} setPayments={setPayments} grandTotal={grandTotal} onPrint={handlePrint} />}
-        {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} onPrintWeek={handlePrintWeek} />}
+        {activeTab==="expenses" && <ExpensesTab expenseWeeks={expenseWeeks} setExpenseWeeks={setExpenseWeeks} onPrintWeek={handlePrintWeek} showStatus={showExpStatus} setShowStatus={setShowExpStatus} />}
         {activeTab==="materials" && <ElectricReqTab reqs={materials} setReqs={setMaterials} variant="material" onPrintReq={handlePrintReq} />}
         {activeTab==="electrico" && <ElectricReqTab reqs={electricReqs} setReqs={setElectricReqs} onPrintReq={handlePrintReq} />}
         {activeTab==="personal" && <PersonalTab personal={personal} setPersonal={setPersonal} project={project} onPrintGroup={handlePrintGroup} />}
