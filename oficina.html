@@ -5,16 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="light only">
 <meta name="theme-color" content="#6e7d39">
-<link rel="icon" type="image/svg+xml" href="icon.svg">
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-title" content="Herza Home">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>if('serviceWorker' in navigator){addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
 <title>Herza Studio · Oficina</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,7 +69,7 @@
   .metric .n{font-size:27px;font-weight:700;color:var(--ink);line-height:1}
   .metric .l{font-size:12.5px;color:var(--muted);margin-top:4px}
 
-  .panel-card{background:var(--paper);border-radius:14px;box-shadow:var(--sh);overflow:hidden;margin-bottom:20px}
+  .panel-card{background:var(--paper);border-radius:14px;box-shadow:var(--sh);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;margin-bottom:20px}
   .pc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
   .pc-head h3{font-family:var(--serif);font-size:16px;color:var(--ink)}
   .pc-head a{font-size:13px;color:var(--olive-dark);font-weight:600}
@@ -593,7 +583,7 @@
       body=`<div class="info-grid">
         <div class="info-card"><h4>Contactos (WhatsApp)</h4>${o.contactos.length?o.contactos.map(c=>`<div class="kv"><span class="k">${c[0]}${c[1]?' · '+c[1]:''}</span><span class="v">+${c[2]}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin contactos.</p>'}</div>
         <div class="info-card"><h4>Cuentas de proveedores</h4>${o.proveedores.length?o.proveedores.map(p=>`<div class="kv"><span class="k">${p[0]} · ${p[1]}</span><span class="v" style="font-variant-numeric:tabular-nums">${fmtClabe(p[2])}</span></div>`).join(''):'<p style="color:var(--muted);font-size:13px">Sin proveedores.</p>'}</div>
-      </div><div style="margin-top:16px"><button class="btn-ghost" onclick="toast('En la versión real: editar contactos y proveedores')">Editar</button></div>`;
+      </div><div style="margin-top:16px"><button class="btn-beige btn-sm" onclick="editarContactos('${o.id}')">${I.refresh} Editar contactos y proveedores</button></div>`;
     } else if(tab==='acceso'){
       const cls=o.clientes&&o.clientes.length?o.clientes:[o.cliente];
       body=`<div class="form-wrap" style="max-width:620px"><div class="form-sec">
@@ -723,7 +713,7 @@
         </select></td>
         <td>${(s.obras||[]).map(id=>{const o=obras.find(x=>x.id===id);return o?o.nombre:''}).filter(Boolean).join(', ')||'<span style="color:var(--muted)">'+(s.rol==='supervisor'?'—':'Todas')+'</span>'}</td>
         <td><span class="pill ${s.activo?'ok':'off'}">${s.activo?'Activo':'Inhabilitado'}</span></td>
-        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="editarContactoMiembro('${s.id}')">Contacto</button> <button class="btn-ghost btn-sm" onclick="resetPass('${s.id}','${(s.nombre||'').replace(/'/g,'')}')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleMiembro('${s.id}')" ${s.id===yo?'disabled':''}>${s.activo?'Inhabilitar':'Habilitar'}</button> <button class="btn-sm" style="background:#a23b2d;color:#fff;border:none;${s.id===yo?'opacity:.4;pointer-events:none':''}" onclick="borrarMiembro('${s.id}','${(s.nombre||'').replace(/'/g,'')}')">Eliminar</button></td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn-ghost btn-sm" onclick="editarMiembro('${s.id}')">Editar</button> <button class="btn-ghost btn-sm" onclick="resetPass('${s.id}','${(s.nombre||'').replace(/'/g,'')}')">Restablecer</button> <button class="btn-ghost btn-sm" onclick="toggleMiembro('${s.id}')" ${s.id===yo?'disabled':''}>${s.activo?'Inhabilitar':'Habilitar'}</button> <button class="btn-sm" style="background:#a23b2d;color:#fff;border:none;${s.id===yo?'opacity:.4;pointer-events:none':''}" onclick="borrarMiembro('${s.id}','${(s.nombre||'').replace(/'/g,'')}')">Eliminar</button></td>
       </tr>`).join('')}
     </tbody></table>
     <p style="font-size:11.5px;color:var(--muted);padding:12px 18px;border-top:1px solid var(--line)">Administrador y Project manager gestionan obras y contenido; el Supervisor solo ve sus obras asignadas. Todo lo que sube cada quien queda firmado con su nombre.</p></div>`;
@@ -1110,28 +1100,37 @@
     if(inv.error||(inv.data&&inv.data.error)){toast((inv.data&&inv.data.error)||'No se pudo eliminar');return}
     await cargarOficina();toast('Miembro eliminado');equipo();
   };
-  editarContactoMiembro=async function(id){
+  editarMiembro=async function(id){
     const m=(window.miembros||[]).find(x=>x.id===id)||{};
+    const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    const rolEtq={supervisor:'Supervisor',pm:'Project manager',admin:'Administrador'}[m.rol]||'';
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.45);display:flex;align-items:center;justify-content:center;z-index:99999;color-scheme:light;padding:18px';
-    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;width:min(94vw,420px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
-      <h3 style="margin:0 0 4px;font-size:18px">Datos de contacto</h3>
-      <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">Cómo aparece <b>${m.nombre||'este miembro'}</b> como contacto en las obras del cliente.</p>
-      <div class="fg"><label>Puesto (como lo ve el cliente)</label><input class="fld" id="_pcP" value="${(m.puesto||'').replace(/"/g,'&quot;')}" placeholder="Ej. Administración, Arquitecto, Supervisión"></div>
-      <div class="fg"><label>WhatsApp</label><input class="fld" id="_pcW" value="${m.whatsapp||''}" placeholder="52 55 1234 5678" inputmode="numeric"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button class="btn-ghost" id="_pcC">Cancelar</button><button class="btn" id="_pcO">${I.check} Guardar</button></div>
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;width:min(94vw,440px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
+      <h3 style="margin:0 0 4px;font-size:18px">Editar miembro</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">Actualiza los datos de este miembro. El puesto y el WhatsApp son cómo aparece como contacto en las obras del cliente.</p>
+      <div class="fg"><label>Nombre y apellido *</label><input class="fld" id="_emN" value="${esc(m.nombre)}" placeholder="Nombre y apellido"></div>
+      <div class="fg"><label>Puesto (como lo ve el cliente)</label><input class="fld" id="_emP" value="${esc(m.puesto)}" placeholder="Ej. Administración, Arquitecto, Supervisión"></div>
+      <div class="fg"><label>WhatsApp</label><input class="fld" id="_emW" value="${esc(m.whatsapp)}" placeholder="52 55 1234 5678" inputmode="numeric"></div>
+      <p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">El rol se cambia en la columna Rol; el usuario (<b>${esc(m.usuario)}</b>${rolEtq?' · '+rolEtq:''}) y la contraseña se gestionan con el botón Restablecer.</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button class="btn-ghost" id="_emC">Cancelar</button><button class="btn" id="_emO">${I.check} Guardar</button></div>
     </div>`;
     document.body.appendChild(ov);
     const close=()=>ov.remove();
-    ov.querySelector('#_pcC').onclick=close;
+    ov.querySelector('#_emC').onclick=close;
     ov.addEventListener('click',e=>{if(e.target===ov)close()});
-    ov.querySelector('#_pcO').onclick=async()=>{
-      const pu=ov.querySelector('#_pcP').value.trim(), wa=ov.querySelector('#_pcW').value.replace(/[^0-9]/g,'');
+    ov.querySelector('#_emN').focus();
+    ov.querySelector('#_emO').onclick=async()=>{
+      const nombre=ov.querySelector('#_emN').value.trim();
+      const pu=ov.querySelector('#_emP').value.trim(), wa=ov.querySelector('#_emW').value.replace(/[^0-9]/g,'');
+      if(!nombre){toast('El nombre no puede quedar vacío');return}
       close();
-      await sb.from('perfiles').update({puesto:pu||null,whatsapp:wa||null}).eq('id',id);
-      await cargarOficina(); toast('Datos de contacto guardados'); equipo();
+      const {error}=await sb.from('perfiles').update({nombre:nombre,puesto:pu||null,whatsapp:wa||null}).eq('id',id);
+      if(error){toast('No se pudo guardar los cambios');return}
+      await cargarOficina(); toast('Datos actualizados'); equipo();
     };
   };
+  editarContactoMiembro=editarMiembro;
   window.revPw=function(i){const el=document.getElementById('pw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('Esta contraseña no quedó guardada (cuenta anterior). Usa "Restablecer" para generar una que sí puedas ver.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
   window.revSPw=function(i){const el=document.getElementById('spw'+i);const real=el.getAttribute('data-pw');if(!real||real==='••••••'||real==='—'){toast('Esta contraseña no quedó guardada (cuenta anterior). Usa "Restablecer" para generar una que sí puedas ver.');return}el.textContent=el.textContent==='••••••••'?real:'••••••••'};
   toggleAcceso=async function(id){const o=obras.find(x=>x.id===id);if(!o||!o.cliente.id)return;const nv=!o.cliente.activo;await sb.from('perfiles').update({activo:nv}).eq('id',o.cliente.id);o.cliente.activo=nv;toast(nv?'Acceso habilitado':'Acceso inhabilitado');fichaObra(id,'acceso')};
@@ -1348,6 +1347,47 @@
       const {error}=await sb.from('obras').update(v).eq('id',id);
       if(error){toast('No se pudieron guardar los cambios');return}
       await cargarOficina(); toast('Datos de la obra actualizados'); fichaObra(id,'resumen');
+    });
+  };
+
+  function _modalContactos(o,onOk){
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(40,38,32,.45);display:flex;align-items:flex-start;justify-content:center;z-index:99999;color-scheme:light;padding:40px 18px;overflow:auto';
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;width:min(94vw,560px);box-shadow:0 24px 70px rgba(0,0,0,.28)">
+      <h3 style="margin:0 0 4px;font-size:19px">Editar contactos y proveedores</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">Lo que el cliente ve en su app: contactos de WhatsApp y cuentas de proveedores con CLABE.</p>
+      <div class="form-sec" style="margin-bottom:14px"><div class="sh"><span class="si">${I.phone}</span><h3>Contactos (WhatsApp)</h3></div>
+        <div id="_ecCont"></div>
+        <button type="button" class="add-row" onclick="document.getElementById('_ecCont').insertAdjacentHTML('beforeend',contactoRow())">${I.plus} Agregar contacto</button></div>
+      <div class="form-sec"><div class="sh"><span class="si">${I.bank}</span><h3>Cuentas de proveedores</h3></div>
+        <div id="_ecProv"></div>
+        <button type="button" class="add-row" onclick="document.getElementById('_ecProv').insertAdjacentHTML('beforeend',provRow())">${I.plus} Agregar proveedor</button></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px"><button class="btn-ghost" id="_ecC">Cancelar</button><button class="btn" id="_ecO">${I.check} Guardar cambios</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    const cont=ov.querySelector('#_ecCont'), prov=ov.querySelector('#_ecProv');
+    (o.contactos||[]).forEach(c=>{cont.insertAdjacentHTML('beforeend',contactoRow());const r=cont.lastElementChild;r.querySelector('[data-c=nombre]').value=c[0]||'';r.querySelector('[data-c=puesto]').value=c[1]||'';r.querySelector('[data-c=wa]').value=c[2]||'';});
+    (o.proveedores||[]).forEach(p=>{prov.insertAdjacentHTML('beforeend',provRow());const r=prov.lastElementChild;r.querySelector('[data-p=nombre]').value=p[0]||'';r.querySelector('[data-p=banco]').value=p[1]||'';r.querySelector('[data-p=clabe]').value=p[2]||'';});
+    if(!(o.contactos||[]).length)cont.insertAdjacentHTML('beforeend',contactoRow());
+    const close=()=>ov.remove();
+    ov.querySelector('#_ecC').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+    ov.querySelector('#_ecO').onclick=()=>{
+      const conts=[...cont.querySelectorAll('.rep-row')].map(r=>[r.querySelector('[data-c=nombre]').value.trim(),r.querySelector('[data-c=puesto]').value.trim(),r.querySelector('[data-c=wa]').value.trim()]).filter(c=>c[0]);
+      const provs=[...prov.querySelectorAll('.rep-row')].map(r=>[r.querySelector('[data-p=nombre]').value.trim(),r.querySelector('[data-p=banco]').value.trim(),r.querySelector('[data-p=clabe]').value.trim()]).filter(p=>p[0]);
+      close(); onOk(conts,provs);
+    };
+  }
+  window.editarContactos=async function(id){
+    const o=(typeof obras!=='undefined'?obras:(window.obras||[])).find(x=>x.id===id);
+    if(!o){toast('No se encontró la obra');return}
+    _modalContactos(o, async (conts,provs)=>{
+      const d1=await sb.from('contactos').delete().eq('obra_id',id);
+      const d2=await sb.from('proveedores').delete().eq('obra_id',id);
+      if(d1.error||d2.error){toast('No se pudieron guardar los cambios');return}
+      if(conts.length){const {error}=await sb.from('contactos').insert(conts.map((c,i)=>({obra_id:id,nombre:c[0],puesto:c[1],whatsapp:(c[2]||'').replace(/[^0-9]/g,''),orden:i})));if(error){toast('Error al guardar contactos');return}}
+      if(provs.length){const {error}=await sb.from('proveedores').insert(provs.map(p=>({obra_id:id,nombre:p[0],banco:p[1],clabe:(p[2]||'').replace(/[^0-9]/g,'')})));if(error){toast('Error al guardar proveedores');return}}
+      await cargarOficina(); toast('Contactos y proveedores actualizados'); fichaObra(id,'datos');
     });
   };
 
