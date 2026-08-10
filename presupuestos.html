@@ -1209,7 +1209,7 @@ function PaymentsPrintView({project, payments, grandTotal}) {
   );
 }
 
-function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus}) {
+function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus, weekNumber}) {
   const fmt = (n) => "$" + (n||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
   const showSt = (showStatus!==undefined) ? showStatus : HZ_SHOW_EXP_STATUS;
   const allWeeks = Array.isArray(expenseWeeks) ? expenseWeeks : [];
@@ -1222,6 +1222,9 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus}) {
   let dateStr = "";
   try { if (project.date) { dateStr = new Date(project.date+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } } catch(e){}
   const pDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
+  const singleWeekNo = singleWeek ? (weekNumber || (allWeeks.indexOf(singleWeek)+1)) : null;
+  let expTitle = "RELACIÓN DE GASTOS SEMANAL";
+  if (singleWeek) { expTitle += " · SEMANA " + singleWeekNo + (singleWeek.date ? (" — " + pDate(singleWeek.date)) : ""); }
   const renderTable = (list, title) => (
     <div style={{marginTop:10}}>
       <div style={{margin:"0 0 6px",padding:"5px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
@@ -1269,7 +1272,7 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus}) {
       </div>
       <div style={{height:1.5,background:"#b5a393",marginTop:18,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}></div>
       <div style={{margin:"10px 0 12px",padding:"8px 0",background:"#cfc8be",textAlign:"center",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>RELACIÓN DE GASTOS SEMANAL</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#111",letterSpacing:1}}>{expTitle}</span>
       </div>
       {weeks.map((w,i)=>{
         const t = wkTotal(w); const gp = gerPctOf(w); const g = t*(gp/100);
@@ -1321,7 +1324,7 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus}) {
 // Genera el PDF de la Relación de Gastos de UNA semana con EXACTAMENTE el mismo
 // formato Herza que produce el botón "Exportar PDF" (componente ExpensesPrintView),
 // capturado con html2canvas y devuelto como Blob para subirlo a la app de obra/clientes.
-async function makeExpensePdfBlob(week, project){
+async function makeExpensePdfBlob(week, project, weekNumber){
   if(!window.html2canvas) throw new Error("html2canvas no está disponible");
   if(!window.jspdf||!window.jspdf.jsPDF) throw new Error("jsPDF no está disponible");
   const { jsPDF } = window.jspdf;
@@ -1335,7 +1338,7 @@ async function makeExpensePdfBlob(week, project){
   const root = ReactDOM.createRoot(host);
   try {
     await new Promise(function(res){
-      root.render(React.createElement(ExpensesPrintView, { project: project||{}, expenseWeeks: [week], printWeekId: week.id }));
+      root.render(React.createElement(ExpensesPrintView, { project: project||{}, expenseWeeks: [week], printWeekId: week.id, weekNumber: weekNumber }));
       // Dos frames + margen para asegurar layout/pintado antes de capturar.
       requestAnimationFrame(function(){ requestAnimationFrame(function(){ setTimeout(res, 150); }); });
     });
@@ -1409,8 +1412,8 @@ async function makeExpensePdfBlob(week, project){
   }
 }
 // Puente para el script HZObra (fuera del scope de Babel): usa el proyecto activo.
-window.HZObra_makeExpensePdfBlob = function(week){
-  return makeExpensePdfBlob(week, window.__HZ_currentProject || {});
+window.HZObra_makeExpensePdfBlob = function(week, weekNumber){
+  return makeExpensePdfBlob(week, window.__HZ_currentProject || {}, weekNumber);
 };
 
 function resumenCalc(grandTotal, payments, providers) {
@@ -2510,7 +2513,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
     try{
       // Mismo PDF con formato Herza que produce "Exportar PDF" (ExpensesPrintView).
       if(typeof window.HZObra_makeExpensePdfBlob!=='function') throw new Error('El generador de PDF no está listo, recarga la página');
-      const blob=await window.HZObra_makeExpensePdfBlob(week);
+      const blob=await window.HZObra_makeExpensePdfBlob(week, idx+1);
       if(!blob||!blob.size) throw new Error('El PDF salió vacío');
       toast('Enviando a '+obra.nombre+'…');
       const sem='Semana '+(idx+1);
