@@ -756,7 +756,7 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
               <td style={{padding:"3px 4px"}}><input type="date" value={exp.date} onChange={e=>updateExp(w.id,exp.id,"date",e.target.value)} style={{...si,width:130,fontSize:11,padding:"6px 4px"}} /></td>
               <td style={{padding:"3px 4px"}}><input value={exp.agent} onChange={e=>updateExp(w.id,exp.id,"agent",e.target.value)} placeholder="Categoría" style={{...si,width:80,fontSize:11}} /></td>
               <td style={{padding:"3px 4px"}}><input value={exp.description} onChange={e=>updateExp(w.id,exp.id,"description",e.target.value)} placeholder="Clave en ppto" style={{...si,fontSize:11}} /></td>
-              <td style={{padding:"3px 4px"}}><input value={exp.concept} onChange={e=>updateExp(w.id,exp.id,"concept",e.target.value)} placeholder="Concepto" style={{...si,width:100,fontSize:11}} /></td>
+              <td style={{padding:"3px 4px"}}><textarea value={exp.concept} onChange={e=>updateExp(w.id,exp.id,"concept",e.target.value)} placeholder="Concepto" rows={Math.min(6,Math.max(2,Math.ceil(String(exp.concept||"").length/22)))} style={{...si,width:190,minWidth:190,fontSize:11,lineHeight:1.35,resize:"vertical",overflow:"hidden",fontFamily:"inherit",padding:"6px 8px"}} /></td>
               <td style={{padding:"3px 4px"}}><select value={exp.unit} onChange={e=>updateExp(w.id,exp.id,"unit",e.target.value)} style={{...si,width:65,fontSize:10,padding:"6px 2px"}}>{unitOptions.map(u=><option key={u}>{u}</option>)}</select></td>
               <td style={{padding:"3px 4px"}}><input type="number" min="0" value={exp.qty} onChange={e=>updateExp(w.id,exp.id,"qty",parseFloat(e.target.value)||0)} style={{...si,width:50,textAlign:"center",fontSize:11}} /></td>
               <td style={{padding:"3px 4px"}}><input type="number" min="0" value={exp.price} onChange={e=>updateExp(w.id,exp.id,"price",parseFloat(e.target.value)||0)} style={{...si,width:90,textAlign:"right",fontSize:11}} /></td>
@@ -770,7 +770,7 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
               <td style={{padding:"6px 4px",fontSize:11}}>{fmtDate(exp.date)}</td>
               <td style={{padding:"6px 4px",fontSize:11}}>{exp.agent||""}</td>
               <td style={{padding:"6px 4px",fontSize:11}}>{exp.description||""}</td>
-              <td style={{padding:"6px 4px",fontSize:11}}>{exp.concept||""}</td>
+              <td style={{padding:"6px 4px",fontSize:11,minWidth:190,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{exp.concept||""}</td>
               <td style={{padding:"6px 4px",fontSize:11}}>{exp.unit||""}</td>
               <td style={{padding:"6px 4px",fontSize:11,textAlign:"right"}}>{exp.qty}</td>
               <td style={{padding:"6px 4px",fontSize:11,textAlign:"right"}}>{fmt(exp.price)}</td>
