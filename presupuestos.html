@@ -1289,27 +1289,21 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus, week
             )}
             {renderTable(transf,"PAGOS VÍA TRANSFERENCIA")}
             {renderTable(efec,"PAGOS EN EFECTIVO")}
-            {singleWeek ? (
-            <div style={{maxWidth:360,marginLeft:"auto",marginTop:16,fontSize:11}}>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Transferencias</span><span>{fmt(tTransf)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Efectivo</span><span>{fmt(tEfec)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Total Gasto de Obra</span><span>{fmt(t)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Gerenciamiento {gp}%</span><span>{fmt(g)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL + GERENCIAMIENTO</span><span>{fmt(t+g)}</span></div>
+            <div style={{maxWidth:380,marginLeft:"auto",marginTop:16,fontSize:11}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0"}}><span>Total Transferencias</span><span style={{whiteSpace:"nowrap"}}>{fmt(tTransf)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0"}}><span>Total Efectivo</span><span style={{whiteSpace:"nowrap"}}>{fmt(tEfec)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0"}}><span>Total Gasto de Obra</span><span style={{whiteSpace:"nowrap"}}>{fmt(t)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0"}}><span>Gerenciamiento {gp}%</span><span style={{whiteSpace:"nowrap"}}>{fmt(g)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL + GERENCIAMIENTO</span><span style={{whiteSpace:"nowrap"}}>{fmt(t+g)}</span></div>
             </div>
-            ) : (
-            <div style={{maxWidth:300,marginLeft:"auto",marginTop:8,fontSize:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><span>Monto pagado semana</span><span style={{fontWeight:600}}>{fmt(t)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><span>Gerenciamiento {gp}%</span><span>{fmt(g)}</span></div>
-            </div>
-            )}
           </div>
         );
       })}
       {!singleWeek && (
-      <div style={{maxWidth:320,marginLeft:"auto",marginTop:20,fontSize:11,breakInside:"avoid",pageBreakInside:"avoid"}}>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontWeight:700,fontSize:13,borderTop:"2px solid #b5a393",paddingTop:8}}><span>TOTAL MONTO PAGADO</span><span>{fmt(grandMonto)}</span></div>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:14}}><span>TOTAL GERENCIAMIENTO PAGADO</span><span style={{color:"#9a8774"}}>{fmt(grandGer)}</span></div>
+      <div style={{maxWidth:420,marginLeft:"auto",marginTop:20,fontSize:11,breakInside:"avoid",pageBreakInside:"avoid"}}>
+        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"4px 0",fontWeight:700,fontSize:13,borderTop:"2px solid #b5a393",paddingTop:8}}><span>TOTAL GASTO DE OBRA</span><span style={{whiteSpace:"nowrap"}}>{fmt(grandMonto)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"4px 0",fontWeight:700,fontSize:13}}><span>TOTAL GERENCIAMIENTO</span><span style={{whiteSpace:"nowrap"}}>{fmt(grandGer)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL GENERAL</span><span style={{color:"#9a8774",whiteSpace:"nowrap"}}>{fmt(grandMonto+grandGer)}</span></div>
       </div>
       )}
       <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
