@@ -1568,7 +1568,7 @@ function ProveedoresTab({providers, setProviders, categories, items, onPrintProv
                   <tr key={r.id}>
                     <td style={{padding:"4px 6px"}}><input type="date" value={r.fecha} onChange={e=>updPago(p.id,r.id,"fecha",e.target.value)} style={{...si,width:160,fontSize:12}}/></td>
                     <td style={{padding:"4px 6px"}}><select value={r.metodo||"TRANSFERENCIA"} onChange={e=>updPago(p.id,r.id,"metodo",e.target.value)} style={{...si,width:150,fontSize:12}}><option>TRANSFERENCIA</option><option>EFECTIVO</option><option>CHEQUE</option><option>TARJETA</option></select></td>
-                    <td style={{padding:"4px 6px"}}><input value={r.beneficiario||""} onChange={e=>updPago(p.id,r.id,"beneficiario",e.target.value)} placeholder={p.nombre||"A nombre de\u2026"} style={{...si,width:200,fontSize:12}}/></td>
+                    <td style={{padding:"4px 6px"}}><input value={r.beneficiario||""} onChange={e=>updPago(p.id,r.id,"beneficiario",e.target.value)} placeholder="Nombre del proveedor" style={{...si,width:200,fontSize:12}}/></td>
                     <td style={{padding:"4px 6px"}}><input type="number" min="0" step="100" value={r.monto} onChange={e=>updPago(p.id,r.id,"monto",parseFloat(e.target.value)||0)} style={{...si,width:140,textAlign:"right",fontSize:12}}/></td>
                     <td style={{padding:"4px 2px"}}><button onClick={()=>delPago(p.id,r.id)} style={{...sb,padding:6,background:"transparent",color:C.dim}}><IconTrash/></button></td>
                   </tr>
@@ -1644,7 +1644,7 @@ function ProveedoresPrintView({project, providers, printProvId}) {
                   <td style={{padding:"6px",textAlign:"center"}}>{ri+1}</td>
                   <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{pDate(r.fecha)}</td>
                   <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.metodo||""}</td>
-                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.beneficiario||p.nombre||""}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.beneficiario||""}</td>
                   <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmtP(parseFloat(r.monto)||0)}</td>
                 </tr>
               )):[<tr key={p.id+"_e"}><td colSpan={5} style={{padding:"6px",textAlign:"center",color:"#999"}}>Sin pagos</td></tr>]),
