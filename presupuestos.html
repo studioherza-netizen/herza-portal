@@ -296,7 +296,7 @@ const defaultPersonal = (project) => ({
   groups: [ { id:"G_"+uid(), oficio:"ARQUITECTOS", rows:[ {id:"R_"+uid(),n:"",ap:"",am:""} ] } ]
 });
 const emptyProvider = () => ({ id:"PV_"+uid(), nombre:"", asignado:0, pagos:[] });
-const emptyProvPago = () => ({ id:"PP_"+uid(), fecha:today(), monto:0, metodo:"TRANSFERENCIA" });
+const emptyProvPago = () => ({ id:"PP_"+uid(), fecha:today(), monto:0, metodo:"TRANSFERENCIA", beneficiario:"" });
 const makeNewQuote = () => ({
   id: "Q_"+uid(),
   createdAt: Date.now(),
@@ -1520,6 +1520,7 @@ function ResumenPrintView({project, grandTotal, payments, providers, mgmt, mgmtP
 
 function ProveedoresTab({providers, setProviders, categories, items, onPrintProv}) {
   const list = providers || [];
+  const fmtM = (n) => "$" + (Number(n)||0).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
   const catSubtotal = (catId) => ((items&&items[catId])||[]).reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
   const catList = [...(categories||[])].sort((a,b)=>(parseFloat(a.num)||0)-(parseFloat(b.num)||0)).filter(c=>c.name && c.name.trim());
   useEffect(()=>{ if((providers||[]).length===0 && catList.length){ setProviders(catList.map(c=>({id:"PV_"+uid(),nombre:c.name,asignado:catSubtotal(c.id),pagos:[]}))); } }, []);
@@ -1560,23 +1561,24 @@ function ProveedoresTab({providers, setProviders, categories, items, onPrintProv
           <div style={{padding:"8px 14px 14px"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
-                {["FECHA DE PAGO","MÉTODO","MONTO",""].map((h,i)=>(<th key={i} style={{padding:"6px 6px",fontSize:10,color:C.dim,textAlign:i===2?"right":"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>))}
+                {["FECHA DE PAGO","MÉTODO","A NOMBRE DE","MONTO",""].map((h,i)=>(<th key={i} style={{padding:"6px 6px",fontSize:10,color:C.dim,textAlign:i===3?"right":"left",fontWeight:600,letterSpacing:1,borderBottom:"1px solid "+C.border}}>{h}</th>))}
               </tr></thead>
               <tbody>
                 {(p.pagos||[]).map(r=>(
                   <tr key={r.id}>
                     <td style={{padding:"4px 6px"}}><input type="date" value={r.fecha} onChange={e=>updPago(p.id,r.id,"fecha",e.target.value)} style={{...si,width:160,fontSize:12}}/></td>
                     <td style={{padding:"4px 6px"}}><select value={r.metodo||"TRANSFERENCIA"} onChange={e=>updPago(p.id,r.id,"metodo",e.target.value)} style={{...si,width:150,fontSize:12}}><option>TRANSFERENCIA</option><option>EFECTIVO</option><option>CHEQUE</option><option>TARJETA</option></select></td>
+                    <td style={{padding:"4px 6px"}}><input value={r.beneficiario||""} onChange={e=>updPago(p.id,r.id,"beneficiario",e.target.value)} placeholder={p.nombre||"A nombre de\u2026"} style={{...si,width:200,fontSize:12}}/></td>
                     <td style={{padding:"4px 6px"}}><input type="number" min="0" step="100" value={r.monto} onChange={e=>updPago(p.id,r.id,"monto",parseFloat(e.target.value)||0)} style={{...si,width:140,textAlign:"right",fontSize:12}}/></td>
                     <td style={{padding:"4px 2px"}}><button onClick={()=>delPago(p.id,r.id)} style={{...sb,padding:6,background:"transparent",color:C.dim}}><IconTrash/></button></td>
                   </tr>
                 ))}
-                {(p.pagos||[]).length===0 && <tr><td colSpan={4} style={{padding:"8px 6px",fontSize:12,color:C.dim}}>Sin pagos registrados</td></tr>}
+                {(p.pagos||[]).length===0 && <tr><td colSpan={5} style={{padding:"8px 6px",fontSize:12,color:C.dim}}>Sin pagos registrados</td></tr>}
               </tbody>
             </table>
             <div style={{display:"flex",justifyContent:"flex-end",gap:24,marginTop:10,fontSize:12,flexWrap:"wrap"}}>
-              <span style={{color:C.muted}}>Pagado: <strong style={{color:C.success}}>{fmt(paid)}</strong></span>
-              <span style={{color:C.muted}}>Saldo: <strong style={{color:saldo>0?C.danger:C.success}}>{fmt(saldo)}</strong></span>
+              <span style={{color:C.muted}}>Pagado: <strong style={{color:C.success}}>{fmtM(paid)}</strong></span>
+              <span style={{color:C.muted}}>Saldo: <strong style={{color:saldo>0?C.danger:C.success}}>{fmtM(saldo)}</strong></span>
             </div>
           </div>
         </div>
@@ -1584,10 +1586,10 @@ function ProveedoresTab({providers, setProviders, categories, items, onPrintProv
       })}
       <button onClick={addProv} style={{...sb,background:"transparent",color:C.accent,fontWeight:700,fontSize:13}}><IconPlus/> Proveedor</button>
       <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,marginTop:20,maxWidth:420,marginLeft:"auto"}}>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Asignado</span><span style={{fontWeight:600}}>{fmt(totAsig)}</span></div>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Pagado</span><span style={{fontWeight:600,color:C.success}}>{fmt(totPaid)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Asignado</span><span style={{fontWeight:600}}>{fmtM(totAsig)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}><span style={{color:C.muted}}>Total Pagado</span><span style={{fontWeight:600,color:C.success}}>{fmtM(totPaid)}</span></div>
         <div style={{borderTop:"2px solid "+(totSaldo>0?C.danger:C.success),marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:700}}>
-          <span>Saldo Total</span><span style={{color:totSaldo>0?C.danger:C.success}}>{fmt(totSaldo)}</span>
+          <span>Saldo Total</span><span style={{color:totSaldo>0?C.danger:C.success}}>{fmtM(totSaldo)}</span>
         </div>
       </div>
     </div>
@@ -1627,7 +1629,7 @@ function ProveedoresPrintView({project, providers, printProvId}) {
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
         <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-          {["#","FECHA DE PAGO","MÉTODO","MONTO"].map((h,i)=>(<th key={i} style={{padding:"7px 6px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i===0?"center":(i===3?"right":"left"),fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+          {["#","FECHA DE PAGO","MÉTODO","A NOMBRE DE","MONTO"].map((h,i)=>(<th key={i} style={{padding:"7px 6px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0?"0.5px solid #bdbdbd":"none",textAlign:i===0?"center":(i===4?"right":"left"),fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
         </tr></thead>
         <tbody>
           {list.map((p,pi)=>{
@@ -1636,19 +1638,20 @@ function ProveedoresPrintView({project, providers, printProvId}) {
             const asig=parseFloat(p.asignado)||0;
             const saldo=asig-paid;
             return [
-              <tr key={p.id+"_h"} style={{background:"#c2b098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={3} style={{padding:"6px 8px",fontSize:9,fontWeight:700,letterSpacing:1,color:"#fff"}}>{String(pi+1).padStart(2,"0")} — {(p.nombre||"").toUpperCase()}</td><td style={{padding:"6px 8px",fontSize:9,fontWeight:700,color:"#fff",textAlign:"right"}}>Asignado: {fmtP(asig)}</td></tr>,
+              <tr key={p.id+"_h"} style={{background:"#c2b098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><td colSpan={4} style={{padding:"6px 8px",fontSize:9,fontWeight:700,letterSpacing:1,color:"#fff"}}>{String(pi+1).padStart(2,"0")} — {(p.nombre||"").toUpperCase()}</td><td style={{padding:"6px 8px",fontSize:9,fontWeight:700,color:"#fff",textAlign:"right"}}>Asignado: {fmtP(asig)}</td></tr>,
               ...(pagos.length?pagos.map((r,ri)=>(
                 <tr key={r.id} style={{borderBottom:"0.5px solid #e0e0e0"}}>
                   <td style={{padding:"6px",textAlign:"center"}}>{ri+1}</td>
                   <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{pDate(r.fecha)}</td>
                   <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.metodo||""}</td>
+                  <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8"}}>{r.beneficiario||p.nombre||""}</td>
                   <td style={{padding:"6px",borderLeft:"0.5px solid #e8e8e8",textAlign:"right"}}>{fmtP(parseFloat(r.monto)||0)}</td>
                 </tr>
-              )):[<tr key={p.id+"_e"}><td colSpan={4} style={{padding:"6px",textAlign:"center",color:"#999"}}>Sin pagos</td></tr>]),
-              <tr key={p.id+"_s"} style={{borderBottom:"1px solid #ccc"}}><td colSpan={2} style={{padding:"5px 8px"}}></td><td style={{padding:"5px 8px",textAlign:"right",fontWeight:600,fontSize:9}}>Pagado {fmtP(paid)} · Saldo</td><td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:saldo>0?"#9a3b3b":"#3b7a3b"}}>{fmtP(saldo)}</td></tr>
+              )):[<tr key={p.id+"_e"}><td colSpan={5} style={{padding:"6px",textAlign:"center",color:"#999"}}>Sin pagos</td></tr>]),
+              <tr key={p.id+"_s"} style={{borderBottom:"1px solid #ccc"}}><td colSpan={3} style={{padding:"5px 8px"}}></td><td style={{padding:"5px 8px",textAlign:"right",fontWeight:600,fontSize:9}}>Pagado {fmtP(paid)} · Saldo</td><td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:saldo>0?"#9a3b3b":"#3b7a3b"}}>{fmtP(saldo)}</td></tr>
             ];
           })}
-          {list.length===0 && <tr><td colSpan={4} style={{padding:"10px",textAlign:"center",color:"#999"}}>Sin proveedores registrados</td></tr>}
+          {list.length===0 && <tr><td colSpan={5} style={{padding:"10px",textAlign:"center",color:"#999"}}>Sin proveedores registrados</td></tr>}
         </tbody>
       </table>
       <div style={{maxWidth:320,marginLeft:"auto",marginTop:16,fontSize:11}}>
