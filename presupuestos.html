@@ -155,8 +155,7 @@ const defaultCategories = [
   { id: "ACC", num: "07", name: "ACCESORIOS", prefix: "AC" },
 ];
 
-const unitOptions = ["LOTE", "PIEZA", "M2", "ML", "SALIDA", "KG", "GLOBAL"];
-
+const unitOptions = ["LOTE", "PIEZA", "M2", "M3", "ML", "SALIDA", "KG", "GLOBAL"];
 const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0, cost: 0 });
 const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
 const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA", status: "PAGADO", avance: "En Proceso" });
