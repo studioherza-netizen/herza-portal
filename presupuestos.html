@@ -188,6 +188,11 @@ const OBRA_ESTATUS_OPTS = ["En Proceso","Terminado","En espera de anticipo"];
 // pago y estatus de obra. Se puede desactivar (checkbox en la pestaña) para
 // generar un PDF limpio para el cliente. Espejo del estado React showExpStatus.
 let HZ_SHOW_EXP_STATUS = true;
+// Estatus de pago y avance por partida de la cotización (Presupuesto). Ocultables en PDF vía project.showItemStatus.
+const itemStOf = (it) => (it && it.status) ? it.status : "POR PAGAR";
+const itemAvOf = (it) => (it && it.avance) ? it.avance : "En espera de anticipo";
+const payStStyle = (s) => s==="PAGADO" ? {bg:"#e6ebd4",fg:"#5b6033"} : {bg:"#f4e3cf",fg:"#8a5a1b"};
+const HzPill = ({label, st, fs}) => <span style={{display:"inline-block",fontSize:fs||10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:st.bg,color:st.fg,whiteSpace:"nowrap",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{label}</span>;
 const obraEstatusStyle = (est) => ({"En Proceso":{bg:"#e6ebd4",fg:"#5b6033"},"Terminado":{bg:"#d4e6e0",fg:"#2f6b57"},"En espera de anticipo":{bg:"#f4e3cf",fg:"#8a5a1b"}}[est]||{bg:"#e6ebd4",fg:"#5b6033"});
 const migrateExpenseWeeks = (quote) => {
   const ws = quote && quote.expenseWeeks;
@@ -518,7 +523,8 @@ function CatalogoTab({catalog, onAdd, onUpdate, onDelete, onSeed}) {
   );
 }
 
-function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, printMode, catalog}) {
+function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, printMode, catalog, showSt}) {
+  const ist = itemStOf(item); const iav = itemAvOf(item); const istS = payStStyle(ist); const iavS = obraEstatusStyle(iav);
   const total = item.qty * item.price;
   const costTotal = item.qty * (item.cost || 0);
   const util = total - costTotal;
@@ -533,6 +539,8 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
         <td style={{padding:"6px 8px",fontSize:12,textAlign:"center",borderBottom:"1px solid #eee"}}>{item.qty}</td>
         <td style={{padding:"6px 8px",fontSize:12,textAlign:"right",borderBottom:"1px solid #eee"}}>{fmt(item.price)}</td>
         <td style={{padding:"6px 8px",fontSize:12,textAlign:"right",fontWeight:600,borderBottom:"1px solid #eee"}}>{fmt(total)}</td>
+        {showSt && <td style={{padding:"6px 4px",textAlign:"center",borderBottom:"1px solid #eee"}}><HzPill label={ist==="PAGADO"?"Pagado":"Por pagar"} st={istS} fs={8.5} /></td>}
+        {showSt && <td style={{padding:"6px 4px",textAlign:"center",borderBottom:"1px solid #eee"}}><HzPill label={iav} st={iavS} fs={8.5} /></td>}
       </tr>
     );
   }
@@ -548,6 +556,8 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
       <td style={{padding:"4px 6px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:65,textAlign:"center",fontSize:12}} /></td>
       <td style={{padding:"4px 6px"}}><PriceInputCell item={item} onChange={onChange} si={si} /></td>
       <td style={{padding:"4px 6px",textAlign:"right",fontWeight:600,fontSize:13,color:total>0?C.accent:C.dim,minWidth:100}}>{fmt(total)}</td>
+      <td style={{padding:"4px 6px",textAlign:"center"}}><select value={ist} onChange={e=>onChange("status",e.target.value)} title="Estatus de pago" style={{...si,width:104,fontSize:11,fontWeight:600,padding:"6px 6px",borderRadius:20,border:"none",background:istS.bg,color:istS.fg,cursor:"pointer"}}><option value="POR PAGAR">Por pagar</option><option value="PAGADO">Pagado</option></select></td>
+      <td style={{padding:"4px 6px",textAlign:"center"}}><select value={iav} onChange={e=>onChange("avance",e.target.value)} title="Avance de obra" style={{...si,width:168,fontSize:11,fontWeight:600,padding:"6px 6px",borderRadius:20,border:"none",background:iavS.bg,color:iavS.fg,cursor:"pointer"}}>{OBRA_ESTATUS_OPTS.map(o=><option key={o} value={o}>{o}</option>)}</select></td>
       <td style={{padding:"4px 6px",background:"#f7f9f0"}}><CostInputCell item={item} onChange={onChange} si={si} /></td>
       <td style={{padding:"4px 6px",textAlign:"right",fontWeight:700,fontSize:13,color:util>0?"#5a7d2a":(util<0?C.danger:C.dim),minWidth:92,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(util)}{total>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{margin.toFixed(1)}%</span>}</td>
       <td style={{padding:"4px 2px"}}><button onClick={onRemove} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar"><IconTrash/></button></td>
@@ -555,7 +565,7 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
   );
 }
 
-function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode, catalog, onOpenCatalog}) {
+function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode, catalog, onOpenCatalog, showSt}) {
   const [open, setOpen] = useState(true);
   const [dragOver, setDragOver] = useState(false);
   const subtotal = items.reduce((s,i)=>s+i.qty*i.price,0);
@@ -563,12 +573,13 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
     if (items.length===0) return null;
     return (
       <tbody>
-        <tr className="cat-row"><td colSpan={7} style={{padding:"4px 12px",fontSize:12,fontWeight:600,color:"#fff",background:"#C2B098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",letterSpacing:1}}>{cat.num} — {cat.name}</td></tr>
-        {items.map(item=><QuoteItem key={item.id} item={item} printMode />)}
+        <tr className="cat-row"><td colSpan={showSt?9:7} style={{padding:"4px 12px",fontSize:12,fontWeight:600,color:"#fff",background:"#C2B098",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",letterSpacing:1}}>{cat.num} — {cat.name}</td></tr>
+        {items.map(item=><QuoteItem key={item.id} item={item} printMode showSt={showSt} />)}
         <tr className="subtotal-row">
           <td colSpan={5} style={{background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}/>
           <td style={{padding:"8px",fontSize:12,textAlign:"right",fontWeight:600,color:"#888",background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",whiteSpace:"nowrap"}}>SUBTOTAL {cat.num}</td>
           <td style={{padding:"8px",fontSize:13,textAlign:"right",fontWeight:700,color:"#9a8774",background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",whiteSpace:"nowrap"}}>{fmt(subtotal)}</td>
+          {showSt && <td colSpan={2} style={{background:"#F5F5F5",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}/>}
         </tr>
       </tbody>
     );
@@ -602,10 +613,10 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
       {open && (
         <div style={{padding:"0 18px 14px"}}>
           <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:820}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:1100}}>
             <thead><tr>
-              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE","COSTO U.","UTILIDAD",""].map((h,i)=>(
-                <th key={i} style={{padding:"6px",fontSize:10,color:i===7||i===8?"#5c6b2e":C.dim,textAlign:i>=4?(i===9?"center":"right"):"left",fontWeight:600,letterSpacing:1,background:i===7||i===8?"#e7edd4":"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
+              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE","ESTATUS","AVANCE","COSTO U.","UTILIDAD",""].map((h,i)=>(
+                <th key={i} style={{padding:"6px",fontSize:10,color:i===9||i===10?"#5c6b2e":C.dim,textAlign:i>=4?((i===7||i===8||i===11)?"center":"right"):"left",fontWeight:600,letterSpacing:1,background:i===9||i===10?"#e7edd4":"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -614,6 +625,7 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
                 <tr>
                   <td colSpan={6} style={{padding:"6px",textAlign:"right",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:0.5,borderTop:"1px solid "+C.border}}>SUBTOTAL {cat.num}</td>
                   <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:C.accent,borderTop:"1px solid "+C.border,whiteSpace:"nowrap"}}>{fmt(subtotal)}</td>
+                  <td colSpan={2} style={{borderTop:"1px solid "+C.border}}></td>
                   <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:C.danger,borderTop:"1px solid "+C.border,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(costTot)}</td>
                   <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:utilTot>0?"#5a7d2a":C.dim,borderTop:"1px solid "+C.border,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(utilTot)}{subtotal>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{marginCat.toFixed(1)}%</span>}</td>
                   <td style={{borderTop:"1px solid "+C.border}}></td>
@@ -1801,6 +1813,7 @@ function PersonalPrintView({project, personal, printGroupId}) {
 }
 
 function PrintView({project, categories, items, mgmtPct, ivaPct}) {
+  const showSt = !!(project && project.showItemStatus);
   const subtotal = Object.values(items).flat().reduce((s,i)=>s+i.qty*i.price,0);
   const mgmt = subtotal*(mgmtPct/100);
   const iva = (subtotal+mgmt)*(ivaPct/100);
@@ -1828,9 +1841,9 @@ function PrintView({project, categories, items, mgmtPct, ivaPct}) {
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
         <thead><tr style={{background:"#cfc8be",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>
-          {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE",""].map((h,i)=>(<th key={i} style={{padding:"7px 4px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0&&h?"0.5px solid #bdbdbd":"none",textAlign:i>=4?(i===7?"center":"right"):"center",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
+          {(showSt?["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE","ESTATUS","AVANCE"]:["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE",""]).map((h,i)=>(<th key={i} style={{padding:"7px 4px",borderTop:"0.5px solid #bdbdbd",borderBottom:"0.5px solid #bdbdbd",borderLeft:i>0&&h?"0.5px solid #bdbdbd":"none",textAlign:i>=4?(i>=7?"center":"right"):"center",fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#111",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}>{h}</th>))}
         </tr></thead>
-        {categories.sort((a,b)=>{var na=parseFloat(a.num)||0;var nb=parseFloat(b.num)||0;return na-nb;}).map(cat=><CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} printMode />)}
+        {categories.sort((a,b)=>{var na=parseFloat(a.num)||0;var nb=parseFloat(b.num)||0;return na-nb;}).map(cat=><CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} printMode showSt={showSt} />)}
       </table>
       <div id="print-totals" style={{maxWidth:300,marginLeft:"auto",marginTop:16,fontSize:11}}>
         <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
@@ -2343,7 +2356,13 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <input value={project.docTitle || "Cotización de Servicios"} onChange={e=>setProject(p=>({...p,docTitle:e.target.value}))} title="Editar título del documento (se usa en el PDF)" placeholder="Título del documento" style={{fontSize:18,fontWeight:600,margin:0,flex:1,maxWidth:520,border:"none",borderBottom:"1px dashed "+C.border,background:"transparent",color:C.text,outline:"none",padding:"2px 0",fontFamily:"inherit"}} onFocus={e=>e.target.style.borderBottomColor=C.accent} onBlur={e=>e.target.style.borderBottomColor=C.border} />
+              <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+              <label title="Si lo desactivas, el PDF de la cotización sale sin las columnas ESTATUS y AVANCE (versión limpia para el cliente)." style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer",userSelect:"none"}}>
+                <input type="checkbox" checked={!!project.showItemStatus} onChange={e=>{const v=e.target.checked; setProject(p=>({...p,showItemStatus:v}));}} style={{width:15,height:15,accentColor:C.accent,cursor:"pointer"}} />
+                Incluir estatus y avance en el PDF
+              </label>
               <button onClick={addCategory} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}><IconPlus/> Nueva categoría</button>
+              </div>
             </div>
             {[...categories].sort((a,b)=>{const na=parseFloat(a.num)||0;const nb=parseFloat(b.num)||0;return na-nb;}).map(cat=>(
               <CategorySection key={cat.id} cat={cat} items={items[cat.id]||[]} catalog={catalog} onOpenCatalog={()=>setPickerCat(cat.id)} onItemChange={(itemId,f,v)=>handleItemChange(cat.id,itemId,f,v)} onAddItem={()=>addItem(cat.id,cat.prefix)} onRemoveItem={itemId=>removeItem(cat.id,itemId)} onMoveItem={(itemId,dir)=>moveItem(cat.id,itemId,dir)} onUpdateCat={(f,v)=>updateCategory(cat.id,f,v)} onRemoveCat={()=>removeCategory(cat.id)} onMoveUp={()=>moveCategory(cat.id,-1)} onMoveDown={()=>moveCategory(cat.id,1)} canMoveUp={categories[0]?.id!==cat.id} canMoveDown={categories[categories.length-1]?.id!==cat.id} onSwapWith={(srcId)=>swapCategoriesByDrop(srcId,cat.id)} />
