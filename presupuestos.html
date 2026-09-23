@@ -155,7 +155,7 @@ const defaultCategories = [
   { id: "ACC", num: "07", name: "ACCESORIOS", prefix: "AC" },
 ];
 
-const unitOptions = ["LOTE", "PIEZA", "M2", "M3", "ML", "SALIDA", "KG", "GLOBAL"];
+const unitOptions = ["LOTE", "PIEZA", "M2", "M3", "ML", "SALIDA", "KG", "GLOBAL", "VIAJE", "MEDIO VIAJE", "JORNADA", "DÍA", "MES", "JUEGO"];
 const emptyItem = (prefix, num) => ({ id: uid(), code: prefix + "-" + String(num).padStart(2,"0"), concept: "", unit: "LOTE", qty: 1, price: 0, cost: 0 });
 const emptyPayment = () => ({ id: uid(), date: today(), concept: "", amount: 0, method: "TRANSFERENCIA" });
 const emptyExpense = () => ({ id: uid(), date: today(), agent: "", description: "", concept: "", unit: "LOTE", qty: 1, price: 0, method: "TRANSFERENCIA", status: "PAGADO", avance: "En Proceso" });
@@ -470,7 +470,7 @@ function CatalogoTab({catalog, onAdd, onUpdate, onDelete, onSeed}) {
   const ql=q.trim().toLowerCase();
   const filtered=(catalog||[]).filter(c=>!ql||(c.concepto||"").toLowerCase().includes(ql)||(c.rubro||"").toLowerCase().includes(ql));
   const groups={}; filtered.forEach(c=>{(groups[c.rubro||"General"]=groups[c.rubro||"General"]||[]).push(c);});
-  const unitOptions=["LOTE","PZA","M²","ML","M³","SALIDA","SERV","JGO"];
+  const unitOptions=["LOTE","PZA","M²","ML","M³","SALIDA","SERV","JGO","VIAJE","MEDIO VIAJE","JORNADA","DÍA","MES","JUEGO"];
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:12,flexWrap:"wrap"}}>
