@@ -92,7 +92,7 @@ const PriceInputCell = ({item, onChange, si}) => {
     },
     onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); },
     title: item.priceFormula ? 'Formula: ' + item.priceFormula : '',
-    style: {...si, width: 92, textAlign: 'right', fontSize: 12, ...(item.priceFormula ? {background: '#fdf6e3'} : {})}
+    style: {...si, width: 86, textAlign: 'right', fontSize: 12, ...(item.priceFormula ? {background: '#fdf6e3'} : {})}
   });
 };
 
@@ -128,7 +128,7 @@ const CostInputCell = ({item, onChange, si}) => {
     },
     onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); },
     title: item.costFormula ? 'Formula: ' + item.costFormula : 'Costo directo por unidad',
-    style: {...si, width: 92, textAlign: 'right', fontSize: 12, ...(item.costFormula ? {background: '#fdf6e3'} : {})}
+    style: {...si, width: 86, textAlign: 'right', fontSize: 12, ...(item.costFormula ? {background: '#fdf6e3'} : {})}
   });
 };
 
@@ -550,16 +550,16 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
         <button onClick={onMoveUp} disabled={!canMoveUp} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveUp?C.muted:C.dim,opacity:canMoveUp?1:0.3,cursor:canMoveUp?"pointer":"not-allowed",fontSize:10,marginRight:2}} title="Subir partida">▲</button>
         <button onClick={onMoveDown} disabled={!canMoveDown} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveDown?C.muted:C.dim,opacity:canMoveDown?1:0.3,cursor:canMoveDown?"pointer":"not-allowed",fontSize:10}} title="Bajar partida">▼</button>
       </td>
-      <td style={{padding:"4px 6px"}}><input value={item.code} onChange={e=>onChange("code",e.target.value)} style={{...si,width:90,textAlign:"center",fontSize:12}} /></td>
-      <td style={{padding:"4px 6px",minWidth:220,width:"30%"}}><ConceptAutocomplete item={item} onChange={onChange} catalog={catalog} /></td>
-      <td style={{padding:"4px 6px"}}><select value={item.unit} onChange={e=>onChange("unit",e.target.value)} style={{...si,width:85,fontSize:11,padding:"8px 4px"}}>{unitOptions.map(u=><option key={u} value={u}>{u}</option>)}</select></td>
-      <td style={{padding:"4px 6px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:65,textAlign:"center",fontSize:12}} /></td>
-      <td style={{padding:"4px 6px"}}><PriceInputCell item={item} onChange={onChange} si={si} /></td>
-      <td style={{padding:"4px 6px",textAlign:"right",fontWeight:600,fontSize:13,color:total>0?C.accent:C.dim,minWidth:100}}>{fmt(total)}</td>
-      <td style={{padding:"4px 6px",textAlign:"center"}}><select value={ist} onChange={e=>onChange("status",e.target.value)} title="Estatus de pago" style={{...si,width:104,fontSize:11,fontWeight:600,padding:"6px 6px",borderRadius:20,border:"none",background:istS.bg,color:istS.fg,cursor:"pointer"}}><option value="POR PAGAR">Por pagar</option><option value="PAGADO">Pagado</option></select></td>
-      <td style={{padding:"4px 6px",textAlign:"center"}}><select value={iav} onChange={e=>onChange("avance",e.target.value)} title="Avance de obra" style={{...si,width:168,fontSize:11,fontWeight:600,padding:"6px 6px",borderRadius:20,border:"none",background:iavS.bg,color:iavS.fg,cursor:"pointer"}}>{OBRA_ESTATUS_OPTS.map(o=><option key={o} value={o}>{o}</option>)}</select></td>
-      <td style={{padding:"4px 6px",background:"#f7f9f0"}}><CostInputCell item={item} onChange={onChange} si={si} /></td>
-      <td style={{padding:"4px 6px",textAlign:"right",fontWeight:700,fontSize:13,color:util>0?"#5a7d2a":(util<0?C.danger:C.dim),minWidth:92,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(util)}{total>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{margin.toFixed(1)}%</span>}</td>
+      <td style={{padding:"4px 4px"}}><input value={item.code} onChange={e=>onChange("code",e.target.value)} style={{...si,width:74,textAlign:"center",fontSize:12}} /></td>
+      <td style={{padding:"4px 4px",minWidth:170,width:"30%"}}><ConceptAutocomplete item={item} onChange={onChange} catalog={catalog} /></td>
+      <td style={{padding:"4px 4px"}}><select value={item.unit} onChange={e=>onChange("unit",e.target.value)} style={{...si,width:76,fontSize:11,padding:"8px 4px"}}>{unitOptions.map(u=><option key={u} value={u}>{u}</option>)}</select></td>
+      <td style={{padding:"4px 4px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:54,textAlign:"center",fontSize:12}} /></td>
+      <td style={{padding:"4px 4px"}}><PriceInputCell item={item} onChange={onChange} si={si} /></td>
+      <td style={{padding:"4px 4px",textAlign:"right",fontWeight:600,fontSize:13,color:total>0?C.accent:C.dim,minWidth:90}}>{fmt(total)}</td>
+      <td style={{padding:"4px 4px",textAlign:"center"}}><div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"stretch"}}><select value={ist} onChange={e=>onChange("status",e.target.value)} title="Estatus de pago" style={{...si,width:142,fontSize:10.5,fontWeight:600,padding:"4px 6px",borderRadius:20,border:"none",background:istS.bg,color:istS.fg,cursor:"pointer"}}><option value="POR PAGAR">Por pagar</option><option value="PAGADO">Pagado</option></select>
+      <select value={iav} onChange={e=>onChange("avance",e.target.value)} title="Avance de obra" style={{...si,width:142,fontSize:10.5,fontWeight:600,padding:"4px 6px",borderRadius:20,border:"none",background:iavS.bg,color:iavS.fg,cursor:"pointer"}}>{OBRA_ESTATUS_OPTS.map(o=><option key={o} value={o}>{o}</option>)}</select></div></td>
+      <td style={{padding:"4px 4px",background:"#f7f9f0"}}><CostInputCell item={item} onChange={onChange} si={si} /></td>
+      <td style={{padding:"4px 4px",textAlign:"right",fontWeight:700,fontSize:13,color:util>0?"#5a7d2a":(util<0?C.danger:C.dim),minWidth:86,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(util)}{total>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{margin.toFixed(1)}%</span>}</td>
       <td style={{padding:"4px 2px"}}><button onClick={onRemove} style={{...sb,padding:6,background:"transparent",color:C.dim}} title="Eliminar"><IconTrash/></button></td>
     </tr>
   );
@@ -613,10 +613,10 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
       {open && (
         <div style={{padding:"0 18px 14px"}}>
           <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:1100}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:960}}>
             <thead><tr>
-              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE","ESTATUS","AVANCE","COSTO U.","UTILIDAD",""].map((h,i)=>(
-                <th key={i} style={{padding:"6px",fontSize:10,color:i===9||i===10?"#5c6b2e":C.dim,textAlign:i>=4?((i===7||i===8||i===11)?"center":"right"):"left",fontWeight:600,letterSpacing:1,background:i===9||i===10?"#e7edd4":"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
+              {["","CÓDIGO","CONCEPTO","UNIDAD","CANT.","P.U.","IMPORTE","ESTATUS / AVANCE","COSTO U.","UTILIDAD",""].map((h,i)=>(
+                <th key={i} style={{padding:"6px 4px",fontSize:10,color:i===8||i===9?"#5c6b2e":C.dim,textAlign:i>=4?((i===7||i===10)?"center":"right"):"left",fontWeight:600,letterSpacing:1,whiteSpace:"nowrap",background:i===8||i===9?"#e7edd4":"#EEEEEE",WebkitPrintColorAdjust:"exact",printColorAdjust:"exact",borderBottom:"1px solid #BBB"}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -625,7 +625,7 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
                 <tr>
                   <td colSpan={6} style={{padding:"6px",textAlign:"right",fontSize:11,fontWeight:700,color:C.dim,letterSpacing:0.5,borderTop:"1px solid "+C.border}}>SUBTOTAL {cat.num}</td>
                   <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:C.accent,borderTop:"1px solid "+C.border,whiteSpace:"nowrap"}}>{fmt(subtotal)}</td>
-                  <td colSpan={2} style={{borderTop:"1px solid "+C.border}}></td>
+                  <td style={{borderTop:"1px solid "+C.border}}></td>
                   <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:C.danger,borderTop:"1px solid "+C.border,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(costTot)}</td>
                   <td style={{padding:"6px",textAlign:"right",fontSize:12,fontWeight:700,color:utilTot>0?"#5a7d2a":C.dim,borderTop:"1px solid "+C.border,background:"#f7f9f0",whiteSpace:"nowrap"}}>{fmt(utilTot)}{subtotal>0 && <span style={{display:"block",fontSize:9,fontWeight:600,color:C.dim}}>{marginCat.toFixed(1)}%</span>}</td>
                   <td style={{borderTop:"1px solid "+C.border}}></td>
