@@ -2242,7 +2242,6 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
   const renumberCat = (catId, prefix) => {
     setItems(prev=>{ const list=prev[catId]||[]; return {...prev,[catId]:list.map((it,i)=>{ const m=/^(.*?)-\d+$/.exec((it.code||"").trim()); const pre=m?m[1]:(prefix||"IT"); return {...it,code:pre+"-"+String(i+1).padStart(2,"0")}; })}; });
   };
-  const renumberAll = () => { categories.forEach(c=>renumberCat(c.id,c.prefix)); };
   const removeItem = useCallback((catId,itemId)=>{
     setItems(prev=>({...prev,[catId]:prev[catId].filter(i=>i.id!==itemId)}));
   },[]);
@@ -2371,7 +2370,6 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
                 <input type="checkbox" checked={!!project.showItemStatus} onChange={e=>{const v=e.target.checked; setProject(p=>({...p,showItemStatus:v}));}} style={{width:15,height:15,accentColor:C.accent,cursor:"pointer"}} />
                 Incluir estatus y avance en el PDF
               </label>
-              <button onClick={renumberAll} title="Volver a numerar los códigos de todas las categorías en orden" style={{...sb,background:C.card,color:C.muted,border:"1px solid "+C.border,fontWeight:700}}>🔢 Renumerar todo</button>
               <button onClick={()=>setCatFold(f=>({open:!f.open,n:f.n+1}))} title={catFold.open?"Contraer todas las categorías y partidas":"Expandir todas las categorías y partidas"} style={{...sb,background:C.card,color:C.muted,border:"1px solid "+C.border,fontWeight:700}}>{catFold.open?"▸ Contraer todas las partidas":"▾ Expandir todas las partidas"}</button>
               <button onClick={addCategory} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}><IconPlus/> Nueva categoría</button>
               </div>
