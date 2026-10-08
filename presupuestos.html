@@ -568,7 +568,7 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
   );
 }
 
-function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode, catalog, onOpenCatalog, showSt, fold}) {
+function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onMoveItem, onUpdateCat, onRemoveCat, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onSwapWith, printMode, catalog, onOpenCatalog, showSt, fold, onRenumber}) {
   const [open, setOpen] = useState(true);
   useEffect(()=>{ if(fold && fold.n>0) setOpen(fold.open); },[fold && fold.n]);
   const [dragOver, setDragOver] = useState(false);
@@ -639,6 +639,7 @@ function CategorySection({cat, items, onItemChange, onAddItem, onRemoveItem, onM
           </table>
           </div>
           <button onClick={onAddItem} style={{...sb,background:C.bg,color:C.muted,marginTop:8,fontSize:12}}><IconPlus/> Agregar partida</button>
+          {onRenumber && items.length>0 && <button onClick={onRenumber} title="Volver a numerar los códigos de esta categoría en orden (01, 02, 03…)" style={{...sb,background:C.bg,color:C.muted,marginTop:8,marginLeft:8,fontSize:12}}>🔢 Renumerar</button>}
           {onOpenCatalog && <button onClick={onOpenCatalog} title="Insertar partidas desde el catálogo de conceptos" style={{...sb,background:"#eef1e2",color:"#5c6b2e",border:"1px solid #e7edd4",marginTop:8,marginLeft:8,fontSize:12,fontWeight:700}}>📚 Del catálogo</button>}
         </div>
       )}
@@ -2238,6 +2239,10 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
   const addItem = useCallback((catId,prefix)=>{
     setItems(prev=>{const existing=prev[catId]||[];return{...prev,[catId]:[...existing,Object.assign(emptyItem(prefix,existing.length+1),{concept:STD_INCLUYE})]}});
   },[]);
+  const renumberCat = (catId, prefix) => {
+    setItems(prev=>{ const list=prev[catId]||[]; return {...prev,[catId]:list.map((it,i)=>{ const m=/^(.*?)-\d+$/.exec((it.code||"").trim()); const pre=m?m[1]:(prefix||"IT"); return {...it,code:pre+"-"+String(i+1).padStart(2,"0")}; })}; });
+  };
+  const renumberAll = () => { categories.forEach(c=>renumberCat(c.id,c.prefix)); };
   const removeItem = useCallback((catId,itemId)=>{
     setItems(prev=>({...prev,[catId]:prev[catId].filter(i=>i.id!==itemId)}));
   },[]);
@@ -2366,12 +2371,13 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
                 <input type="checkbox" checked={!!project.showItemStatus} onChange={e=>{const v=e.target.checked; setProject(p=>({...p,showItemStatus:v}));}} style={{width:15,height:15,accentColor:C.accent,cursor:"pointer"}} />
                 Incluir estatus y avance en el PDF
               </label>
+              <button onClick={renumberAll} title="Volver a numerar los códigos de todas las categorías en orden" style={{...sb,background:C.card,color:C.muted,border:"1px solid "+C.border,fontWeight:700}}>🔢 Renumerar todo</button>
               <button onClick={()=>setCatFold(f=>({open:!f.open,n:f.n+1}))} title={catFold.open?"Contraer todas las categorías y partidas":"Expandir todas las categorías y partidas"} style={{...sb,background:C.card,color:C.muted,border:"1px solid "+C.border,fontWeight:700}}>{catFold.open?"▸ Contraer todas las partidas":"▾ Expandir todas las partidas"}</button>
               <button onClick={addCategory} style={{...sb,background:C.accent,color:"#fff",fontWeight:700}}><IconPlus/> Nueva categoría</button>
               </div>
             </div>
             {[...categories].sort((a,b)=>{const na=parseFloat(a.num)||0;const nb=parseFloat(b.num)||0;return na-nb;}).map(cat=>(
-              <CategorySection key={cat.id} fold={catFold} cat={cat} items={items[cat.id]||[]} catalog={catalog} onOpenCatalog={()=>setPickerCat(cat.id)} onItemChange={(itemId,f,v)=>handleItemChange(cat.id,itemId,f,v)} onAddItem={()=>addItem(cat.id,cat.prefix)} onRemoveItem={itemId=>removeItem(cat.id,itemId)} onMoveItem={(itemId,dir)=>moveItem(cat.id,itemId,dir)} onUpdateCat={(f,v)=>updateCategory(cat.id,f,v)} onRemoveCat={()=>removeCategory(cat.id)} onMoveUp={()=>moveCategory(cat.id,-1)} onMoveDown={()=>moveCategory(cat.id,1)} canMoveUp={categories[0]?.id!==cat.id} canMoveDown={categories[categories.length-1]?.id!==cat.id} onSwapWith={(srcId)=>swapCategoriesByDrop(srcId,cat.id)} />
+              <CategorySection key={cat.id} fold={catFold} onRenumber={()=>renumberCat(cat.id,cat.prefix)} cat={cat} items={items[cat.id]||[]} catalog={catalog} onOpenCatalog={()=>setPickerCat(cat.id)} onItemChange={(itemId,f,v)=>handleItemChange(cat.id,itemId,f,v)} onAddItem={()=>addItem(cat.id,cat.prefix)} onRemoveItem={itemId=>removeItem(cat.id,itemId)} onMoveItem={(itemId,dir)=>moveItem(cat.id,itemId,dir)} onUpdateCat={(f,v)=>updateCategory(cat.id,f,v)} onRemoveCat={()=>removeCategory(cat.id)} onMoveUp={()=>moveCategory(cat.id,-1)} onMoveDown={()=>moveCategory(cat.id,1)} canMoveUp={categories[0]?.id!==cat.id} canMoveDown={categories[categories.length-1]?.id!==cat.id} onSwapWith={(srcId)=>swapCategoriesByDrop(srcId,cat.id)} />
             ))}
             <TotalsSection categories={categories} items={items} mgmtPct={mgmtPct} setMgmtPct={setMgmtPct} ivaPct={ivaPct} setIvaPct={setIvaPct} />
             <div style={{marginTop:24,padding:16,background:C.card,borderRadius:10,border:"1px solid "+C.border,fontSize:11,color:C.dim,lineHeight:1.8}}>
