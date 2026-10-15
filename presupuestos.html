@@ -756,6 +756,9 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
   const stBadge = (e) => { const paid = stOf(e)!=="POR PAGAR"; return (<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:paid?"#e6ebd4":"#f4e3cf",color:paid?"#5b6033":"#8a5a1b",whiteSpace:"nowrap"}}>{paid?"Pagado":"Por pagar"}</span>); };
   const grandMonto = weeks.reduce((s,w)=>s+weekTotal(w),0);
   const grandGer = weeks.reduce((s,w)=>s+weekTotal(w)*(gerPctOf(w)/100),0);
+  const weekPaid = (w) => (w.expenses||[]).filter(e=>stOf(e)!=="POR PAGAR").reduce((s,e)=>s+e.qty*e.price,0);
+  const grandPaid = weeks.reduce((s,w)=>s+weekPaid(w),0);
+  const grandResta = grandMonto + grandGer - grandPaid;
 
   const renderTable = (w, list, title, editable) => (
     <div style={{marginBottom:16}}>
@@ -820,6 +823,8 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
         const total = weekTotal(w);
         const gpct = gerPctOf(w);
         const ger = total*(gpct/100);
+        const paidW = weekPaid(w);
+        const resta = total + ger - paidW;
         const transf = (w.expenses||[]).filter(e=>e.method==="TRANSFERENCIA");
         const efec = (w.expenses||[]).filter(e=>e.method==="EFECTIVO");
         return (
@@ -834,8 +839,8 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
                 ? <span style={{fontSize:10,background:"#e6ebd4",color:"#5b6033",padding:"2px 8px",borderRadius:20,fontWeight:600}}>Guardada</span>
                 : <span style={{fontSize:10,background:"#f4e3cf",color:"#8a5a1b",padding:"2px 8px",borderRadius:20,fontWeight:600}}>En curso</span>}
               <span style={{marginLeft:"auto",textAlign:"right",lineHeight:1.3}}>
-                <span style={{display:"block",fontSize:10,color:C.dim,letterSpacing:0.5}}>PAGADO · GERENC. {gpct}%</span>
-                <span style={{fontWeight:600,color:C.accent,fontSize:13}}>{fmt(total)} · {fmt(ger)}</span>
+                <span style={{display:"block",fontSize:10,color:C.dim,letterSpacing:0.5}}>GASTO · GERENC. {gpct}% · RESTA</span>
+                <span style={{fontWeight:600,color:C.accent,fontSize:13}}>{fmt(total)} · {fmt(ger)} · <span style={{color:resta>0.005?"#8a5a1b":"#5b6033"}}>{fmt(resta)}</span></span>
               </span>
               <button onClick={e=>{e.stopPropagation(); onPrintWeek&&onPrintWeek(w.id);}} title={"Exportar Semana "+(idx+1)+" a PDF"} style={{...sb,background:C.accent,color:"#fff",fontSize:12,padding:"7px 12px"}}><IconPdf/> PDF</button>
             </div>
@@ -849,6 +854,14 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
                   <span style={{fontSize:12,color:C.muted}}>%</span>
                   <span style={{marginLeft:"auto",fontSize:12,color:C.muted}}>= <b style={{color:C.accent}}>{fmt(ger)}</b></span>
                 </div>
+                <div style={{maxWidth:400,marginLeft:"auto",marginTop:10,padding:"10px 12px",background:C.bg,borderRadius:8,border:"1px solid "+C.border,fontSize:12,color:C.muted}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"2px 0"}}><span>Total Gasto de Obra</span><span>{fmt(total)}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"2px 0"}}><span>Gerenciamiento {gpct}%</span><span>{fmt(ger)}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"4px 0 2px",borderTop:"1px solid "+C.border,marginTop:3,color:C.text,fontWeight:600}}><span>Total + Gerenciamiento</span><span>{fmt(total+ger)}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"2px 0",color:"#5b6033"}}><span>(–) Pagado por cliente</span><span>–{fmt(paidW)}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"5px 0 0",borderTop:"2px solid "+C.accent,marginTop:3,fontSize:14,fontWeight:700,color:C.text}}><span>RESTA POR PAGAR</span><span style={{color:resta>0.005?"#8a5a1b":"#5b6033"}}>{fmt(resta)}</span></div>
+                  <div style={{fontSize:10.5,color:C.dim,textAlign:"right",marginTop:2}}>Por pagar {fmt(total-paidW)} + Gerenc. {fmt(ger)}</div>
+                </div>
                 {!w.saved ? (
                   <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
                     <button onClick={()=>addExp(w.id,"TRANSFERENCIA")} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}><IconPlus/> Transferencia</button>
@@ -861,9 +874,9 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
                   <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
                     <button onClick={()=>reopenWeek(w.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12}}>✎ Reabrir para editar</button>
                     <button onClick={()=>onPrintWeek&&onPrintWeek(w.id)} style={{...sb,background:C.bg,color:C.muted,fontSize:12,border:"1px solid "+C.border}}><IconPdf/> Exportar esta semana</button>
-                    <button onClick={()=>window.HZObra&&window.HZObra.enviar(w, idx, total)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>↗ Enviar a la app de obra</button>
+                    <button onClick={()=>window.HZObra&&window.HZObra.enviar(w, idx, resta)} style={{...sb,background:C.accent,color:"#fff",fontSize:12}}>↗ Enviar a la app de obra</button>
                     <button onClick={()=>delWeek(w.id)} style={{...sb,background:"transparent",color:C.danger,fontSize:12}}><IconTrash/> Eliminar semana</button>
-                    <span style={{marginLeft:"auto",fontSize:12,color:C.muted}}>Gasto: <b style={{color:C.text}}>{fmt(total)}</b> · Gerenc. {gpct}%: <b style={{color:C.accent}}>{fmt(ger)}</b></span>
+                    <span style={{marginLeft:"auto",fontSize:12,color:C.muted}}>Gasto: <b style={{color:C.text}}>{fmt(total)}</b> · Gerenc. {gpct}%: <b style={{color:C.accent}}>{fmt(ger)}</b> · Resta: <b style={{color:resta>0.005?"#8a5a1b":"#5b6033"}}>{fmt(resta)}</b></span>
                   </div>
                 )}
               </div>
@@ -875,9 +888,12 @@ function ExpensesTab({expenseWeeks, setExpenseWeeks, onPrintWeek, showStatus, se
       <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:20,marginTop:16,maxWidth:420,marginLeft:"auto"}}>
         <div style={{fontSize:11,color:C.dim,letterSpacing:1,marginBottom:10,fontWeight:600}}>ACUMULADO DE TODAS LAS SEMANAS</div>
         <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13,color:C.muted}}><span>Semanas registradas</span><span>{weeks.length}</span></div>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:14,color:C.text}}><span style={{fontWeight:600}}>Total Monto Pagado</span><span style={{fontWeight:700}}>{fmt(grandMonto)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13,color:C.text}}><span>Total Gasto de Obra</span><span style={{fontWeight:600}}>{fmt(grandMonto)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13,color:C.text}}><span>Total Gerenciamiento</span><span style={{fontWeight:600,color:C.accent}}>{fmt(grandGer)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:C.text,borderTop:"1px solid "+C.border,marginTop:4,fontWeight:600}}><span>Total + Gerenciamiento</span><span>{fmt(grandMonto+grandGer)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13,color:"#5b6033"}}><span>(–) Pagado por cliente</span><span>–{fmt(grandPaid)}</span></div>
         <div style={{borderTop:"2px solid "+C.accent,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:700}}>
-          <span>Total Gerenciamiento Pagado</span><span style={{color:C.accent}}>{fmt(grandGer)}</span>
+          <span>RESTA POR PAGAR</span><span style={{color:grandResta>0.005?"#8a5a1b":"#5b6033"}}>{fmt(grandResta)}</span>
         </div>
       </div>
     </div>
@@ -1235,6 +1251,8 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus, week
   const gerPctOf = (w) => (w && w.gerPct!=null) ? w.gerPct : 10;
   const grandMonto = weeks.reduce((s,w)=>s+wkTotal(w),0);
   const grandGer = weeks.reduce((s,w)=>s+wkTotal(w)*(gerPctOf(w)/100),0);
+  const wkPaid = (w) => (w.expenses||[]).filter(e=>e.status!=="POR PAGAR").reduce((s,e)=>s+e.qty*e.price,0);
+  const grandPaid = weeks.reduce((s,w)=>s+wkPaid(w),0);
   let dateStr = "";
   try { if (project.date) { dateStr = new Date(project.date+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"}); } } catch(e){}
   const pDate = (d) => { try { return d ? new Date(d+"T00:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}) : ""; } catch(e){ return d||""; } };
@@ -1296,6 +1314,7 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus, week
         const efec = (w.expenses||[]).filter(e=>e.method==="EFECTIVO");
         const tTransf = transf.reduce((s,e)=>s+e.qty*e.price,0);
         const tEfec = efec.reduce((s,e)=>s+e.qty*e.price,0);
+        const pW = wkPaid(w); const rW = t + g - pW;
         return (
           <div key={w.id||i} style={{marginTop:18,breakInside:"avoid",pageBreakInside:"avoid"}}>
             {!singleWeek && (
@@ -1311,6 +1330,9 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus, week
               <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0"}}><span>Total Gasto de Obra</span><span style={{whiteSpace:"nowrap"}}>{fmt(t)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0"}}><span>Gerenciamiento {gp}%</span><span style={{whiteSpace:"nowrap"}}>{fmt(g)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL + GERENCIAMIENTO</span><span style={{whiteSpace:"nowrap"}}>{fmt(t+g)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"4px 0",color:"#5b6033"}}><span>(–) Pagado por cliente</span><span style={{whiteSpace:"nowrap"}}>–{fmt(pW)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:24,padding:"8px 0 2px",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14,WebkitPrintColorAdjust:"exact",printColorAdjust:"exact"}}><span>RESTA POR PAGAR</span><span style={{color:"#9a8774",whiteSpace:"nowrap"}}>{fmt(rW)}</span></div>
+              <div style={{fontSize:9,color:"#888",textAlign:"right"}}>Por pagar {fmt(t-pW)} + Gerenciamiento {fmt(g)}</div>
             </div>
           </div>
         );
@@ -1319,7 +1341,9 @@ function ExpensesPrintView({project, expenseWeeks, printWeekId, showStatus, week
       <div style={{maxWidth:420,marginLeft:"auto",marginTop:20,fontSize:11,breakInside:"avoid",pageBreakInside:"avoid"}}>
         <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"4px 0",fontWeight:700,fontSize:13,borderTop:"2px solid #b5a393",paddingTop:8}}><span>TOTAL GASTO DE OBRA</span><span style={{whiteSpace:"nowrap"}}>{fmt(grandMonto)}</span></div>
         <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"4px 0",fontWeight:700,fontSize:13}}><span>TOTAL GERENCIAMIENTO</span><span style={{whiteSpace:"nowrap"}}>{fmt(grandGer)}</span></div>
-        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL GENERAL</span><span style={{color:"#9a8774",whiteSpace:"nowrap"}}>{fmt(grandMonto+grandGer)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:14}}><span>TOTAL GENERAL</span><span style={{whiteSpace:"nowrap"}}>{fmt(grandMonto+grandGer)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"4px 0",fontWeight:700,fontSize:13,color:"#5b6033"}}><span>(–) PAGADO POR CLIENTE</span><span style={{whiteSpace:"nowrap"}}>–{fmt(grandPaid)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:28,padding:"8px 0",marginTop:4,borderTop:"2px solid #b5a393",fontWeight:700,fontSize:15}}><span>RESTA POR PAGAR</span><span style={{color:"#9a8774",whiteSpace:"nowrap"}}>{fmt(grandMonto+grandGer-grandPaid)}</span></div>
       </div>
       )}
       <div id="page-footer" style={{marginTop:24,borderTop:"1px solid #ddd",paddingTop:10,fontSize:8,color:"#999",textAlign:"center",lineHeight:1.5}}>
@@ -2548,7 +2572,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
       const uid=(await sb.auth.getUser()).data.user.id;
       const ai=await sb.from('archivos').insert({obra_id:obra.id,tipo:'gasto',nombre:'Relación de gastos — '+sem,semana:sem,storage_path:path,subido_por:uid,subido_por_nombre:'Presupuestos'});
       if(ai.error)throw ai.error;
-      await sb.from('notificaciones').insert({obra_id:obra.id,tipo:'gasto',titulo:'Nueva relación de gastos',detalle:sem+' · '+fmtM(total),ruta:'gastos'});
+      await sb.from('notificaciones').insert({obra_id:obra.id,tipo:'gasto',titulo:'Nueva relación de gastos',detalle:sem+' · Resta por pagar '+fmtM(total),ruta:'gastos'});
       toast('✓ Enviada a '+obra.nombre);
     }catch(e){toast('No se pudo enviar: '+((e&&e.message)||e),false);}
   }
