@@ -553,7 +553,7 @@ function QuoteItem({item, onChange, onRemove, onMoveUp, onMoveDown, canMoveUp, c
         <button onClick={onMoveUp} disabled={!canMoveUp} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveUp?C.muted:C.dim,opacity:canMoveUp?1:0.3,cursor:canMoveUp?"pointer":"not-allowed",fontSize:10,marginRight:2}} title="Subir partida">▲</button>
         <button onClick={onMoveDown} disabled={!canMoveDown} style={{...sb,padding:"2px 4px",background:"transparent",color:canMoveDown?C.muted:C.dim,opacity:canMoveDown?1:0.3,cursor:canMoveDown?"pointer":"not-allowed",fontSize:10}} title="Bajar partida">▼</button>
       </td>
-      <td style={{padding:"4px 4px"}}><input value={item.code} onChange={e=>onChange("code",e.target.value)} style={{...si,width:64,textAlign:"center",fontSize:12}} /></td>
+      <td style={{padding:"4px 4px"}}><input value={item.code} onChange={e=>onChange("code",e.target.value)} style={{...si,width:120,minWidth:120,padding:"8px 6px",textAlign:"center",fontSize:13,fontWeight:600,letterSpacing:0.3}} /></td>
       <td style={{padding:"4px 4px",minWidth:420,width:"46%"}}><ConceptAutocomplete item={item} onChange={onChange} catalog={catalog} /></td>
       <td style={{padding:"4px 4px"}}><select value={item.unit} onChange={e=>onChange("unit",e.target.value)} style={{...si,width:70,fontSize:11,padding:"8px 4px"}}>{unitOptions.map(u=><option key={u} value={u}>{u}</option>)}</select></td>
       <td style={{padding:"4px 4px"}}><input type="number" min="0" step="0.5" value={item.qty} onChange={e=>onChange("qty",parseFloat(e.target.value)||0)} style={{...si,width:48,textAlign:"center",fontSize:12}} /></td>
