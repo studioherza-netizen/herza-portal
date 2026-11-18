@@ -145,6 +145,7 @@ const fmtDate = (d) => {
 const today = () => new Date().toISOString().split("T")[0];
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+const catInitials = (name) => { const STOP={DE:1,DEL:1,LA:1,LAS:1,LOS:1,EL:1,Y:1,E:1,EN:1,A:1,AL:1,PARA:1,CON:1,POR:1}; const w=String(name||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9 ]+/g," ").split(/\s+/).filter(x=>x&&!STOP[x]); if(!w.length) return "IT"; if(w.length===1) return w[0].slice(0,3); return w.map(x=>x[0]).join("").slice(0,4); };
 const defaultCategories = [
   { id: "PRE", num: "01", name: "PRELIMINARES", prefix: "PRE" },
   { id: "CAN", num: "02", name: "CANCELERÍA", prefix: "CAN" },
@@ -2264,7 +2265,7 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
     setItems(prev=>{const existing=prev[catId]||[];return{...prev,[catId]:[...existing,Object.assign(emptyItem(prefix,existing.length+1),{concept:STD_INCLUYE})]}});
   },[]);
   const renumberCat = (catId, prefix) => {
-    setItems(prev=>{ const list=prev[catId]||[]; return {...prev,[catId]:list.map((it,i)=>{ const m=/^(.*?)-\d+$/.exec((it.code||"").trim()); const pre=m?m[1]:(prefix||"IT"); return {...it,code:pre+"-"+String(i+1).padStart(2,"0")}; })}; });
+    setItems(prev=>{ const list=prev[catId]||[]; return {...prev,[catId]:list.map((it,i)=>{ const m=/^(.*?)-\d+$/.exec((it.code||"").trim()); const _c=categories.find(c=>c.id===catId); const pre=(_c&&String(_c.id).indexOf("CAT_")===0)?catInitials(_c.name):(m?m[1]:(prefix||"IT")); return {...it,code:pre+"-"+String(i+1).padStart(2,"0")}; })}; });
   };
   const removeItem = useCallback((catId,itemId)=>{
     setItems(prev=>({...prev,[catId]:prev[catId].filter(i=>i.id!==itemId)}));
@@ -2314,6 +2315,7 @@ function QuoteEditor({ quote, onSave, onHome, role, allQuotes, onReloadEditor })
     });
   };
   const updateCategory = (catId,field,val) => {
+    if(field==="name"&&String(catId).indexOf("CAT_")===0){ const np=catInitials(val); setCategories(prev=>prev.map(c=>c.id===catId?{...c,name:val,prefix:np}:c)); setItems(prev=>{ const list=prev[catId]; if(!list) return prev; return {...prev,[catId]:list.map(it=>{ const m=/^(.*?)-(\d+)$/.exec((it.code||"").trim()); return m?{...it,code:np+"-"+m[2]}:it; })}; }); return; }
     setCategories(prev=>prev.map(c=>c.id===catId?{...c,[field]:val}:c));
   };
   const clearPrintIds = () => { setPrintWeekId(null); setPrintReqId(null); setPrintProvId(null); setPrintGroupId(null); };
